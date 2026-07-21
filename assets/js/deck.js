@@ -39,9 +39,12 @@
 	function getSlug() {
 		try {
 			var params = new URLSearchParams( window.location.search );
-			var s = params.get( 's' );
-			if ( s && /^[A-Za-z0-9]{12}$/.test( s ) ) {
-				return s;
+			// 'deck' is our slug param. 's' is reserved by WordPress for
+			// site search, so we must not use it. Accept 's' only as a
+			// fallback for any old QR codes still in circulation.
+			var slug = params.get( 'deck' ) || params.get( 's' );
+			if ( slug && /^[A-Za-z0-9]{12}$/.test( slug ) ) {
+				return slug;
 			}
 		} catch ( e ) {}
 		return null;

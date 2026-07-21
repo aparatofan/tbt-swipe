@@ -133,7 +133,7 @@ class TBTS_Admin {
 		if ( ! $page_id || 'publish' !== get_post_status( $page_id ) ) {
 			return '';
 		}
-		return add_query_arg( 's', $set->slug, get_permalink( $page_id ) );
+		return add_query_arg( 'deck', $set->slug, get_permalink( $page_id ) );
 	}
 
 	public function render_page() {
