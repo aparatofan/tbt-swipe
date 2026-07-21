@@ -35,7 +35,7 @@ This is a *learning* tool, not a test. Nothing is scored, judged, or persisted â
 [tbt_swipe]
 ```
 
-The deck is chosen by the `?s={slug}` query parameter, which the QR code sets automatically. Assets load only on pages that contain the shortcode.
+The deck is chosen by the `?deck={slug}` query parameter, which the QR code sets automatically. (We deliberately avoid `?s=` because `s` is WordPress's reserved site-search parameter â€” using it makes WordPress run a search instead of loading the page.) Assets load only on pages that contain the shortcode.
 
 ## Security
 
