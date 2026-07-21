@@ -56,14 +56,21 @@
 	--tbts-slab: 'Roboto Slab', Georgia, serif;
 
 	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-	position: relative;
+	/* Fixed full-viewport overlay. This escapes Divi's section/row geometry
+	   entirely: its gutters, max-width and padding can no longer leave white
+	   margins at the edges or starve the three-band column of the height it
+	   needs (which was collapsing the bottom zone). */
+	position: fixed;
+	inset: 0;
 	width: 100%;
-	max-width: 520px;
-	margin: 0 auto;
-	/* dvh, not vh: mobile browser chrome resizes and vh makes the card jump
-	   or clip when the URL bar collapses. Plain vh kept as a fallback. */
+	margin: 0;
+	/* Keep dvh as well as inset:0 — inset alone behaves inconsistently when
+	   mobile browser chrome collapses. Plain vh is the old-browser fallback. */
 	height: 100vh;
 	height: 100dvh;
+	/* Below WordPress's admin bar (99999) so an admin can still escape the
+	   deck while testing. */
+	z-index: 99990;
 	display: flex;
 	flex-direction: column;
 	align-items: stretch;
@@ -78,6 +85,13 @@
 	user-select: none;
 }
 
+/* While the deck overlay is mounted the page behind it must not scroll
+   (iOS in particular still scrolls the body under a fixed overlay). JS
+   toggles this class on <body> on mount/unmount. */
+body.tbts-deck-open {
+	overflow: hidden;
+}
+
 .tbts-deck-loading,
 .tbts-message {
 	margin: auto;
@@ -90,7 +104,10 @@
 
 /* ---- Zones (tap targets + instructions) ---- */
 .tbts-zone {
-	flex: 1 1 0;
+	/* Content-sized top/bottom bands; the card region takes the rest. This
+	   guarantees the bottom "NOT YET" band is always laid out, never squeezed
+	   off-screen. */
+	flex: 0 0 auto;
 	min-height: 0;
 	display: flex;
 	flex-direction: column;
@@ -148,7 +165,10 @@
 /* ---- Card stage ---- */
 .tbts-stage {
 	position: relative;
-	flex: 0 0 60%;   /* card band ~60%, zones split the rest evenly */
+	/* Takes the height left by the two content-sized zones. min-height:0 is
+	   essential: flex children default to min-height:auto, which would let a
+	   tall card push the bottom zone off-screen. */
+	flex: 1 1 auto;
 	min-height: 0;
 	padding: 0 16px;
 }
@@ -219,22 +239,26 @@
 	transform: rotateY(180deg);
 	gap: 10px;
 }
+/* Card-back hierarchy, largest to smallest: translation > example > IPA.
+   clamp() lets the back scale from a small phone up to a tablet. */
 .tbts-face-back .tbts-ipa {
-	font-size: 1.3rem;
+	font-size: 1.05rem;   /* smallest */
 	color: var(--tbts-grey);
 	font-weight: 600;
 }
 .tbts-face-back .tbts-translation {
-	font-size: 1.7rem;
+	font-size: clamp( 1.7rem, 6vw, 2rem );   /* largest */
 	font-weight: 700;
 	color: var(--tbts-blue);
 }
 .tbts-face-back .tbts-example {
-	font-size: 1.05rem;
+	/* ~0.8x the translation and comfortably larger than the IPA (and than
+	   the previous 1.05rem). */
+	font-size: clamp( 1.35rem, 4.8vw, 1.6rem );
 	line-height: 1.45;
 	color: var(--tbts-soft);
 	font-style: italic;
-	max-width: 90%;
+	max-width: 92%;
 }
 
 .tbts-flip-hint {
@@ -273,9 +297,10 @@
 	min-height: 0;
 	display: flex;
 	flex-direction: column;
-	padding: 20px 16px 20px;
-	overflow-y: auto;
-	-webkit-overflow-scrolling: touch;
+	padding: 20px 16px;
+	/* The list scrolls, not this container — that keeps the heading and the
+	   "Go again" button pinned while the words scroll between them. */
+	overflow: hidden;
 }
 .tbts-end h2 {
 	flex: 0 0 auto;
@@ -288,12 +313,29 @@
 	color: var(--tbts-white);
 }
 .tbts-end-list {
-	list-style: none;
-	margin: 0 0 20px;
-	padding: 0;
+	/* The scroll region: a 14-word list won't fit on one screen. */
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+	margin: 0;
+	/* Bottom padding so the last card clears the pinned "Go again" button. */
+	padding: 0 0 8px;
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
+}
+/* The list is presentational — each item is a self-contained card — so the
+   markup uses <div>s to avoid theme-injected list markers at source. These
+   rules stay as a defensive backstop against Divi/WP core list styling. */
+.tbts-end-list,
+.tbts-end-item {
+	list-style: none;
+}
+.tbts-end-item::before,
+.tbts-end-item::marker {
+	content: none;
+	display: none;
 }
 .tbts-end-item {
 	background: var(--tbts-white);
@@ -319,14 +361,13 @@
 .tbts-end-item .tbts-end-ex {
 	color: var(--tbts-soft);
 	font-style: italic;
-	font-size: 13px;
+	font-size: 15px;
 	margin-top: 4px;
 	line-height: 1.4;
 }
 .tbts-end-actions {
 	flex: 0 0 auto;
-	margin-top: auto;
-	padding-top: 4px;
+	padding-top: 12px;
 }
 .tbts-end-success {
 	text-align: center;
