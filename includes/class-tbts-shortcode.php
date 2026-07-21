@@ -39,6 +39,7 @@ class TBTS_Shortcode {
 			'tbtsDeck',
 			array(
 				'restBase' => esc_url_raw( rest_url( TBTS_Rest::NS . '/set/' ) ),
+				'logo'     => esc_url_raw( TBTS_URL . 'assets/img/tbt-logo.png' ),
 				'i18n'     => array(
 					'noSet'      => __( 'No deck selected. Please scan the QR code from your teacher.', 'tbt-swipe' ),
 					'notFound'   => __( 'This deck is not available. Please check with your teacher.', 'tbt-swipe' ),
