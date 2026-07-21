@@ -1,6 +1,46 @@
-/* TBT Swipe — frontend deck.
+/* TBT Swipe — frontend deck (design v1.1).
    All rules scoped under .tbts-deck and reset defensively so Divi's
    typography doesn't leak in. */
+
+/* ---- Roboto Slab, self-hosted (no fonts.googleapis.com request) ----
+   Roboto Slab is served by Google as a single variable woff2 per subset,
+   so weights 500 and 700 reference the same file per subset; the browser
+   selects the weight from the variable axis. Both the `latin` and
+   `latin-ext` subsets are bundled: `latin` carries the base ASCII letters
+   used by most English terms, `latin-ext` carries the Polish diacritics
+   (ą ć ę ł ń ó ś ź ż) so they never fall back to a substitute font. */
+@font-face {
+	font-family: 'Roboto Slab';
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url( ../fonts/roboto-slab-v36-latin.woff2 ) format( 'woff2' );
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+	font-family: 'Roboto Slab';
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url( ../fonts/roboto-slab-v36-latin-ext.woff2 ) format( 'woff2' );
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+	font-family: 'Roboto Slab';
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url( ../fonts/roboto-slab-v36-latin.woff2 ) format( 'woff2' );
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+	font-family: 'Roboto Slab';
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url( ../fonts/roboto-slab-v36-latin-ext.woff2 ) format( 'woff2' );
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
 
 .tbts-deck,
 .tbts-deck * {
@@ -9,28 +49,31 @@
 
 .tbts-deck {
 	--tbts-blue: #0859C6;
-	--tbts-green: #1fae64;
-	--tbts-amber: #E8A93A;
-	--tbts-burn: #E8531F;
-	--tbts-bg: #12151c;
-	--tbts-card: #ffffff;
-	--tbts-ink: #1a1a1a;
+	--tbts-white: #FFFFFF;
+	--tbts-grey: #5F5E5A;        /* IPA */
+	--tbts-soft: #888780;        /* example, hint */
+	--tbts-dark: #2C2C2A;        /* summary translation */
+	--tbts-slab: 'Roboto Slab', Georgia, serif;
 
 	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 	position: relative;
 	width: 100%;
-	max-width: 480px;
+	max-width: 520px;
 	margin: 0 auto;
-	min-height: 78vh;
-	min-height: 78svh;
+	/* dvh, not vh: mobile browser chrome resizes and vh makes the card jump
+	   or clip when the URL bar collapses. Plain vh kept as a fallback. */
+	height: 100vh;
+	height: 100dvh;
 	display: flex;
 	flex-direction: column;
 	align-items: stretch;
-	padding: 12px;
-	background: var(--tbts-bg);
-	border-radius: 16px;
-	color: #fff;
+	background: var(--tbts-blue);
+	color: var(--tbts-white);
 	overflow: hidden;
+	/* Stop a vertical drag from triggering pull-to-refresh in Chrome on
+	   Android — without this an upward flick near the top can reload the
+	   page mid-deck. */
+	overscroll-behavior: none;
 	-webkit-user-select: none;
 	user-select: none;
 }
@@ -42,32 +85,83 @@
 	font-size: 1.1rem;
 	line-height: 1.5;
 	padding: 24px;
-	color: #dfe3ea;
+	color: var(--tbts-white);
 }
 
-/* ---- Progress ---- */
-.tbts-progress {
-	text-align: center;
-	font-size: 0.95rem;
-	font-weight: 600;
-	letter-spacing: 0.03em;
-	color: #aeb6c4;
-	padding: 4px 0 10px;
-	flex: 0 0 auto;
+/* ---- Zones (tap targets + instructions) ---- */
+.tbts-zone {
+	flex: 1 1 0;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	width: 100%;
+	border: 0;
+	margin: 0;
+	background: transparent;
+	color: var(--tbts-white);
+	font-family: inherit;
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+	padding: 10px 12px;
 }
+.tbts-zone-up { justify-content: flex-start; }
+.tbts-zone-down { justify-content: flex-end; }
+.tbts-zone:focus-visible {
+	outline: 2px solid rgba( 255, 255, 255, 0.85 );
+	outline-offset: -4px;
+	border-radius: 8px;
+}
+
+.tbts-progress {
+	font-size: 0.9rem;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	color: rgba( 255, 255, 255, 0.6 );
+	margin-bottom: 2px;
+}
+
+.tbts-zone-label {
+	font-size: 0.95rem;
+	font-weight: 700;
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+	color: var(--tbts-white);
+	opacity: 0.6;
+	transition: opacity 150ms ease;
+}
+.tbts-zone-arrow {
+	font-size: 1.25rem;
+	line-height: 1;
+	color: var(--tbts-white);
+	opacity: 0.6;
+	transition: opacity 150ms ease;
+}
+/* Brighten the zone the card is heading toward; JS also sets inline
+   opacity for the gradual approach, these are the resting/committed states. */
+.tbts-zone.is-active .tbts-zone-label,
+.tbts-zone.is-active .tbts-zone-arrow { opacity: 1; }
+.tbts-zone.is-dim .tbts-zone-label,
+.tbts-zone.is-dim .tbts-zone-arrow { opacity: 0.3; }
 
 /* ---- Card stage ---- */
 .tbts-stage {
 	position: relative;
-	flex: 1 1 auto;
+	flex: 0 0 60%;   /* card band ~60%, zones split the rest evenly */
 	min-height: 0;
+	padding: 0 16px;
 }
 
 .tbts-card {
 	position: absolute;
-	inset: 0;
+	top: 0;
+	left: 16px;
+	right: 16px;
+	bottom: 0;
 	perspective: 1200px;
-	touch-action: pan-y;
+	/* Vertical gesture owns the card; the deck no longer scrolls. */
+	touch-action: none;
 	cursor: grab;
 	will-change: transform;
 }
@@ -89,24 +183,36 @@
 	inset: 0;
 	-webkit-backface-visibility: hidden;
 	backface-visibility: hidden;
-	background: var(--tbts-card);
-	color: var(--tbts-ink);
+	background: var(--tbts-white);
 	border-radius: 18px;
-	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+	box-shadow: 0 12px 34px rgba( 4, 30, 74, 0.35 );
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
 	text-align: center;
-	padding: 24px;
+	padding: 28px 24px;
 	overflow: hidden;
 }
 
+/* Logo: a quiet printed-flashcard mark, top-right, both faces. */
+.tbts-logo {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	height: 30px;
+	width: auto;
+	pointer-events: none;
+}
+
 .tbts-face-front .tbts-term {
+	font-family: var(--tbts-slab);
 	font-size: 2.3rem;
 	font-weight: 700;
 	line-height: 1.2;
+	color: var(--tbts-blue);
 	word-break: break-word;
+	max-width: 100%;
 }
 
 .tbts-face-back {
@@ -114,18 +220,19 @@
 	gap: 10px;
 }
 .tbts-face-back .tbts-ipa {
-	font-size: 1.4rem;
-	color: var(--tbts-blue);
+	font-size: 1.3rem;
+	color: var(--tbts-grey);
 	font-weight: 600;
 }
 .tbts-face-back .tbts-translation {
 	font-size: 1.7rem;
 	font-weight: 700;
+	color: var(--tbts-blue);
 }
 .tbts-face-back .tbts-example {
 	font-size: 1.05rem;
 	line-height: 1.45;
-	color: #33383f;
+	color: var(--tbts-soft);
 	font-style: italic;
 	max-width: 90%;
 }
@@ -137,92 +244,48 @@
 	right: 0;
 	text-align: center;
 	font-size: 0.8rem;
-	color: #98a0ac;
+	color: var(--tbts-soft);
 	letter-spacing: 0.02em;
 }
 
-/* Drag tint overlays */
-.tbts-tint {
+/* ---- Disintegration (up / known) ---- */
+.tbts-frag-layer {
 	position: absolute;
-	inset: 0;
-	border-radius: 18px;
-	opacity: 0;
-	pointer-events: none;
-	-webkit-backface-visibility: hidden;
-	backface-visibility: hidden;
-}
-.tbts-tint-right { background: rgba(31, 174, 100, 0.55); }
-.tbts-tint-left { background: rgba(232, 169, 58, 0.55); }
-
-/* Edge labels (first cards only) */
-.tbts-edge-label {
-	position: absolute;
-	top: 18px;
-	font-size: 1rem;
-	font-weight: 800;
-	letter-spacing: 0.05em;
-	text-transform: uppercase;
-	padding: 6px 12px;
-	border-radius: 8px;
-	opacity: 0;
-	pointer-events: none;
-}
-.tbts-edge-know { right: 16px; color: #fff; background: var(--tbts-green); }
-.tbts-edge-not { left: 16px; color: #3a2c07; background: var(--tbts-amber); }
-
-/* ---- Buttons ---- */
-.tbts-controls {
-	flex: 0 0 auto;
-	display: flex;
-	gap: 14px;
-	padding: 16px 4px 6px;
-}
-.tbts-btn {
-	flex: 1 1 0;
-	border: 0;
-	border-radius: 12px;
-	padding: 16px 8px;
-	font-size: 1.05rem;
-	font-weight: 700;
-	color: #fff;
-	cursor: pointer;
-	font-family: inherit;
-	-webkit-tap-highlight-color: transparent;
-}
-.tbts-btn:active { transform: scale(0.97); }
-.tbts-btn-know { background: var(--tbts-green); }
-.tbts-btn-not { background: var(--tbts-amber); color: #3a2c07; }
-
-/* ---- Burn animation ---- */
-.tbts-burn-layer {
-	position: absolute;
-	inset: 0;
+	top: 0;
+	left: 16px;
+	right: 16px;
+	bottom: 0;
 	pointer-events: none;
 	z-index: 20;
 }
 .tbts-frag {
 	position: absolute;
 	inset: 0;
-	background-size: cover;
-	background-position: center;
-	will-change: transform, opacity;
-}
-@keyframes tbts-burn-frag {
-	0% { opacity: 1; }
-	100% { opacity: 0; }
+	border-radius: 18px;
+	opacity: 1;
+	/* Only transform + opacity animate; will-change added in JS and
+	   removed on completion. */
 }
 
-/* ---- End screen ---- */
+/* ---- Summary screen ---- */
 .tbts-end {
-	margin: auto 0;
-	padding: 8px 4px 16px;
+	flex: 1 1 auto;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	padding: 20px 16px 20px;
 	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
 }
 .tbts-end h2 {
-	font-size: 1.4rem;
-	margin: 6px 0 16px;
+	flex: 0 0 auto;
+	font-size: 1rem;
+	font-weight: 700;
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+	margin: 4px 0 16px;
 	text-align: center;
-	color: #fff;
+	color: var(--tbts-white);
 }
 .tbts-end-list {
 	list-style: none;
@@ -230,46 +293,68 @@
 	padding: 0;
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
+	gap: 12px;
 }
 .tbts-end-item {
-	background: #1c212b;
+	background: var(--tbts-white);
 	border-radius: 12px;
-	padding: 12px 14px;
-	border-left: 4px solid var(--tbts-amber);
+	padding: 14px 16px;
 }
 .tbts-end-item .tbts-end-term {
-	font-size: 1.2rem;
+	font-family: var(--tbts-slab);
+	font-size: 19px;
 	font-weight: 700;
-	color: #fff;
+	color: var(--tbts-blue);
 }
 .tbts-end-item .tbts-end-ipa {
-	color: #7fb0ff;
-	font-size: 0.95rem;
-	margin-left: 6px;
+	color: var(--tbts-grey);
+	font-size: 13px;
+	margin-left: 8px;
 }
 .tbts-end-item .tbts-end-tr {
-	color: #d6dbe4;
-	margin-top: 2px;
-}
-.tbts-end-item .tbts-end-ex {
-	color: #9aa2af;
-	font-style: italic;
-	font-size: 0.95rem;
+	color: var(--tbts-dark);
+	font-size: 16px;
 	margin-top: 4px;
 }
+.tbts-end-item .tbts-end-ex {
+	color: var(--tbts-soft);
+	font-style: italic;
+	font-size: 13px;
+	margin-top: 4px;
+	line-height: 1.4;
+}
 .tbts-end-actions {
-	text-align: center;
+	flex: 0 0 auto;
+	margin-top: auto;
+	padding-top: 4px;
 }
 .tbts-end-success {
 	text-align: center;
 	font-size: 1.3rem;
 	font-weight: 700;
-	margin: 24px 0;
-	color: var(--tbts-green);
+	margin: auto 0 24px;
+	color: var(--tbts-white);
 }
 
-/* Respect reduced motion: no 3D flip transition, simple fade burn. */
+/* "Go again" / "Start over": white on blue, full width, comfortable tap. */
+.tbts-again {
+	display: block;
+	width: 100%;
+	border: 0;
+	border-radius: 12px;
+	padding: 16px 8px;
+	font-size: 1.05rem;
+	font-weight: 700;
+	font-family: inherit;
+	background: var(--tbts-white);
+	color: var(--tbts-blue);
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+}
+.tbts-again:active { transform: scale( 0.98 ); }
+
+/* Reduced motion: no 3D flip transition (JS falls back to a plain fade for
+   both swipe directions). */
 @media ( prefers-reduced-motion: reduce ) {
 	.tbts-card-inner { transition: none; }
 }
@@ -277,4 +362,5 @@
 /* Guard against horizontal scroll on very small screens. */
 @media ( max-width: 360px ) {
 	.tbts-face-front .tbts-term { font-size: 2rem; }
+	.tbts-zone-label { letter-spacing: 0.12em; }
 }

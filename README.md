@@ -13,8 +13,8 @@ Swipeable mobile vocabulary flashcards for live English lessons. Replaces printe
 4. The plugin generates a QR code (client-side, self-hosted library) that links to the deck page.
 5. During the lesson, each student scans the QR on their own phone and works through the deck:
    - **Tap** a card to flip it and reveal the answer (unlimited, no penalty).
-   - **Swipe right / "Know it"** → the card burns immediately.
-   - **Swipe left / "Not yet"** → the card goes to the unknown pile.
+   - **Swipe up / "I know it"** (or tap the top zone) → the card disintegrates.
+   - **Swipe down / "Not yet"** (or tap the bottom zone) → the card slides away to the unknown pile.
 6. The end screen lists the words the student didn't know for verbal follow-up, with a **Go again** button that reshuffles just those cards.
 
 This is a *learning* tool, not a test. Nothing is scored, judged, or persisted — the frontend is stateless (JS memory only; refreshing restarts the deck).
@@ -64,12 +64,21 @@ tbt-swipe/
 ├── assets/
 │   ├── css/admin.css
 │   ├── css/deck.css
+│   ├── fonts/roboto-slab-v36-latin.woff2      # self-hosted (base Latin)
+│   ├── fonts/roboto-slab-v36-latin-ext.woff2  # self-hosted (Polish diacritics)
+│   ├── img/tbt-logo.png       # TBT mark on each card face — see note below
 │   ├── js/admin.js
 │   ├── js/deck.js
 │   └── js/lib/qrcode.min.js   # self-hosted QR library (MIT)
 ├── README.md
 └── .gitignore
 ```
+
+**Branding assets.** Roboto Slab is self-hosted (two weights, `latin` + `latin-ext`
+subsets) rather than hotlinked from Google Fonts, so no visitor IP is sent to Google.
+`assets/img/tbt-logo.png` is currently a **placeholder mark** — replace it with the
+official TBT logo PNG (same path/filename, roughly 28–32px tall when displayed,
+transparent background) and it will appear on both card faces automatically.
 
 ## Deployment
 

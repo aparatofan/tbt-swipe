@@ -1,5 +1,10 @@
-/* TBT Swipe — frontend deck. Vanilla JS, Pointer Events, no dependencies.
-   Stateless: everything lives in memory; refreshing restarts the deck. */
+/* TBT Swipe — frontend deck (design v1.1).
+   Vanilla JS, Pointer Events, no dependencies.
+   Stateless: everything lives in memory; refreshing restarts the deck.
+
+   Gesture axis is vertical: swipe up = "I know it", swipe down = "Not yet".
+   The card translates on Y and recedes with a subtle scale; there is no
+   card tint — the zone labels give all the feedback. */
 ( function () {
 	'use strict';
 
@@ -7,16 +12,16 @@
 	var i18n = cfg.i18n || {};
 	var reducedMotion = window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
 
-	var THRESHOLD_RATIO = 0.30;   // fraction of card width to commit a swipe
-	var FLICK_VELOCITY = 0.6;     // px/ms — a fast flick commits below threshold
-	var MAX_ROTATE = 15;          // deg
-	var EDGE_LABEL_CARDS = 3;     // show edge labels for the first N cards
+	var THRESHOLD_RATIO = 0.25;   // fraction of card height to commit a swipe
+	var FLICK_VELOCITY = 0.5;     // px/ms — a fast flick commits below threshold
+	var SCALE_MIN = 0.94;         // card scale at threshold (recedes)
 
-	var root, stage, progressEl, controls;
+	var root, stage, progressEl;
+	var zones = null;    // { up: {el,label,arrow}, down: {el,label,arrow} }
 	var fullDeck = [];   // original loaded cards
 	var queue = [];      // cards still to review this round
-	var unknown = [];    // cards swiped left this round
-	var seenCount = 0;   // cards shown this round (for progress + edge labels)
+	var unknown = [];    // cards swiped down (not yet) this round
+	var seenCount = 0;   // cards shown this round (for progress)
 	var roundTotal = 0;
 	var current = null;  // active card DOM state
 
@@ -27,6 +32,10 @@
 		if ( ! root ) {
 			return;
 		}
+
+		// One document-level key handler for the whole session; it consults
+		// `current`, so it is inert on the loading and summary screens.
+		document.addEventListener( 'keydown', onKeydown );
 
 		var slug = getSlug();
 		if ( ! slug ) {
@@ -91,36 +100,51 @@
 		unknown = [];
 		seenCount = 0;
 		roundTotal = queue.length;
+		current = null;
 
 		root.innerHTML = '';
 
-		progressEl = el( 'div', 'tbts-progress' );
+		var up = buildZone( 'up' );
 		stage = el( 'div', 'tbts-stage' );
-		controls = buildControls();
+		var down = buildZone( 'down' );
 
-		root.appendChild( progressEl );
+		root.appendChild( up.el );
 		root.appendChild( stage );
-		root.appendChild( controls );
+		root.appendChild( down.el );
+
+		zones = { up: up, down: down };
 
 		nextCard();
 	}
 
-	function buildControls() {
-		var wrap = el( 'div', 'tbts-controls' );
+	function buildZone( dir ) {
+		var isUp = dir === 'up';
+		var btn = el( 'button', 'tbts-zone ' + ( isUp ? 'tbts-zone-up' : 'tbts-zone-down' ) );
+		btn.type = 'button';
+		btn.setAttribute( 'aria-label', isUp ? i18n.knowIt : i18n.notYet );
 
-		var notBtn = el( 'button', 'tbts-btn tbts-btn-not' );
-		notBtn.type = 'button';
-		notBtn.textContent = i18n.notYet;
-		notBtn.addEventListener( 'click', function () { commit( 'left' ); } );
+		if ( isUp ) {
+			progressEl = el( 'span', 'tbts-progress' );
+			btn.appendChild( progressEl );
+		}
 
-		var knowBtn = el( 'button', 'tbts-btn tbts-btn-know' );
-		knowBtn.type = 'button';
-		knowBtn.textContent = i18n.knowIt;
-		knowBtn.addEventListener( 'click', function () { commit( 'right' ); } );
+		var arrow = el( 'span', 'tbts-zone-arrow' );
+		arrow.textContent = isUp ? '↑' : '↓';
+		var label = el( 'span', 'tbts-zone-label' );
+		label.textContent = isUp ? i18n.knowIt : i18n.notYet;
 
-		wrap.appendChild( notBtn );
-		wrap.appendChild( knowBtn );
-		return wrap;
+		// Arrow points away from the card on both faces.
+		if ( isUp ) {
+			btn.appendChild( arrow );
+			btn.appendChild( label );
+		} else {
+			btn.appendChild( label );
+			btn.appendChild( arrow );
+		}
+
+		btn.addEventListener( 'click', function () { commit( dir ); } );
+
+		return { el: btn, label: label, arrow: arrow };
 	}
 
 	function nextCard() {
@@ -135,7 +159,9 @@
 	}
 
 	function updateProgress() {
-		progressEl.textContent = seenCount + ' / ' + roundTotal;
+		if ( progressEl ) {
+			progressEl.textContent = seenCount + ' / ' + roundTotal;
+		}
 	}
 
 	/* ---- Card rendering ---- */
@@ -144,6 +170,7 @@
 		var inner = el( 'div', 'tbts-card-inner' );
 
 		var front = el( 'div', 'tbts-face tbts-face-front' );
+		addLogo( front );
 		var term = el( 'div', 'tbts-term' );
 		term.textContent = card.term;
 		front.appendChild( term );
@@ -152,6 +179,7 @@
 		front.appendChild( hint );
 
 		var back = el( 'div', 'tbts-face tbts-face-back' );
+		addLogo( back );
 		if ( card.ipa ) {
 			var ipa = el( 'div', 'tbts-ipa' );
 			ipa.textContent = card.ipa;
@@ -170,41 +198,32 @@
 
 		inner.appendChild( front );
 		inner.appendChild( back );
-
-		var tintR = el( 'div', 'tbts-tint tbts-tint-right' );
-		var tintL = el( 'div', 'tbts-tint tbts-tint-left' );
-		inner.appendChild( tintR );
-		inner.appendChild( tintL );
-
 		cardEl.appendChild( inner );
 
-		// Edge labels for the first few cards.
-		if ( seenCount <= EDGE_LABEL_CARDS ) {
-			var know = el( 'div', 'tbts-edge-label tbts-edge-know' );
-			know.textContent = i18n.knowIt;
-			var not = el( 'div', 'tbts-edge-label tbts-edge-not' );
-			not.textContent = i18n.notYet;
-			cardEl.appendChild( know );
-			cardEl.appendChild( not );
-			current = { card: card, el: cardEl, inner: inner, tintR: tintR, tintL: tintL, know: know, not: not };
-		} else {
-			current = { card: card, el: cardEl, inner: inner, tintR: tintR, tintL: tintL, know: null, not: null };
-		}
-
-		current.flipped = false;
-		current.locked = false;
+		current = { card: card, el: cardEl, inner: inner, flipped: false, locked: false };
 
 		stage.appendChild( cardEl );
 		attachPointer( cardEl );
 	}
 
+	function addLogo( face ) {
+		if ( ! cfg.logo ) {
+			return;
+		}
+		var img = document.createElement( 'img' );
+		img.className = 'tbts-logo';
+		img.src = cfg.logo;
+		img.alt = '';
+		img.setAttribute( 'aria-hidden', 'true' );
+		face.appendChild( img );
+	}
+
 	/* ---- Pointer / drag handling ---- */
 	function attachPointer( cardEl ) {
 		var startX = 0, startY = 0, startT = 0;
-		var lastX = 0, lastT = 0;
 		var dragging = false;
 		var moved = false;
-		var width = cardEl.offsetWidth || 320;
+		var height = cardEl.offsetHeight || 360;
 
 		cardEl.addEventListener( 'pointerdown', function ( e ) {
 			if ( current.locked ) {
@@ -212,10 +231,10 @@
 			}
 			dragging = true;
 			moved = false;
-			width = cardEl.offsetWidth || width;
-			startX = lastX = e.clientX;
+			height = cardEl.offsetHeight || height;
+			startX = e.clientX;
 			startY = e.clientY;
-			startT = lastT = now();
+			startT = now();
 			cardEl.classList.add( 'tbts-dragging' );
 			try { cardEl.setPointerCapture( e.pointerId ); } catch ( err ) {}
 		} );
@@ -227,17 +246,11 @@
 			var dx = e.clientX - startX;
 			var dy = e.clientY - startY;
 
-			// Ignore predominantly-vertical gestures (let the page scroll).
-			if ( ! moved && Math.abs( dy ) > Math.abs( dx ) && Math.abs( dy ) > 8 ) {
+			if ( ! moved && Math.abs( dy ) < 4 && Math.abs( dx ) < 4 ) {
 				return;
 			}
-			if ( Math.abs( dx ) > 4 ) {
-				moved = true;
-			}
-			lastX = e.clientX;
-			lastT = now();
-
-			applyDrag( dx, width );
+			moved = true;
+			applyDrag( dy, height );
 		} );
 
 		function endDrag( e ) {
@@ -252,11 +265,11 @@
 				return;
 			}
 
-			var dx = e.clientX - startX;
+			var dy = e.clientY - startY;
 			var dt = Math.max( now() - startT, 1 );
-			var velocity = ( e.clientX - startX ) / dt; // px/ms overall
-			var pastThreshold = Math.abs( dx ) > width * THRESHOLD_RATIO;
-			var flick = Math.abs( velocity ) > FLICK_VELOCITY && Math.abs( dx ) > 30;
+			var velocity = dy / dt; // px/ms on Y
+			var pastThreshold = Math.abs( dy ) > height * THRESHOLD_RATIO;
+			var flick = Math.abs( velocity ) > FLICK_VELOCITY && Math.abs( dy ) > 24;
 
 			if ( ! moved ) {
 				// A tap: flip.
@@ -265,7 +278,7 @@
 			}
 
 			if ( pastThreshold || flick ) {
-				commit( dx > 0 ? 'right' : 'left' );
+				commit( dy < 0 ? 'up' : 'down' );
 			} else {
 				springBack();
 			}
@@ -275,32 +288,47 @@
 		cardEl.addEventListener( 'pointercancel', endDrag );
 	}
 
-	function applyDrag( dx, width ) {
-		var rotate = Math.max( -MAX_ROTATE, Math.min( MAX_ROTATE, ( dx / width ) * MAX_ROTATE * 2 ) );
-		current.inner.style.transition = 'none';
-		current.inner.style.transform = 'translateX(' + dx + 'px) rotate(' + rotate + 'deg)';
+	function applyDrag( dy, height ) {
+		var progress = Math.min( 1, Math.abs( dy ) / ( height * THRESHOLD_RATIO ) );
+		var scale = 1 - ( 1 - SCALE_MIN ) * progress;
 
-		var ratio = Math.min( 1, Math.abs( dx ) / ( width * THRESHOLD_RATIO ) );
-		if ( dx > 0 ) {
-			current.tintR.style.opacity = ratio * 0.9;
-			current.tintL.style.opacity = 0;
-			if ( current.know ) { current.know.style.opacity = ratio; }
-			if ( current.not ) { current.not.style.opacity = 0; }
+		current.el.style.transition = 'none';
+		current.el.style.transform = 'translateY(' + dy + 'px) scale(' + scale.toFixed( 3 ) + ')';
+
+		if ( dy < 0 ) {
+			zoneFeedback( zones.up, zones.down, progress );
+		} else if ( dy > 0 ) {
+			zoneFeedback( zones.down, zones.up, progress );
 		} else {
-			current.tintL.style.opacity = ratio * 0.9;
-			current.tintR.style.opacity = 0;
-			if ( current.not ) { current.not.style.opacity = ratio; }
-			if ( current.know ) { current.know.style.opacity = 0; }
+			resetZones();
 		}
 	}
 
+	// Brighten the zone the card is heading toward, dim the opposite one.
+	function zoneFeedback( active, dim, progress ) {
+		var a = ( 0.6 + 0.4 * progress ).toFixed( 3 );
+		var d = ( 0.6 - 0.3 * progress ).toFixed( 3 );
+		active.label.style.opacity = a;
+		active.arrow.style.opacity = a;
+		dim.label.style.opacity = d;
+		dim.arrow.style.opacity = d;
+	}
+
+	function resetZones() {
+		if ( ! zones ) {
+			return;
+		}
+		[ zones.up, zones.down ].forEach( function ( z ) {
+			z.label.style.opacity = '';
+			z.arrow.style.opacity = '';
+			z.el.classList.remove( 'is-active', 'is-dim' );
+		} );
+	}
+
 	function springBack() {
-		current.inner.style.transition = 'transform 250ms ease';
-		current.inner.style.transform = '';
-		current.tintR.style.opacity = 0;
-		current.tintL.style.opacity = 0;
-		if ( current.know ) { current.know.style.opacity = 0; }
-		if ( current.not ) { current.not.style.opacity = 0; }
+		current.el.style.transition = 'transform 250ms ease-out';
+		current.el.style.transform = '';
+		resetZones();
 	}
 
 	function flip() {
@@ -317,26 +345,26 @@
 			return;
 		}
 		current.locked = true;
+		resetZones();
+
 		var card = current.card;
 		var cardEl = current.el;
-		var inner = current.inner;
 
-		if ( dir === 'right' ) {
-			// Known → burn immediately.
-			burn( cardEl, function () {
-				afterCommit();
-			} );
+		if ( dir === 'up' ) {
+			// Known → disintegrate.
+			if ( reducedMotion ) {
+				fadeOut( cardEl, 150, afterCommit );
+			} else {
+				disintegrate( cardEl, afterCommit );
+			}
 		} else {
-			// Unknown → slide off left, add to pile.
+			// Not yet → slide down and off, keep for the next round.
 			unknown.push( card );
-			var w = cardEl.offsetWidth || 320;
-			inner.style.transition = 'transform 300ms ease, opacity 300ms ease';
-			inner.style.transform = 'translateX(' + ( -w - 80 ) + 'px) rotate(-' + MAX_ROTATE + 'deg)';
-			inner.style.opacity = '0';
-			whenDone( inner, 320, function () {
-				removeEl( cardEl );
-				afterCommit();
-			} );
+			if ( reducedMotion ) {
+				fadeOut( cardEl, 150, afterCommit );
+			} else {
+				slideDown( cardEl, afterCommit );
+			}
 		}
 	}
 
@@ -345,84 +373,160 @@
 		nextCard();
 	}
 
-	/* ---- Burn animation ---- */
-	function burn( cardEl, done ) {
+	/* ---- Up: disintegration ---- */
+	function disintegrate( cardEl, done ) {
+		var faceClass = cardEl.classList.contains( 'tbts-flipped' ) ? 'tbts-face-back' : 'tbts-face-front';
+		var sourceFace = cardEl.querySelector( '.' + faceClass );
 		var w = cardEl.offsetWidth;
 		var h = cardEl.offsetHeight;
 
-		if ( reducedMotion || ! w || ! h ) {
-			// Simple fade fallback.
-			cardEl.style.transition = 'opacity 300ms ease';
-			cardEl.style.opacity = '0';
-			whenDone( cardEl, 320, function () {
-				removeEl( cardEl );
-				done();
-			} );
+		if ( ! sourceFace || ! w || ! h ) {
+			fadeOut( cardEl, 150, done );
 			return;
 		}
 
-		// Snapshot the visible face as a solid-coloured stand-in. We can't
-		// rasterise the DOM without a library, so we clone the card face into
-		// fragments clipped with different polygons and fling them outward.
-		var layer = el( 'div', 'tbts-burn-layer' );
-		var faceClass = cardEl.classList.contains( 'tbts-flipped' ) ? 'tbts-face-back' : 'tbts-face-front';
-		var sourceFace = cardEl.querySelector( '.' + faceClass );
+		var cols = 6, rows = 5; // 30 fragments — small enough to read as dust
 
-		var fragCount = 14;
-		var cols = 4, rows = 4;
-		for ( var i = 0; i < fragCount; i++ ) {
-			var frag = sourceFace.cloneNode( true );
-			frag.classList.add( 'tbts-frag' );
-			frag.style.backfaceVisibility = 'hidden';
-			frag.style.transform = 'none';
-			// Random-ish polygon slice using a grid cell region.
-			var cx = ( i % cols ) / cols;
-			var cy = Math.floor( i / cols ) / rows;
-			var x0 = Math.round( cx * 100 );
-			var y0 = Math.round( cy * 100 );
-			var x1 = Math.min( 100, x0 + Math.round( 100 / cols ) + rand( 4, 12 ) );
-			var y1 = Math.min( 100, y0 + Math.round( 100 / rows ) + rand( 4, 12 ) );
-			frag.style.clipPath = 'polygon(' + x0 + '% ' + y0 + '%, ' + x1 + '% ' + y0 + '%, ' + x1 + '% ' + y1 + '%, ' + x0 + '% ' + y1 + '%)';
-			frag.style.webkitClipPath = frag.style.clipPath;
-
-			var tx = ( Math.random() - 0.5 ) * w * 1.6;
-			var ty = ( Math.random() - 0.7 ) * h * 1.4;
-			var rot = ( Math.random() - 0.5 ) * 120;
-			var sc = 0.4 + Math.random() * 0.5;
-			var dur = 480 + Math.random() * 180;
-
-			frag.style.transition = 'transform ' + dur + 'ms cubic-bezier(0.22,0.61,0.36,1), opacity ' + dur + 'ms ease-out, filter ' + dur + 'ms ease-out';
-			frag.style.opacity = '1';
-			layer.appendChild( frag );
-
-			( function ( f, tx, ty, rot, sc ) {
-				requestAnimationFrame( function () {
-					requestAnimationFrame( function () {
-						f.style.transform = 'translate(' + tx + 'px,' + ty + 'px) rotate(' + rot + 'deg) scale(' + sc + ')';
-						f.style.opacity = '0';
-						f.style.filter = 'sepia(1) saturate(6) hue-rotate(-20deg) brightness(1.1)';
-					} );
-				} );
-			} )( frag, tx, ty, rot, sc );
+		// Jittered vertex lattice: interior vertices are nudged so cell
+		// boundaries are irregular, but neighbours share vertices so the
+		// pieces still tile seamlessly (no visible grid seams). Edge
+		// vertices stay pinned to 0/100 so the card outline stays crisp.
+		var vx = [], vy = [];
+		for ( var r = 0; r <= rows; r++ ) {
+			vx[ r ] = []; vy[ r ] = [];
+			for ( var c = 0; c <= cols; c++ ) {
+				var bx = ( c / cols ) * 100;
+				var by = ( r / rows ) * 100;
+				var jx = ( c === 0 || c === cols ) ? 0 : ( Math.random() - 0.5 ) * ( 100 / cols ) * 0.6;
+				var jy = ( r === 0 || r === rows ) ? 0 : ( Math.random() - 0.5 ) * ( 100 / rows ) * 0.6;
+				vx[ r ][ c ] = bx + jx;
+				vy[ r ][ c ] = by + jy;
+			}
 		}
 
-		// Hide the real faces; the fragments carry the show. The burn layer
-		// re-asserts visibility so it isn't hidden along with the card.
-		cardEl.style.visibility = 'hidden';
-		layer.style.visibility = 'visible';
-		cardEl.appendChild( layer );
+		var layer = el( 'div', 'tbts-frag-layer' );
+		var pending = 0;
+		var finished = false;
+		function tryFinish() {
+			if ( finished || pending > 0 ) {
+				return;
+			}
+			finished = true;
+			removeEl( layer );
+		}
 
-		whenDone( layer, 700, function () {
+		for ( var rr = 0; rr < rows; rr++ ) {
+			for ( var cc = 0; cc < cols; cc++ ) {
+				var frag = sourceFace.cloneNode( true );
+				frag.classList.add( 'tbts-frag' );
+				frag.style.transform = 'none';
+
+				var poly = 'polygon(' +
+					pt( vx[ rr ][ cc ], vy[ rr ][ cc ] ) + ',' +
+					pt( vx[ rr ][ cc + 1 ], vy[ rr ][ cc + 1 ] ) + ',' +
+					pt( vx[ rr + 1 ][ cc + 1 ], vy[ rr + 1 ][ cc + 1 ] ) + ',' +
+					pt( vx[ rr + 1 ][ cc ], vy[ rr + 1 ][ cc ] ) + ')';
+				frag.style.clipPath = poly;
+				frag.style.webkitClipPath = poly;
+
+				// Cell centre as a fraction of the card (0..1).
+				var ccx = ( vx[ rr ][ cc ] + vx[ rr ][ cc + 1 ] + vx[ rr + 1 ][ cc + 1 ] + vx[ rr + 1 ][ cc ] ) / 400;
+				var ccy = ( vy[ rr ][ cc ] + vy[ rr ][ cc + 1 ] + vy[ rr + 1 ][ cc + 1 ] + vy[ rr + 1 ][ cc ] ) / 400;
+				var dirx = ccx - 0.5;
+				var diry = ccy - 0.5;
+				var dist = Math.sqrt( dirx * dirx + diry * diry ); // 0..~0.707
+
+				// Stagger by distance from centre so the break spreads outward.
+				var delay = Math.round( ( dist / 0.7071 ) * 120 );
+
+				// Outward, biased upward (following the gesture).
+				var tx = dirx * w * 0.9 + ( Math.random() - 0.5 ) * w * 0.25;
+				var ty = diry * h * 0.9 - h * 0.6 + ( Math.random() - 0.5 ) * h * 0.25;
+				var rot = ( Math.random() - 0.5 ) * 80;
+				var dur = 700 + Math.random() * 150;
+
+				frag.style.willChange = 'transform, opacity';
+				frag.style.transition =
+					'transform ' + dur + 'ms cubic-bezier(0.25,0.46,0.45,0.94) ' + delay + 'ms, ' +
+					'opacity ' + dur + 'ms cubic-bezier(0.25,0.46,0.45,0.94) ' + delay + 'ms';
+
+				layer.appendChild( frag );
+				pending++;
+
+				frag.addEventListener( 'transitionend', ( function ( f ) {
+					return function ( ev ) {
+						if ( ev.propertyName !== 'transform' ) {
+							return;
+						}
+						f.style.willChange = '';
+						removeEl( f );
+						pending--;
+						tryFinish();
+					};
+				} )( frag ) );
+
+				( function ( f, x, y, rotation ) {
+					requestAnimationFrame( function () {
+						requestAnimationFrame( function () {
+							f.style.transform = 'translate(' + x + 'px,' + y + 'px) rotate(' + rotation + 'deg) scale(0.8)';
+							f.style.opacity = '0';
+						} );
+					} );
+				} )( frag, tx, ty, rot );
+			}
+		}
+
+		// The clones carry the show; drop the real card now.
+		removeEl( cardEl );
+		stage.appendChild( layer );
+
+		// Safety net in case a transitionend is missed.
+		setTimeout( function () { pending = 0; tryFinish(); }, 1100 );
+
+		// The next card must be interactive well before the fragments finish.
+		setTimeout( done, 250 );
+	}
+
+	/* ---- Down: plain exit ---- */
+	function slideDown( cardEl, done ) {
+		var h = stage.offsetHeight || cardEl.offsetHeight || 500;
+		cardEl.style.transition = 'transform 300ms ease-in, opacity 300ms ease-in';
+		cardEl.style.transform = 'translateY(' + ( h + 120 ) + 'px)';
+		cardEl.style.opacity = '0';
+		whenDone( cardEl, 320, function () {
 			removeEl( cardEl );
 			done();
 		} );
 	}
 
-	/* ---- End screen ---- */
+	function fadeOut( cardEl, dur, done ) {
+		cardEl.style.transition = 'opacity ' + dur + 'ms ease';
+		cardEl.style.opacity = '0';
+		whenDone( cardEl, dur + 40, function () {
+			removeEl( cardEl );
+			done();
+		} );
+	}
+
+	/* ---- Keyboard ---- */
+	function onKeydown( e ) {
+		if ( ! current || current.locked ) {
+			return;
+		}
+		if ( e.key === 'ArrowUp' ) {
+			e.preventDefault();
+			commit( 'up' );
+		} else if ( e.key === 'ArrowDown' ) {
+			e.preventDefault();
+			commit( 'down' );
+		}
+	}
+
+	/* ---- Summary screen ---- */
 	function endRound() {
-		removeChildren( stage );
-		if ( controls ) { controls.style.display = 'none'; }
-		progressEl.textContent = '';
+		root.innerHTML = '';
+		zones = null;
+		progressEl = null;
 
 		if ( ! unknown.length ) {
 			renderAllKnown();
@@ -460,17 +564,18 @@
 		} );
 		end.appendChild( list );
 
-		var actions = el( 'div', 'tbts-end-actions' );
-		var again = el( 'button', 'tbts-btn tbts-btn-know' );
+		var again = el( 'button', 'tbts-again' );
 		again.type = 'button';
 		again.textContent = i18n.goAgain;
 		again.addEventListener( 'click', function () {
 			startRound( shuffle( unknown.slice() ) );
 		} );
+
+		var actions = el( 'div', 'tbts-end-actions' );
 		actions.appendChild( again );
 		end.appendChild( actions );
 
-		stage.appendChild( end );
+		root.appendChild( end );
 	}
 
 	function renderAllKnown() {
@@ -479,17 +584,18 @@
 		msg.textContent = i18n.allKnown;
 		end.appendChild( msg );
 
-		var actions = el( 'div', 'tbts-end-actions' );
-		var restart = el( 'button', 'tbts-btn tbts-btn-know' );
+		var restart = el( 'button', 'tbts-again' );
 		restart.type = 'button';
 		restart.textContent = i18n.restart;
 		restart.addEventListener( 'click', function () {
 			startRound( fullDeck.slice() );
 		} );
+
+		var actions = el( 'div', 'tbts-end-actions' );
 		actions.appendChild( restart );
 		end.appendChild( actions );
 
-		stage.appendChild( end );
+		root.appendChild( end );
 	}
 
 	/* ---- Helpers ---- */
@@ -498,17 +604,14 @@
 		if ( cls ) { e.className = cls; }
 		return e;
 	}
+	function pt( x, y ) {
+		return x.toFixed( 2 ) + '% ' + y.toFixed( 2 ) + '%';
+	}
 	function removeEl( node ) {
 		if ( node && node.parentNode ) { node.parentNode.removeChild( node ); }
 	}
-	function removeChildren( node ) {
-		while ( node && node.firstChild ) { node.removeChild( node.firstChild ); }
-	}
 	function now() {
 		return window.performance && performance.now ? performance.now() : Date.now();
-	}
-	function rand( min, max ) {
-		return Math.floor( min + Math.random() * ( max - min ) );
 	}
 	function shuffle( arr ) {
 		for ( var i = arr.length - 1; i > 0; i-- ) {
