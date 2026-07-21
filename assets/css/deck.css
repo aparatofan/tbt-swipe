@@ -1,0 +1,280 @@
+/* TBT Swipe — frontend deck.
+   All rules scoped under .tbts-deck and reset defensively so Divi's
+   typography doesn't leak in. */
+
+.tbts-deck,
+.tbts-deck * {
+	box-sizing: border-box;
+}
+
+.tbts-deck {
+	--tbts-blue: #0859C6;
+	--tbts-green: #1fae64;
+	--tbts-amber: #E8A93A;
+	--tbts-burn: #E8531F;
+	--tbts-bg: #12151c;
+	--tbts-card: #ffffff;
+	--tbts-ink: #1a1a1a;
+
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+	position: relative;
+	width: 100%;
+	max-width: 480px;
+	margin: 0 auto;
+	min-height: 78vh;
+	min-height: 78svh;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	padding: 12px;
+	background: var(--tbts-bg);
+	border-radius: 16px;
+	color: #fff;
+	overflow: hidden;
+	-webkit-user-select: none;
+	user-select: none;
+}
+
+.tbts-deck-loading,
+.tbts-message {
+	margin: auto;
+	text-align: center;
+	font-size: 1.1rem;
+	line-height: 1.5;
+	padding: 24px;
+	color: #dfe3ea;
+}
+
+/* ---- Progress ---- */
+.tbts-progress {
+	text-align: center;
+	font-size: 0.95rem;
+	font-weight: 600;
+	letter-spacing: 0.03em;
+	color: #aeb6c4;
+	padding: 4px 0 10px;
+	flex: 0 0 auto;
+}
+
+/* ---- Card stage ---- */
+.tbts-stage {
+	position: relative;
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+.tbts-card {
+	position: absolute;
+	inset: 0;
+	perspective: 1200px;
+	touch-action: pan-y;
+	cursor: grab;
+	will-change: transform;
+}
+.tbts-card.tbts-dragging { cursor: grabbing; }
+
+.tbts-card-inner {
+	position: relative;
+	width: 100%;
+	height: 100%;
+	transform-style: preserve-3d;
+	transition: transform 350ms ease;
+}
+.tbts-card.tbts-flipped .tbts-card-inner {
+	transform: rotateY(180deg);
+}
+
+.tbts-face {
+	position: absolute;
+	inset: 0;
+	-webkit-backface-visibility: hidden;
+	backface-visibility: hidden;
+	background: var(--tbts-card);
+	color: var(--tbts-ink);
+	border-radius: 18px;
+	box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	padding: 24px;
+	overflow: hidden;
+}
+
+.tbts-face-front .tbts-term {
+	font-size: 2.3rem;
+	font-weight: 700;
+	line-height: 1.2;
+	word-break: break-word;
+}
+
+.tbts-face-back {
+	transform: rotateY(180deg);
+	gap: 10px;
+}
+.tbts-face-back .tbts-ipa {
+	font-size: 1.4rem;
+	color: var(--tbts-blue);
+	font-weight: 600;
+}
+.tbts-face-back .tbts-translation {
+	font-size: 1.7rem;
+	font-weight: 700;
+}
+.tbts-face-back .tbts-example {
+	font-size: 1.05rem;
+	line-height: 1.45;
+	color: #33383f;
+	font-style: italic;
+	max-width: 90%;
+}
+
+.tbts-flip-hint {
+	position: absolute;
+	bottom: 12px;
+	left: 0;
+	right: 0;
+	text-align: center;
+	font-size: 0.8rem;
+	color: #98a0ac;
+	letter-spacing: 0.02em;
+}
+
+/* Drag tint overlays */
+.tbts-tint {
+	position: absolute;
+	inset: 0;
+	border-radius: 18px;
+	opacity: 0;
+	pointer-events: none;
+	-webkit-backface-visibility: hidden;
+	backface-visibility: hidden;
+}
+.tbts-tint-right { background: rgba(31, 174, 100, 0.55); }
+.tbts-tint-left { background: rgba(232, 169, 58, 0.55); }
+
+/* Edge labels (first cards only) */
+.tbts-edge-label {
+	position: absolute;
+	top: 18px;
+	font-size: 1rem;
+	font-weight: 800;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	padding: 6px 12px;
+	border-radius: 8px;
+	opacity: 0;
+	pointer-events: none;
+}
+.tbts-edge-know { right: 16px; color: #fff; background: var(--tbts-green); }
+.tbts-edge-not { left: 16px; color: #3a2c07; background: var(--tbts-amber); }
+
+/* ---- Buttons ---- */
+.tbts-controls {
+	flex: 0 0 auto;
+	display: flex;
+	gap: 14px;
+	padding: 16px 4px 6px;
+}
+.tbts-btn {
+	flex: 1 1 0;
+	border: 0;
+	border-radius: 12px;
+	padding: 16px 8px;
+	font-size: 1.05rem;
+	font-weight: 700;
+	color: #fff;
+	cursor: pointer;
+	font-family: inherit;
+	-webkit-tap-highlight-color: transparent;
+}
+.tbts-btn:active { transform: scale(0.97); }
+.tbts-btn-know { background: var(--tbts-green); }
+.tbts-btn-not { background: var(--tbts-amber); color: #3a2c07; }
+
+/* ---- Burn animation ---- */
+.tbts-burn-layer {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	z-index: 20;
+}
+.tbts-frag {
+	position: absolute;
+	inset: 0;
+	background-size: cover;
+	background-position: center;
+	will-change: transform, opacity;
+}
+@keyframes tbts-burn-frag {
+	0% { opacity: 1; }
+	100% { opacity: 0; }
+}
+
+/* ---- End screen ---- */
+.tbts-end {
+	margin: auto 0;
+	padding: 8px 4px 16px;
+	overflow-y: auto;
+}
+.tbts-end h2 {
+	font-size: 1.4rem;
+	margin: 6px 0 16px;
+	text-align: center;
+	color: #fff;
+}
+.tbts-end-list {
+	list-style: none;
+	margin: 0 0 20px;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+.tbts-end-item {
+	background: #1c212b;
+	border-radius: 12px;
+	padding: 12px 14px;
+	border-left: 4px solid var(--tbts-amber);
+}
+.tbts-end-item .tbts-end-term {
+	font-size: 1.2rem;
+	font-weight: 700;
+	color: #fff;
+}
+.tbts-end-item .tbts-end-ipa {
+	color: #7fb0ff;
+	font-size: 0.95rem;
+	margin-left: 6px;
+}
+.tbts-end-item .tbts-end-tr {
+	color: #d6dbe4;
+	margin-top: 2px;
+}
+.tbts-end-item .tbts-end-ex {
+	color: #9aa2af;
+	font-style: italic;
+	font-size: 0.95rem;
+	margin-top: 4px;
+}
+.tbts-end-actions {
+	text-align: center;
+}
+.tbts-end-success {
+	text-align: center;
+	font-size: 1.3rem;
+	font-weight: 700;
+	margin: 24px 0;
+	color: var(--tbts-green);
+}
+
+/* Respect reduced motion: no 3D flip transition, simple fade burn. */
+@media ( prefers-reduced-motion: reduce ) {
+	.tbts-card-inner { transition: none; }
+}
+
+/* Guard against horizontal scroll on very small screens. */
+@media ( max-width: 360px ) {
+	.tbts-face-front .tbts-term { font-size: 2rem; }
+}
