@@ -33,6 +33,10 @@
 			return;
 		}
 
+		// The deck is a fixed full-viewport overlay; lock the page behind it
+		// so nothing scrolls under it (iOS keeps scrolling the body otherwise).
+		document.body.classList.add( 'tbts-deck-open' );
+
 		// One document-level key handler for the whole session; it consults
 		// `current`, so it is inert on the loading and summary screens.
 		document.addEventListener( 'keydown', onKeydown );
@@ -538,29 +542,32 @@
 		h2.textContent = i18n.stillLearn;
 		end.appendChild( h2 );
 
-		var list = el( 'ul', 'tbts-end-list' );
+		// <div>s, not <ul>/<li>: the list is presentational (each item is a
+		// self-contained card), and divs sidestep the bullet markers Divi and
+		// WP core inject into content lists.
+		var list = el( 'div', 'tbts-end-list' );
 		unknown.forEach( function ( card ) {
-			var li = el( 'li', 'tbts-end-item' );
+			var item = el( 'div', 'tbts-end-item' );
 
 			var term = el( 'span', 'tbts-end-term' );
 			term.textContent = card.term;
-			li.appendChild( term );
+			item.appendChild( term );
 			if ( card.ipa ) {
 				var ipa = el( 'span', 'tbts-end-ipa' );
 				ipa.textContent = card.ipa;
-				li.appendChild( ipa );
+				item.appendChild( ipa );
 			}
 			if ( card.translation ) {
 				var tr = el( 'div', 'tbts-end-tr' );
 				tr.textContent = card.translation;
-				li.appendChild( tr );
+				item.appendChild( tr );
 			}
 			if ( card.example ) {
 				var ex = el( 'div', 'tbts-end-ex' );
 				ex.textContent = card.example;
-				li.appendChild( ex );
+				item.appendChild( ex );
 			}
-			list.appendChild( li );
+			list.appendChild( item );
 		} );
 		end.appendChild( list );
 

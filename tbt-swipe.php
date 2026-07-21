@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       TBT Swipe
  * Description:       Swipeable mobile vocabulary flashcard decks for live lessons. Teacher builds a set in wp-admin, AI fills in IPA, Polish translation and example sentences, students scan a QR code and swipe through the deck on their phones.
- * Version:           1.1.0
+ * Version:           1.2.0
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            TBT
@@ -12,7 +12,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'TBTS_VERSION', '1.1.0' );
+define( 'TBTS_VERSION', '1.2.0' );
 define( 'TBTS_DB_VERSION', '1.0' );
 define( 'TBTS_PLUGIN_FILE', __FILE__ );
 define( 'TBTS_DIR', plugin_dir_path( __FILE__ ) );
