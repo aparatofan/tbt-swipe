@@ -23,8 +23,8 @@ This is a *learning* tool, not a test. Nothing is scored, judged, or persisted �
 
 1. Install and activate the plugin. Activation creates two tables (`{prefix}tbts_sets`, `{prefix}tbts_cards`).
 2. Go to **TBT Swipe → Settings** and enter:
-   - Your **Anthropic API key** (stored server-side, never exposed to the browser).
-   - The **model** string (default `claude-opus-4-8`, editable).
+   - Your **OpenAI API key** (stored server-side, never exposed to the browser).
+   - The **model** string (default `gpt-4o-mini`, editable).
    - The **deck page** — a published page containing the `[tbt_swipe]` shortcode. This is used to build the deck URL and QR code.
 3. Create a page with the `[tbt_swipe]` shortcode and select it as the deck page.
 4. Build a set, generate cards, publish, and paste the QR into your lesson plan.
@@ -39,7 +39,7 @@ The deck is chosen by the `?s={slug}` query parameter, which the QR code sets au
 
 ## Security
 
-- The Anthropic API key is stored in `wp_options` and never printed to the frontend or returned by any REST/AJAX response.
+- The OpenAI API key is stored in `wp_options` and never printed to the frontend or returned by any REST/AJAX response.
 - Every admin AJAX handler checks both a nonce (`check_ajax_referer`) and `current_user_can( 'manage_options' )`.
 - All input is sanitised on save; all output is escaped on render.
 - All database access uses `$wpdb->prepare()`.
@@ -57,7 +57,7 @@ tbt-swipe/
 │   ├── class-tbts-db.php      # tables, dbDelta, all queries
 │   ├── class-tbts-admin.php   # menu, list screen, editor screen
 │   ├── class-tbts-ajax.php    # admin AJAX (nonce + cap checked)
-│   ├── class-tbts-api.php     # Anthropic proxy, server side only
+│   ├── class-tbts-api.php     # OpenAI proxy, server side only
 │   ├── class-tbts-rest.php    # public read endpoint for the deck
 │   ├── class-tbts-shortcode.php
 │   └── class-tbts-settings.php

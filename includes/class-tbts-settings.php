@@ -78,10 +78,10 @@ class TBTS_Settings {
 				<?php settings_fields( self::GROUP ); ?>
 				<table class="form-table" role="presentation">
 					<tr>
-						<th scope="row"><label for="tbts_api_key"><?php esc_html_e( 'Anthropic API key', 'tbt-swipe' ); ?></label></th>
+						<th scope="row"><label for="tbts_api_key"><?php esc_html_e( 'OpenAI API key', 'tbt-swipe' ); ?></label></th>
 						<td>
 							<input type="password" name="tbts_api_key" id="tbts_api_key" class="regular-text" autocomplete="off"
-								value="" placeholder="<?php echo $has_key ? esc_attr__( 'Saved — leave blank to keep', 'tbt-swipe' ) : 'sk-ant-…'; ?>">
+								value="" placeholder="<?php echo $has_key ? esc_attr__( 'Saved — leave blank to keep', 'tbt-swipe' ) : 'sk-…'; ?>">
 							<p class="description"><?php esc_html_e( 'Stored server-side and never sent to the browser. Leave blank to keep the current key.', 'tbt-swipe' ); ?></p>
 						</td>
 					</tr>
@@ -93,7 +93,7 @@ class TBTS_Settings {
 								<?php
 								printf(
 									/* translators: %s: default model id */
-									esc_html__( 'Anthropic model identifier. Default: %s', 'tbt-swipe' ),
+									esc_html__( 'OpenAI model identifier. Default: %s', 'tbt-swipe' ),
 									'<code>' . esc_html( TBTS_API::DEFAULT_MODEL ) . '</code>'
 								);
 								?>

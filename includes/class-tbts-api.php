@@ -1,17 +1,17 @@
 <?php
 /**
- * Server-side proxy to the Anthropic Messages API.
+ * Server-side proxy to the OpenAI Chat Completions API.
  *
  * The API key never leaves the server: the browser talks to admin-ajax.php,
- * this class talks to api.anthropic.com.
+ * this class talks to api.openai.com.
  */
 
 defined( 'ABSPATH' ) || exit;
 
 class TBTS_API {
 
-	const ENDPOINT      = 'https://api.anthropic.com/v1/messages';
-	const DEFAULT_MODEL = 'claude-opus-4-8';
+	const ENDPOINT      = 'https://api.openai.com/v1/chat/completions';
+	const DEFAULT_MODEL = 'gpt-4o-mini';
 
 	/**
 	 * Generate card data for a batch of terms in one API call.
@@ -24,7 +24,7 @@ class TBTS_API {
 		if ( '' === $api_key ) {
 			return new WP_Error(
 				'tbts_no_key',
-				__( 'No API key configured. Add your Anthropic API key under TBT Swipe → Settings.', 'tbt-swipe' )
+				__( 'No API key configured. Add your OpenAI API key under TBT Swipe → Settings.', 'tbt-swipe' )
 			);
 		}
 
@@ -36,15 +36,14 @@ class TBTS_API {
 			array(
 				'timeout' => 60,
 				'headers' => array(
-					'x-api-key'         => $api_key,
-					'anthropic-version' => '2023-06-01',
-					'content-type'      => 'application/json',
+					'Authorization' => 'Bearer ' . $api_key,
+					'Content-Type'  => 'application/json',
 				),
 				'body'    => wp_json_encode(
 					array(
-						'model'      => $model,
-						'max_tokens' => 8192,
-						'messages'   => array(
+						'model'                 => $model,
+						'max_completion_tokens' => 8192,
+						'messages'              => array(
 							array(
 								'role'    => 'user',
 								'content' => $prompt,
@@ -97,19 +96,15 @@ class TBTS_API {
 	}
 
 	/**
-	 * Pull the text out of the content blocks, strip stray fences, decode
-	 * and validate. A count mismatch is a hard error — never a partial save.
+	 * Pull the text out of the completion, strip stray fences, decode and
+	 * validate. A count mismatch is a hard error — never a partial save.
 	 *
 	 * @return array|WP_Error
 	 */
 	private static function parse_response( $body, array $terms ) {
 		$text = '';
-		if ( isset( $body['content'] ) && is_array( $body['content'] ) ) {
-			foreach ( $body['content'] as $block ) {
-				if ( isset( $block['type'], $block['text'] ) && 'text' === $block['type'] ) {
-					$text .= $block['text'];
-				}
-			}
+		if ( isset( $body['choices'][0]['message']['content'] ) ) {
+			$text = (string) $body['choices'][0]['message']['content'];
 		}
 
 		$text = trim( $text );
