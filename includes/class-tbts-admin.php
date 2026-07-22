@@ -16,15 +16,26 @@ class TBTS_Admin {
 	}
 
 	public function register_menu() {
-		$this->hook_suffix = add_menu_page(
-			__( 'TBT Swipe', 'tbt-swipe' ),
-			__( 'TBT Swipe', 'tbt-swipe' ),
-			'manage_options',
-			'tbt-swipe',
-			array( $this, 'render_page' ),
-			'dashicons-images-alt2',
-			58
-		);
+		if ( defined( 'TBT_HUB_SLUG' ) ) {
+			$this->hook_suffix = add_submenu_page(
+				TBT_HUB_SLUG,
+				__( 'TBT Swipe', 'tbt-swipe' ),
+				__( 'TBT Swipe', 'tbt-swipe' ),
+				'manage_options',
+				'tbt-swipe',
+				array( $this, 'render_page' )
+			);
+		} else {
+			$this->hook_suffix = add_menu_page(
+				__( 'TBT Swipe', 'tbt-swipe' ),
+				__( 'TBT Swipe', 'tbt-swipe' ),
+				'manage_options',
+				'tbt-swipe',
+				array( $this, 'render_page' ),
+				'dashicons-images-alt2',
+				58
+			);
+		}
 	}
 
 	/**

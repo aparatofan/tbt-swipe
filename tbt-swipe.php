@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       TBT Swipe
  * Description:       Swipeable mobile vocabulary flashcard decks for live lessons. Teacher builds a set in wp-admin, AI fills in IPA, Polish translation and example sentences, students scan a QR code and swipe through the deck on their phones.
- * Version:           1.2.0
+ * Version:           1.3.0
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            TBT
@@ -12,7 +12,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'TBTS_VERSION', '1.2.0' );
+define( 'TBTS_VERSION', '1.3.0' );
 define( 'TBTS_DB_VERSION', '1.0' );
 define( 'TBTS_PLUGIN_FILE', __FILE__ );
 define( 'TBTS_DIR', plugin_dir_path( __FILE__ ) );
@@ -25,6 +25,26 @@ require_once TBTS_DIR . 'includes/class-tbts-admin.php';
 require_once TBTS_DIR . 'includes/class-tbts-rest.php';
 require_once TBTS_DIR . 'includes/class-tbts-shortcode.php';
 require_once TBTS_DIR . 'includes/class-tbts-settings.php';
+
+/**
+ * Register this plugin on the TBT Hub Overview page.
+ *
+ * Registered at file scope so it loads regardless of admin context,
+ * matching the pattern used by the other TBT plugins.
+ *
+ * @param array $items Existing hub items.
+ * @return array
+ */
+function tbts_register_hub_item( $items ) {
+	$items[] = array(
+		'slug'        => 'tbt-swipe',
+		'title'       => 'TBT Swipe',
+		'description' => 'Swipeable phone flashcard decks for live lessons; students scan a QR code and swipe through the set.',
+		'capability'  => 'manage_options',
+	);
+	return $items;
+}
+add_filter( 'tbt_hub_items', 'tbts_register_hub_item' );
 
 register_activation_hook( __FILE__, array( 'TBTS_DB', 'activate' ) );
 

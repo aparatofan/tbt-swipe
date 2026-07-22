@@ -7,7 +7,7 @@ Swipeable mobile vocabulary flashcards for live English lessons. Replaces printe
 
 ## How it works
 
-1. The teacher creates a set of 5–20 English items in **wp-admin → TBT Swipe**.
+1. The teacher creates a set of 5–20 English items in **wp-admin → TBT → TBT Swipe**.
 2. One AI call fills in IPA, Polish translation, and a B1 example sentence for each item.
 3. The teacher reviews/edits the generated cards and publishes the set.
 4. The plugin generates a QR code (client-side, self-hosted library) that links to the deck page.
@@ -22,12 +22,14 @@ This is a *learning* tool, not a test. Nothing is scored, judged, or persisted �
 ## Setup
 
 1. Install and activate the plugin. Activation creates two tables (`{prefix}tbts_sets`, `{prefix}tbts_cards`).
-2. Go to **TBT Swipe → Settings** and enter:
+2. Go to **TBT → TBT Swipe Settings** and enter:
    - Your **OpenAI API key** (stored server-side, never exposed to the browser).
    - The **model** string (default `gpt-4o-mini`, editable).
    - The **deck page** — a published page containing the `[tbt_swipe]` shortcode. This is used to build the deck URL and QR code.
 3. Create a page with the `[tbt_swipe]` shortcode and select it as the deck page.
 4. Build a set, generate cards, publish, and paste the QR into your lesson plan.
+
+TBT Swipe lives under the **TBT** hub menu (**TBT → TBT Swipe** and **TBT → TBT Swipe Settings**). If the TBT Hub plugin is deactivated, it falls back to its own top-level **TBT Swipe** menu with a **Settings** child, so it is never unreachable.
 
 ## Shortcode
 
