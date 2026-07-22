@@ -19,11 +19,11 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
-          local-dir: ./tbt-tooltip/
-          server-dir: /tbt-tooltip/
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
           dry-run: false
           exclude: |
             **/.git*
             **/.git*/**
+            **/.github/**
             **/node_modules/**
             **/*.md
