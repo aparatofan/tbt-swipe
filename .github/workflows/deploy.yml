@@ -1,32 +1,29 @@
-name: Deploy to server via FTP
+name: Deploy to WordPress
 
 on:
   push:
     branches:
       - main
 
-concurrency:
-  group: ftp-deploy
-  cancel-in-progress: true
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Get the latest code
         uses: actions/checkout@v4
 
-      - name: Deploy via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - name: Upload to the server
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          # Target directory on the server, e.g. /public_html/wp-content/plugins/tbt-swipe/
-          server-dir: ${{ secrets.FTP_SERVER_DIR }}
-          # Everything except VCS and CI metadata is uploaded.
+          protocol: ftps
+          local-dir: ./tbt-tooltip/
+          server-dir: /tbt-tooltip/
+          dry-run: false
           exclude: |
             **/.git*
             **/.git*/**
-            **/.github/**
-            README.md
+            **/node_modules/**
+            **/*.md
