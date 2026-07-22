@@ -15,10 +15,15 @@ class TBTS_Settings {
 	}
 
 	public function register_menu() {
+		$parent = defined( 'TBT_HUB_SLUG' ) ? TBT_HUB_SLUG : 'tbt-swipe';
+		$label  = defined( 'TBT_HUB_SLUG' )
+			? __( 'TBT Swipe Settings', 'tbt-swipe' )
+			: __( 'Settings', 'tbt-swipe' );
+
 		add_submenu_page(
-			'tbt-swipe',
+			$parent,
 			__( 'TBT Swipe Settings', 'tbt-swipe' ),
-			__( 'Settings', 'tbt-swipe' ),
+			$label,
 			'manage_options',
 			'tbt-swipe-settings',
 			array( $this, 'render' )
