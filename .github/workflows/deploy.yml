@@ -147,7 +147,16 @@ jobs:
 
           echo "Target verified: tbt-swipe.php is present, this is the installed plugin folder."
 
+      # The preflight above logs in, lists, and disconnects. Opening a second
+      # FTP session in the same second has coincided with the server resetting
+      # the data connection, so give it a moment to release the first one
+      # before the upload starts.
+      - name: Let the preflight's FTP session close
+        run: sleep 15
+
       - name: Sync changed files to the server
+        id: sync
+        continue-on-error: true
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -171,6 +180,40 @@ jobs:
           dry-run: ${{ inputs.dry_run || false }}
           # Specifying `exclude` replaces the action's defaults, so the .git and
           # node_modules patterns have to be repeated here.
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/node_modules
+            **/*.md
+            *.md
+            .github/**
+
+      # The upload client does not retry ECONNRESET — its retry only covers FTP
+      # reply codes 400-499, and it saves its sync state only after a completed
+      # run, so one reset loses the whole attempt. This host resets connections
+      # intermittently, so give it a second go rather than failing the deploy.
+      - name: Wait out the reset before retrying
+        if: steps.sync.outcome == 'failure'
+        run: |
+          echo "First attempt failed — waiting 60s before retrying."
+          sleep 60
+
+      - name: Retry the sync
+        if: steps.sync.outcome == 'failure'
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ steps.ftp.outputs.server-dir }}
+          local-dir: ./
+          protocol: ${{ inputs.protocol || 'ftps' }}
+          port: ${{ inputs.port || '21' }}
+          security: loose
+          log-level: ${{ inputs.log_level || 'standard' }}
+          dangerous-clean-slate: false
+          dry-run: ${{ inputs.dry_run || false }}
           exclude: |
             **/.git*
             **/.git*/**
