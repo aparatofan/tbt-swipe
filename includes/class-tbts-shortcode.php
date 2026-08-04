@@ -7,7 +7,8 @@ defined( 'ABSPATH' ) || exit;
 
 class TBTS_Shortcode {
 
-	private $present = false;
+	private static $deck_done     = false;
+	private static $frontend_done = false;
 
 	public function __construct() {
 		add_shortcode( 'tbt_swipe', array( $this, 'render' ) );
@@ -15,21 +16,90 @@ class TBTS_Shortcode {
 		add_action( 'wp_enqueue_scripts', array( $this, 'maybe_enqueue' ) );
 	}
 
+	/**
+	 * The player and the management UI are separate surfaces: deck.css and
+	 * deck.js load only where [tbt_swipe] itself is, never on a page that
+	 * merely holds the two management shortcodes.
+	 */
 	public function maybe_enqueue() {
 		if ( ! is_singular() ) {
 			return;
 		}
 		$post = get_post();
-		if ( $post && has_shortcode( $post->post_content, 'tbt_swipe' ) ) {
+		if ( ! $post ) {
+			return;
+		}
+
+		if ( has_shortcode( $post->post_content, 'tbt_swipe' ) ) {
 			$this->enqueue();
+		}
+
+		$has_generator = has_shortcode( $post->post_content, TBTS_Frontend::GENERATOR_SHORTCODE );
+		$has_sets      = has_shortcode( $post->post_content, TBTS_Frontend::SETS_SHORTCODE );
+
+		// Nothing to enqueue for a visitor who cannot see either shortcode.
+		if ( ( $has_generator || $has_sets ) && TBTS_Capabilities::user_can_manage() ) {
+			self::enqueue_frontend( TBTS_Generator::max_cards_per_generation() );
 		}
 	}
 
-	private function enqueue() {
-		if ( $this->present ) {
+	/**
+	 * Assets for the frontend management page.
+	 *
+	 * Public and idempotent because the shortcodes also call it: a cached page
+	 * can render them after wp_enqueue_scripts has already run.
+	 *
+	 * @param int $max_terms Configured per-generation cap, for the client-side
+	 *                       pre-check (UX only — the server re-checks).
+	 */
+	public static function enqueue_frontend( $max_terms ) {
+		if ( self::$frontend_done ) {
 			return;
 		}
-		$this->present = true;
+		self::$frontend_done = true;
+
+		wp_enqueue_style( 'tbts-frontend', TBTS_URL . 'assets/css/frontend.css', array(), TBTS_VERSION );
+		wp_enqueue_script( 'tbts-qrcode', TBTS_URL . 'assets/js/lib/qrcode.min.js', array(), TBTS_VERSION, true );
+		wp_enqueue_script( 'tbts-frontend', TBTS_URL . 'assets/js/frontend.js', array( 'tbts-qrcode' ), TBTS_VERSION, true );
+
+		wp_localize_script(
+			'tbts-frontend',
+			'tbtsFe',
+			array(
+				'restBase' => esc_url_raw( rest_url( TBTS_Manage_Rest::NS . '/manage/' ) ),
+				'nonce'    => wp_create_nonce( 'wp_rest' ),
+				'maxTerms' => (int) $max_terms,
+				'i18n'     => array(
+					'countOne'      => __( 'słowo', 'tbt-swipe' ),
+					'countFew'      => __( 'słowa', 'tbt-swipe' ),
+					'countMany'     => __( 'słów', 'tbt-swipe' ),
+					'tooMany'       => sprintf(
+						/* translators: %d: maximum number of terms per generation */
+						__( 'Za dużo słów w jednym zestawie (maks. %d).', 'tbt-swipe' ),
+						(int) $max_terms
+					),
+					'noTerms'       => __( 'Wpisz przynajmniej jedno słowo.', 'tbt-swipe' ),
+					'needTitle'     => __( 'Podaj tytuł zestawu.', 'tbt-swipe' ),
+					'generating'    => __( 'Generuję karty… to może potrwać do 30 sekund.', 'tbt-swipe' ),
+					'saving'        => __( 'Zapisuję…', 'tbt-swipe' ),
+					'noCards'       => __( 'Nie ma czego zapisać — najpierw wygeneruj karty.', 'tbt-swipe' ),
+					'copied'        => __( 'Skopiowano!', 'tbt-swipe' ),
+					'confirmDelete' => __( 'Usunąć ten zestaw i wszystkie jego karty? Tej operacji nie można cofnąć.', 'tbt-swipe' ),
+					'quota'         => __( 'Dzienny limit generowania został wyczerpany.', 'tbt-swipe' ),
+					'apiError'      => __( 'Nie udało się wygenerować kart. Spróbuj ponownie.', 'tbt-swipe' ),
+					'staleNonce'    => __( 'Sesja wygasła. Odśwież stronę.', 'tbt-swipe' ),
+					'networkError'  => __( 'Coś poszło nie tak. Sprawdź połączenie i spróbuj ponownie.', 'tbt-swipe' ),
+					'noDeckPage'    => __( 'Zestaw zapisany, ale administrator nie wskazał jeszcze strony z talią, więc link nie jest gotowy.', 'tbt-swipe' ),
+				),
+			)
+		);
+	}
+
+	private function enqueue() {
+		if ( self::$deck_done ) {
+			return;
+		}
+		self::$deck_done = true;
 
 		wp_enqueue_style( 'tbts-deck', TBTS_URL . 'assets/css/deck.css', array(), TBTS_VERSION );
 		wp_enqueue_script( 'tbts-deck', TBTS_URL . 'assets/js/deck.js', array(), TBTS_VERSION, true );

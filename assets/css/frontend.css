@@ -1,0 +1,359 @@
+/* TBT Swipe — frontend management page (generator + set list).
+   Everything is scoped under .tbts-fe and reset defensively, because this
+   renders inside Divi, whose typography and form styles otherwise leak in.
+   Deliberately does not load deck.css: the player and the management UI are
+   separate surfaces. */
+
+.tbts-fe,
+.tbts-fe * {
+	box-sizing: border-box;
+}
+
+/* Divi sets display on plenty of elements, which beats the [hidden]
+   attribute's default. Panels that start hidden must stay hidden. */
+.tbts-fe [hidden] {
+	display: none !important;
+}
+
+.tbts-fe {
+	--tbts-blue: #0859C6;
+	--tbts-blue-dark: #06459c;
+	--tbts-ink: #2C2C2A;
+	--tbts-soft: #6b6a66;
+	--tbts-line: #dcdbd6;
+	--tbts-bg: #f7f7f5;
+	--tbts-danger: #b3261e;
+
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+	font-size: 16px;
+	line-height: 1.5;
+	color: var( --tbts-ink );
+	max-width: 900px;
+	margin: 0 auto 2rem;
+}
+
+/* ---- Notices ---- */
+
+.tbts-fe-notice {
+	padding: 0.75rem 1rem;
+	border-radius: 6px;
+	margin-bottom: 1rem;
+}
+
+.tbts-fe-error {
+	background: #fdecea;
+	border-left: 4px solid var( --tbts-danger );
+	color: #6b1810;
+}
+
+/* ---- Form ---- */
+
+.tbts-fe-step {
+	margin-bottom: 1.75rem;
+}
+
+.tbts-fe-heading {
+	font-size: 1.15rem;
+	margin: 0 0 0.35rem;
+	color: var( --tbts-ink );
+}
+
+.tbts-fe-label {
+	display: block;
+	font-weight: 600;
+	margin-bottom: 0.35rem;
+}
+
+.tbts-fe-input,
+.tbts-fe-select,
+.tbts-fe-textarea {
+	width: 100%;
+	max-width: 100%;
+	padding: 0.55rem 0.7rem;
+	font-family: inherit;
+	font-size: 1rem;
+	line-height: 1.4;
+	color: var( --tbts-ink );
+	background: #fff;
+	border: 1px solid var( --tbts-line );
+	border-radius: 6px;
+}
+
+.tbts-fe-input:focus,
+.tbts-fe-select:focus,
+.tbts-fe-textarea:focus {
+	outline: 2px solid var( --tbts-blue );
+	outline-offset: 1px;
+	border-color: var( --tbts-blue );
+}
+
+.tbts-fe-textarea {
+	resize: vertical;
+	min-height: 9rem;
+}
+
+.tbts-fe-help {
+	margin: 0.35rem 0 0.75rem;
+	font-size: 0.875rem;
+	color: var( --tbts-soft );
+}
+
+.tbts-fe-lesson-wrap {
+	margin-top: 1rem;
+}
+
+/* The count turns red once the paste is over the per-generation cap. This is
+   a hint only — the server enforces the real limit. */
+.tbts-fe-over .tbts-fe-help {
+	color: var( --tbts-danger );
+	font-weight: 600;
+}
+
+.tbts-fe-status {
+	display: inline-block;
+	margin-left: 0.6rem;
+	font-size: 0.875rem;
+	color: var( --tbts-soft );
+}
+
+/* ---- Buttons ---- */
+
+.tbts-fe-btn {
+	display: inline-block;
+	padding: 0.5rem 1rem;
+	font-family: inherit;
+	font-size: 0.95rem;
+	font-weight: 600;
+	line-height: 1.3;
+	color: var( --tbts-ink );
+	text-decoration: none;
+	background: #fff;
+	border: 1px solid var( --tbts-line );
+	border-radius: 6px;
+	cursor: pointer;
+}
+
+.tbts-fe-btn:hover {
+	border-color: var( --tbts-blue );
+	color: var( --tbts-blue );
+}
+
+.tbts-fe-btn:disabled {
+	opacity: 0.55;
+	cursor: default;
+}
+
+.tbts-fe-btn-primary {
+	color: #fff;
+	background: var( --tbts-blue );
+	border-color: var( --tbts-blue );
+}
+
+.tbts-fe-btn-primary:hover {
+	color: #fff;
+	background: var( --tbts-blue-dark );
+	border-color: var( --tbts-blue-dark );
+}
+
+.tbts-fe-btn-small {
+	padding: 0.3rem 0.65rem;
+	font-size: 0.85rem;
+}
+
+.tbts-fe-btn-danger:hover {
+	color: var( --tbts-danger );
+	border-color: var( --tbts-danger );
+}
+
+/* ---- Review table ---- */
+
+/* The table is wider than a phone. It scrolls inside its own box so the page
+   itself never scrolls sideways. */
+.tbts-fe-table-scroll {
+	overflow-x: auto;
+	margin-bottom: 1rem;
+	border: 1px solid var( --tbts-line );
+	border-radius: 6px;
+}
+
+.tbts-fe-table {
+	width: 100%;
+	min-width: 640px;
+	border-collapse: collapse;
+	background: #fff;
+}
+
+.tbts-fe-table th,
+.tbts-fe-table td {
+	padding: 0.4rem 0.5rem;
+	text-align: left;
+	border-bottom: 1px solid var( --tbts-line );
+	vertical-align: middle;
+}
+
+.tbts-fe-table th {
+	font-size: 0.8rem;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	color: var( --tbts-soft );
+	background: var( --tbts-bg );
+}
+
+.tbts-fe-table .tbts-fe-input {
+	padding: 0.35rem 0.45rem;
+	font-size: 0.95rem;
+}
+
+.tbts-fe-col-tool {
+	width: 2.5rem;
+	text-align: center;
+}
+
+.tbts-fe-row-btn {
+	padding: 0.2rem 0.45rem;
+	font-size: 0.9rem;
+	line-height: 1;
+	color: var( --tbts-soft );
+	background: none;
+	border: 1px solid transparent;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.tbts-fe-row-btn:hover {
+	color: var( --tbts-danger );
+	border-color: var( --tbts-danger );
+}
+
+/* ---- Result ---- */
+
+.tbts-fe-link-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: center;
+	margin-bottom: 1rem;
+}
+
+.tbts-fe-url {
+	flex: 1 1 16rem;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	font-size: 0.9rem;
+}
+
+.tbts-fe-qr {
+	display: inline-block;
+	padding: 0.75rem;
+	background: #fff;
+	border: 1px solid var( --tbts-line );
+	border-radius: 6px;
+}
+
+.tbts-fe-qr img,
+.tbts-fe-qr canvas {
+	display: block;
+	width: 100%;
+	max-width: 320px;
+	height: auto;
+}
+
+/* ---- Set list ---- */
+
+.tbts-fe-group {
+	margin-bottom: 2rem;
+}
+
+/* "Bez klasy" is styled exactly like every other group. An unattached set is
+   a supported state, not an orphan to flag. */
+.tbts-fe-group-title {
+	font-size: 1.05rem;
+	margin: 0 0 0.6rem;
+	padding-bottom: 0.35rem;
+	border-bottom: 2px solid var( --tbts-line );
+}
+
+.tbts-fe-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.tbts-fe-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0.7rem 0.85rem;
+	margin-bottom: 0.5rem;
+	background: #fff;
+	border: 1px solid var( --tbts-line );
+	border-radius: 6px;
+}
+
+.tbts-fe-row-main {
+	flex: 1 1 14rem;
+	min-width: 0;
+}
+
+.tbts-fe-row-title {
+	display: block;
+	font-weight: 600;
+	overflow-wrap: anywhere;
+}
+
+.tbts-fe-row-meta {
+	display: block;
+	font-size: 0.85rem;
+	color: var( --tbts-soft );
+}
+
+.tbts-fe-sep {
+	margin: 0 0.35rem;
+}
+
+.tbts-fe-row-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+}
+
+.tbts-fe-empty {
+	color: var( --tbts-soft );
+}
+
+/* ---- QR modal ---- */
+
+.tbts-fe-modal {
+	position: fixed;
+	inset: 0;
+	z-index: 100000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 1rem;
+	background: rgba( 0, 0, 0, 0.55 );
+}
+
+.tbts-fe-modal-box {
+	max-width: 24rem;
+	padding: 1.25rem;
+	text-align: center;
+	background: #fff;
+	border-radius: 10px;
+}
+
+.tbts-fe-modal-title {
+	margin: 0 0 0.75rem;
+	font-weight: 600;
+}
+
+.tbts-fe-modal-box .tbts-fe-qr {
+	margin-bottom: 1rem;
+}
+
+@media ( max-width: 600px ) {
+	.tbts-fe-row-actions {
+		width: 100%;
+	}
+}
