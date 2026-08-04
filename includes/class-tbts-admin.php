@@ -21,7 +21,7 @@ class TBTS_Admin {
 				TBT_HUB_SLUG,
 				__( 'TBT Swipe', 'tbt-swipe' ),
 				__( 'TBT Swipe', 'tbt-swipe' ),
-				'manage_options',
+				TBTS_CAP,
 				'tbt-swipe',
 				array( $this, 'render_page' )
 			);
@@ -29,7 +29,7 @@ class TBTS_Admin {
 			$this->hook_suffix = add_menu_page(
 				__( 'TBT Swipe', 'tbt-swipe' ),
 				__( 'TBT Swipe', 'tbt-swipe' ),
-				'manage_options',
+				TBTS_CAP,
 				'tbt-swipe',
 				array( $this, 'render_page' ),
 				'dashicons-images-alt2',
@@ -55,7 +55,13 @@ class TBTS_Admin {
 
 		check_admin_referer( 'tbts_' . $action . '_' . $set_id );
 
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! TBTS_Capabilities::user_can_manage() ) {
+			wp_die( esc_html__( 'You are not allowed to do that.', 'tbt-swipe' ) );
+		}
+
+		// Capability alone is not enough: a manager must not reach another
+		// user's set by guessing an ID. Administrators oversee everything.
+		if ( ! TBTS_DB::user_can_edit_set( $set_id ) ) {
 			wp_die( esc_html__( 'You are not allowed to do that.', 'tbt-swipe' ) );
 		}
 
@@ -78,6 +84,30 @@ class TBTS_Admin {
 		exit;
 	}
 
+	/**
+	 * Which owner's sets this user may see on the admin screen: their own,
+	 * unless they are an administrator, who oversees every set. The frontend
+	 * list is owner-scoped for everyone — see TBTS_Frontend.
+	 *
+	 * @return int|null Owner ID, or null for "all".
+	 */
+	private static function visible_owner_id() {
+		return TBTS_Capabilities::user_can_manage_all() ? null : get_current_user_id();
+	}
+
+	/**
+	 * Fetch a set the current user is allowed to open in the editor.
+	 *
+	 * @param int $id Set ID.
+	 * @return object|null
+	 */
+	private static function get_visible_set( $id ) {
+		if ( TBTS_Capabilities::user_can_manage_all() ) {
+			return TBTS_DB::get_set( $id );
+		}
+		return TBTS_DB::get_set_for_owner( $id, get_current_user_id() );
+	}
+
 	public function enqueue_assets( $hook ) {
 		if ( $hook !== $this->hook_suffix ) {
 			return;
@@ -89,7 +119,7 @@ class TBTS_Admin {
 
 		$set_data = null;
 		if ( isset( $_GET['action'] ) && 'edit' === $_GET['action'] && isset( $_GET['set'] ) ) {
-			$set = TBTS_DB::get_set( absint( $_GET['set'] ) );
+			$set = self::get_visible_set( absint( $_GET['set'] ) );
 			if ( $set ) {
 				$cards = array();
 				foreach ( TBTS_DB::get_cards( $set->id ) as $card ) {
@@ -106,7 +136,7 @@ class TBTS_Admin {
 					'status'  => $set->status,
 					'slug'    => $set->slug,
 					'cards'   => $cards,
-					'deckUrl' => self::deck_url( $set ),
+					'deckUrl' => TBTS_DB::deck_url( $set ),
 				);
 			}
 		}
@@ -117,13 +147,17 @@ class TBTS_Admin {
 			array(
 				'ajaxUrl'  => admin_url( 'admin-ajax.php' ),
 				'nonce'    => wp_create_nonce( TBTS_Ajax::NONCE_ACTION ),
-				'minTerms' => 5,
-				'maxTerms' => 20,
+				'minTerms' => 1,
+				'maxTerms' => TBTS_Generator::max_cards_per_generation(),
 				'set'      => $set_data,
 				'i18n'     => array(
 					'confirmDelete' => __( 'Delete this set and all of its cards? This cannot be undone.', 'tbt-swipe' ),
-					'tooFew'        => __( 'Add at least 5 terms to generate.', 'tbt-swipe' ),
-					'tooMany'       => __( 'Maximum 20 terms — remove some lines.', 'tbt-swipe' ),
+					'tooFew'        => __( 'Add at least one term to generate.', 'tbt-swipe' ),
+					'tooMany'       => sprintf(
+						/* translators: %d: maximum number of terms per generation */
+						__( 'Maximum %d terms — remove some lines.', 'tbt-swipe' ),
+						TBTS_Generator::max_cards_per_generation()
+					),
 					'ready'         => __( 'Ready to generate.', 'tbt-swipe' ),
 					'generating'    => __( 'Generating cards… this can take up to 30 seconds.', 'tbt-swipe' ),
 					'saving'        => __( 'Saving…', 'tbt-swipe' ),
@@ -134,17 +168,6 @@ class TBTS_Admin {
 				),
 			)
 		);
-	}
-
-	/**
-	 * Public deck URL for a set, or '' if no deck page is configured.
-	 */
-	public static function deck_url( $set ) {
-		$page_id = (int) get_option( 'tbts_deck_page_id', 0 );
-		if ( ! $page_id || 'publish' !== get_post_status( $page_id ) ) {
-			return '';
-		}
-		return add_query_arg( 'deck', $set->slug, get_permalink( $page_id ) );
 	}
 
 	public function render_page() {
@@ -159,7 +182,7 @@ class TBTS_Admin {
 	}
 
 	private function render_list() {
-		$sets = TBTS_DB::get_sets();
+		$sets = TBTS_DB::get_sets( self::visible_owner_id() );
 		$new_url = add_query_arg( array( 'page' => 'tbt-swipe', 'action' => 'new' ), admin_url( 'admin.php' ) );
 		?>
 		<div class="wrap tbts-wrap">
@@ -226,13 +249,13 @@ class TBTS_Admin {
 	private function render_editor() {
 		$set   = null;
 		if ( isset( $_GET['set'] ) ) {
-			$set = TBTS_DB::get_set( absint( $_GET['set'] ) );
+			$set = self::get_visible_set( absint( $_GET['set'] ) );
 		}
 
 		$is_edit  = (bool) $set;
 		$title    = $is_edit ? $set->title : '';
 		$status   = $is_edit ? $set->status : 'draft';
-		$deck_url = $is_edit ? self::deck_url( $set ) : '';
+		$deck_url = $is_edit ? TBTS_DB::deck_url( $set ) : '';
 		$page_set = (int) get_option( 'tbts_deck_page_id', 0 ) > 0;
 		$list_url = add_query_arg( 'page', 'tbt-swipe', admin_url( 'admin.php' ) );
 		?>
@@ -254,7 +277,15 @@ class TBTS_Admin {
 
 			<div class="tbts-panel">
 				<h2><?php esc_html_e( 'Step 1 — Terms', 'tbt-swipe' ); ?></h2>
-				<p class="description"><?php esc_html_e( 'Paste 5–20 English items, one per line.', 'tbt-swipe' ); ?></p>
+				<p class="description">
+					<?php
+					printf(
+						/* translators: %d: maximum number of terms per generation */
+						esc_html__( 'Paste up to %d English items, one per line.', 'tbt-swipe' ),
+						(int) TBTS_Generator::max_cards_per_generation()
+					);
+					?>
+				</p>
 				<textarea id="tbts-terms" rows="10" class="large-text code" spellcheck="false"></textarea>
 				<p><span id="tbts-term-count" class="tbts-count">0</span> — <span id="tbts-term-hint"></span></p>
 				<p>

@@ -37,15 +37,21 @@ class TBTS_DB {
 		$sets            = self::sets_table();
 		$cards           = self::cards_table();
 
+		// class_id / lesson_id are both nullable on purpose: NULL is an
+		// unattached ("guest") set, which is a first-class supported state.
+		// Existing rows keep NULL — there is deliberately no backfill.
 		dbDelta( "CREATE TABLE {$sets} (
   id        BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   title     VARCHAR(190)    NOT NULL DEFAULT '',
   owner_id  BIGINT UNSIGNED NOT NULL DEFAULT 0,
   slug      CHAR(12)        NOT NULL,
   status    VARCHAR(20)     NOT NULL DEFAULT 'draft',
+  class_id  BIGINT UNSIGNED NULL DEFAULT NULL,
+  lesson_id BIGINT UNSIGNED NULL DEFAULT NULL,
   created   DATETIME        NOT NULL,
   PRIMARY KEY  (id),
-  UNIQUE KEY slug (slug)
+  UNIQUE KEY slug (slug),
+  KEY class_id (class_id)
 ) {$charset_collate};" );
 
 		dbDelta( "CREATE TABLE {$cards} (
@@ -82,6 +88,58 @@ class TBTS_DB {
 		return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$sets} WHERE id = %d", $id ) );
 	}
 
+	/**
+	 * Fetch a set for management, scoped to an owner.
+	 *
+	 * Every management path (edit, delete, attach) goes through this rather
+	 * than get_set(), so holding TBTS_CAP is never enough to reach another
+	 * user's set by guessing an ID.
+	 *
+	 * @param int $id       Set ID.
+	 * @param int $owner_id Owner user ID.
+	 * @return object|null
+	 */
+	public static function get_set_for_owner( $id, $owner_id ) {
+		global $wpdb;
+		$sets = self::sets_table();
+		return $wpdb->get_row(
+			$wpdb->prepare( "SELECT * FROM {$sets} WHERE id = %d AND owner_id = %d", $id, $owner_id )
+		);
+	}
+
+	/**
+	 * May the current user edit or delete this set?
+	 *
+	 * Ownership, not capability. Administrators oversee every set from
+	 * wp-admin; everyone else is limited to their own.
+	 *
+	 * @param int $id Set ID.
+	 * @return bool
+	 */
+	public static function user_can_edit_set( $id ) {
+		if ( ! TBTS_Capabilities::user_can_manage() ) {
+			return false;
+		}
+		if ( TBTS_Capabilities::user_can_manage_all() ) {
+			return (bool) self::get_set( $id );
+		}
+		return (bool) self::get_set_for_owner( $id, get_current_user_id() );
+	}
+
+	/**
+	 * Public deck URL for a set, or '' if no deck page is configured.
+	 *
+	 * @param object $set Set row.
+	 * @return string
+	 */
+	public static function deck_url( $set ) {
+		$page_id = (int) get_option( 'tbts_deck_page_id', 0 );
+		if ( ! $page_id || 'publish' !== get_post_status( $page_id ) ) {
+			return '';
+		}
+		return add_query_arg( 'deck', $set->slug, get_permalink( $page_id ) );
+	}
+
 	public static function get_set_by_slug( $slug ) {
 		global $wpdb;
 		$sets = self::sets_table();
@@ -89,15 +147,27 @@ class TBTS_DB {
 	}
 
 	/**
-	 * All sets with card counts, newest first.
+	 * Sets with card counts, newest first.
+	 *
+	 * @param int|null $owner_id Restrict to one owner, or null for every set.
+	 *                           Only ever null for an administrator in wp-admin.
+	 * @return object[]
 	 */
-	public static function get_sets() {
+	public static function get_sets( $owner_id = null ) {
 		global $wpdb;
 		$sets  = self::sets_table();
 		$cards = self::cards_table();
+		$count = "( SELECT COUNT(*) FROM {$cards} c WHERE c.set_id = s.id ) AS card_count";
+
+		if ( null === $owner_id ) {
+			return $wpdb->get_results( "SELECT s.*, {$count} FROM {$sets} s ORDER BY s.created DESC" );
+		}
+
 		return $wpdb->get_results(
-			"SELECT s.*, ( SELECT COUNT(*) FROM {$cards} c WHERE c.set_id = s.id ) AS card_count
-			 FROM {$sets} s ORDER BY s.created DESC"
+			$wpdb->prepare(
+				"SELECT s.*, {$count} FROM {$sets} s WHERE s.owner_id = %d ORDER BY s.created DESC",
+				$owner_id
+			)
 		);
 	}
 
@@ -116,12 +186,25 @@ class TBTS_DB {
 	 * @param string $title  Already sanitised.
 	 * @param string $status 'draft' or 'published'.
 	 * @param array  $cards  List of arrays with term/ipa/translation/example (already sanitised).
+	 * @param array  $extra  Optional 'class_id' / 'lesson_id' (int or null, already validated).
+	 *                       A key that is absent leaves the column untouched on
+	 *                       update, so the admin editor — which knows nothing
+	 *                       about classes — cannot silently detach a set.
 	 * @return int|WP_Error  Set ID.
 	 */
-	public static function save_set( $id, $title, $status, $cards ) {
+	public static function save_set( $id, $title, $status, $cards, $extra = array() ) {
 		global $wpdb;
 		$sets_table  = self::sets_table();
 		$cards_table = self::cards_table();
+
+		$attach        = array();
+		$attach_format = array();
+		foreach ( array( 'class_id', 'lesson_id' ) as $key ) {
+			if ( array_key_exists( $key, $extra ) ) {
+				$attach[ $key ]  = null === $extra[ $key ] ? null : (int) $extra[ $key ];
+				$attach_format[] = '%d';
+			}
+		}
 
 		if ( $id ) {
 			$existing = self::get_set( $id );
@@ -130,22 +213,25 @@ class TBTS_DB {
 			}
 			$wpdb->update(
 				$sets_table,
-				array( 'title' => $title, 'status' => $status ),
+				array_merge( array( 'title' => $title, 'status' => $status ), $attach ),
 				array( 'id' => $id ),
-				array( '%s', '%s' ),
+				array_merge( array( '%s', '%s' ), $attach_format ),
 				array( '%d' )
 			);
 		} else {
 			$wpdb->insert(
 				$sets_table,
-				array(
-					'title'    => $title,
-					'owner_id' => get_current_user_id(),
-					'slug'     => self::generate_slug(),
-					'status'   => $status,
-					'created'  => current_time( 'mysql' ),
+				array_merge(
+					array(
+						'title'    => $title,
+						'owner_id' => get_current_user_id(),
+						'slug'     => self::generate_slug(),
+						'status'   => $status,
+						'created'  => current_time( 'mysql' ),
+					),
+					$attach
 				),
-				array( '%s', '%d', '%s', '%s', '%s' )
+				array_merge( array( '%s', '%d', '%s', '%s', '%s' ), $attach_format )
 			);
 			$id = (int) $wpdb->insert_id;
 		}
@@ -188,16 +274,29 @@ class TBTS_DB {
 			return new WP_Error( 'tbts_not_found', __( 'Set not found.', 'tbt-swipe' ) );
 		}
 
+		// The copy belongs to whoever made it, so it only keeps the class
+		// attachment when that user owns the class — otherwise it becomes an
+		// unattached set rather than landing in someone else's class.
+		$user_id   = get_current_user_id();
+		$class_id  = null;
+		$lesson_id = null;
+		if ( $set->class_id && TBTS_Classes::user_owns_class( $user_id, (int) $set->class_id ) ) {
+			$class_id  = (int) $set->class_id;
+			$lesson_id = $set->lesson_id ? (int) $set->lesson_id : null;
+		}
+
 		$wpdb->insert(
 			self::sets_table(),
 			array(
-				'title'    => $set->title . ' ' . __( '(copy)', 'tbt-swipe' ),
-				'owner_id' => get_current_user_id(),
-				'slug'     => self::generate_slug(),
-				'status'   => 'draft',
-				'created'  => current_time( 'mysql' ),
+				'title'     => $set->title . ' ' . __( '(copy)', 'tbt-swipe' ),
+				'owner_id'  => $user_id,
+				'slug'      => self::generate_slug(),
+				'status'    => 'draft',
+				'class_id'  => $class_id,
+				'lesson_id' => $lesson_id,
+				'created'   => current_time( 'mysql' ),
 			),
-			array( '%s', '%d', '%s', '%s', '%s' )
+			array( '%s', '%d', '%s', '%s', '%d', '%d', '%s' )
 		);
 		$new_id = (int) $wpdb->insert_id;
 
