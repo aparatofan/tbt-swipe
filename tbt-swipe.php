@@ -12,18 +12,30 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'TBTS_VERSION', '1.3.0' );
-define( 'TBTS_DB_VERSION', '1.0' );
+define( 'TBTS_VERSION', '1.4.0' );
+define( 'TBTS_DB_VERSION', '1.1' );
 define( 'TBTS_PLUGIN_FILE', __FILE__ );
 define( 'TBTS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'TBTS_URL', plugin_dir_url( __FILE__ ) );
 
+/**
+ * The one capability that gates set and card CRUD plus AI generation. Site
+ * configuration (API key, model, role grants, AI limits) stays on
+ * manage_options — see TBTS_Capabilities.
+ */
+define( 'TBTS_CAP', 'tbts_manage' );
+
+require_once TBTS_DIR . 'includes/class-tbts-capabilities.php';
+require_once TBTS_DIR . 'includes/class-tbts-classes.php';
 require_once TBTS_DIR . 'includes/class-tbts-db.php';
 require_once TBTS_DIR . 'includes/class-tbts-api.php';
+require_once TBTS_DIR . 'includes/class-tbts-generator.php';
 require_once TBTS_DIR . 'includes/class-tbts-ajax.php';
 require_once TBTS_DIR . 'includes/class-tbts-admin.php';
 require_once TBTS_DIR . 'includes/class-tbts-rest.php';
+require_once TBTS_DIR . 'includes/class-tbts-manage-rest.php';
 require_once TBTS_DIR . 'includes/class-tbts-shortcode.php';
+require_once TBTS_DIR . 'includes/class-tbts-frontend.php';
 require_once TBTS_DIR . 'includes/class-tbts-settings.php';
 
 /**
@@ -40,19 +52,30 @@ function tbts_register_hub_item( $items ) {
 		'slug'        => 'tbt-swipe',
 		'title'       => 'TBT Swipe',
 		'description' => 'Swipeable phone flashcard decks for live lessons; students scan a QR code and swipe through the set.',
-		'capability'  => 'manage_options',
+		'capability'  => TBTS_CAP,
 	);
 	return $items;
 }
 add_filter( 'tbt_hub_items', 'tbts_register_hub_item' );
 
-register_activation_hook( __FILE__, array( 'TBTS_DB', 'activate' ) );
+/**
+ * Create the tables and grant the management capability.
+ */
+function tbts_activate() {
+	TBTS_DB::activate();
+	TBTS_Capabilities::add_caps();
+	update_option( 'tbts_caps_version', TBTS_Capabilities::CAPS_VERSION );
+}
+register_activation_hook( __FILE__, 'tbts_activate' );
 
 add_action( 'plugins_loaded', function () {
 	TBTS_DB::maybe_upgrade();
+	TBTS_Capabilities::maybe_add_caps();
 
 	new TBTS_Rest();
+	new TBTS_Manage_Rest();
 	new TBTS_Shortcode();
+	new TBTS_Frontend();
 
 	if ( is_admin() ) {
 		new TBTS_Admin();
