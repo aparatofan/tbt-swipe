@@ -51,7 +51,15 @@
   padding: var(--tbt-s6); text-align: center;
 }
 
-/* ---------- Form ---------- */
+/* ---------- Form ----------
+   Fields are pinned for the same reason the buttons are: the theme styles
+   bare inputs, selects and textareas, and those rules reach inside .tbt past
+   a reset that carries no specificity. Left unpinned, the deck title came out
+   white and serif while the select beside it kept the TBT tint — two fields
+   on one line that no longer looked like the same control.
+
+   Height is deliberately NOT pinned: the example fields size themselves from
+   an inline style, and an !important height in here would beat it. */
 .tbt-field { margin-bottom: var(--tbt-s5); }
 .tbt-label {
   display: block; font-family: var(--tbt-display);
@@ -59,23 +67,33 @@
 }
 .tbt-help { font-size: 15px; color: var(--tbt-ink-soft); margin-top: var(--tbt-s2) !important; }
 .tbt-help strong { color: var(--tbt-maroon); font-weight: 600; }
-.tbt-input, .tbt-select, .tbt-textarea {
-  width: 100%; background-color: var(--tbt-blue-tint);
-  border: 1.5px solid var(--tbt-line); border-radius: var(--tbt-r-md);
-  padding: 13px var(--tbt-s4);
+.tbt .tbt-input, .tbt .tbt-select, .tbt .tbt-textarea {
+  display: block !important;
+  width: 100% !important; max-width: 100% !important; min-width: 0 !important;
+  background-color: var(--tbt-blue-tint) !important;
+  border: 1.5px solid var(--tbt-line) !important;
+  border-radius: var(--tbt-r-md) !important;
+  padding: 13px var(--tbt-s4) !important;
+  font-family: var(--tbt-body) !important; font-size: 16px !important;
+  line-height: 1.4 !important; color: var(--tbt-ink) !important;
+  box-shadow: none;
   transition: border-color .18s var(--tbt-ease), background-color .18s var(--tbt-ease), box-shadow .18s var(--tbt-ease);
 }
-.tbt-input::placeholder, .tbt-textarea::placeholder { color: var(--tbt-ink-faint); }
-.tbt-input:hover, .tbt-select:hover, .tbt-textarea:hover { border-color: var(--tbt-periwinkle); }
-.tbt-input:focus, .tbt-select:focus, .tbt-textarea:focus {
-  outline: none; background-color: var(--tbt-surface);
-  border-color: var(--tbt-blue); box-shadow: 0 0 0 4px var(--tbt-blue-wash);
+.tbt .tbt-input::placeholder, .tbt .tbt-textarea::placeholder { color: var(--tbt-ink-faint) !important; }
+.tbt .tbt-input:hover, .tbt .tbt-select:hover, .tbt .tbt-textarea:hover { border-color: var(--tbt-periwinkle) !important; }
+.tbt .tbt-input:focus, .tbt .tbt-select:focus, .tbt .tbt-textarea:focus {
+  outline: none; background-color: var(--tbt-surface) !important;
+  border-color: var(--tbt-blue) !important; box-shadow: 0 0 0 4px var(--tbt-blue-wash);
 }
-.tbt-textarea { min-height: 230px; resize: vertical; line-height: 1.9; font-family: var(--tbt-mono); font-size: 15px; }
-.tbt-select {
+.tbt .tbt-textarea {
+  min-height: 230px !important; resize: vertical;
+  line-height: 1.9 !important; font-family: var(--tbt-mono) !important; font-size: 15px !important;
+}
+.tbt .tbt-select {
   appearance: none;
-  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5l5-5' stroke='%230856C9' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat; background-position: right var(--tbt-s4) center; padding-right: var(--tbt-s7);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5l5-5' stroke='%230856C9' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important; background-position: right var(--tbt-s4) center !important;
+  padding-right: var(--tbt-s7) !important;
 }
 .tbt-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--tbt-s4); }
 .tbt-meter {
@@ -84,7 +102,6 @@
   margin-top: var(--tbt-s3); margin-bottom: var(--tbt-s5);
 }
 .tbt-meter strong { color: var(--tbt-blue-deep); font-weight: 700; font-family: var(--tbt-display); }
-.tbt-meter .is-over { color: var(--tbt-maroon); }
 
 /* ---------- Buttons ----------
    The theme styles bare <button> and <a> elements, and those rules reach
@@ -157,6 +174,7 @@
 .tbt-stack[data-empty="true"] .tbt-stack-term { color: var(--tbt-ink-faint); font-weight: 400; font-size: 17px; }
 .tbt-stack-count { text-align: center; font-size: 15px; color: var(--tbt-ink-soft); }
 .tbt-stack-count strong { display: block; font-family: var(--tbt-display); font-size: 40px; font-weight: 700; color: var(--tbt-blue); line-height: 1; margin-bottom: var(--tbt-s1); }
+.tbt-stack-count .is-over { color: var(--tbt-maroon); }
 
 /* ---------- Review ---------- */
 .tbt-review { margin-top: var(--tbt-s7); padding-top: var(--tbt-s6); border-top: 2px solid var(--tbt-line-soft); }
@@ -187,18 +205,29 @@
   gap: var(--tbt-s3); align-items: start; margin-top: var(--tbt-s2);
 }
 .tbt-row-n { font-family: var(--tbt-display); font-size: 14px; font-weight: 700; color: var(--tbt-periwinkle); text-align: center; }
-.tbt-cell {
-  background-color: var(--tbt-surface); border: 1.5px solid var(--tbt-line);
-  border-radius: var(--tbt-r-md); padding: 10px var(--tbt-s3); width: 100%;
+/* Squarer than the panels around them, and roomier inside: at 12px the
+   corners fought the row's own radius, and the theme's own field padding was
+   crowding the text against the left edge. Pinned like the form fields, and
+   for the same reason — but never `height`, which the example fields set
+   themselves. */
+.tbt .tbt-cell {
+  background-color: var(--tbt-surface) !important;
+  border: 1.5px solid var(--tbt-line) !important;
+  border-radius: var(--tbt-r-sm) !important;
+  padding: 10px var(--tbt-s4) !important;
+  width: 100% !important; max-width: 100% !important; min-width: 0 !important;
+  font-family: var(--tbt-body) !important; font-size: 16px !important;
+  line-height: 1.4 !important; color: var(--tbt-ink) !important;
+  box-shadow: none;
   transition: border-color .16s var(--tbt-ease), box-shadow .16s var(--tbt-ease);
 }
-.tbt-cell:hover { border-color: var(--tbt-periwinkle); }
-.tbt-cell:focus { outline: none; border-color: var(--tbt-blue); box-shadow: 0 0 0 3px var(--tbt-blue-wash); }
-.tbt-cell--term { font-weight: 600; font-family: var(--tbt-display); }
-.tbt-cell--ipa { font-family: var(--tbt-mono); font-size: 14px; color: var(--tbt-maroon); }
-.tbt-cell--ex {
-  font-size: 15px; color: var(--tbt-ink-soft); line-height: 1.5;
-  resize: none; overflow: hidden; min-height: 44px; font-family: var(--tbt-body);
+.tbt .tbt-cell:hover { border-color: var(--tbt-periwinkle) !important; }
+.tbt .tbt-cell:focus { outline: none; border-color: var(--tbt-blue) !important; box-shadow: 0 0 0 3px var(--tbt-blue-wash); }
+.tbt .tbt-cell--term { font-weight: 600; font-family: var(--tbt-display) !important; }
+.tbt .tbt-cell--ipa { font-family: var(--tbt-mono) !important; font-size: 14px !important; color: var(--tbt-maroon) !important; }
+.tbt .tbt-cell--ex {
+  font-size: 15px !important; color: var(--tbt-ink-soft) !important; line-height: 1.5 !important;
+  resize: none; overflow: hidden !important; min-height: 44px !important; font-family: var(--tbt-body) !important;
 }
 /* The remove button is a bare glyph, so it has no modifier class to hide
    behind and takes the theme's button styling square on — same pinning as
@@ -218,8 +247,13 @@
 .tbt-review-foot .tbt-help { margin-top: 0 !important; }
 
 /* ---------- Save and share ---------- */
-.tbt-saved { display: grid; grid-template-columns: 216px minmax(0,1fr); gap: var(--tbt-s6); align-items: center; }
+.tbt-saved { display: grid; grid-template-columns: minmax(216px, max-content) minmax(0,1fr); gap: var(--tbt-s6); align-items: center; }
+.tbt-saved-qr { display: flex; flex-direction: column; align-items: center; gap: var(--tbt-s4); }
+.tbt .tbt-saved-qr .tbt-btn { width: 100% !important; }
 .tbt-qr {
+  /* margin pinned: it is a <figure>, and a theme figure margin would open an
+     unexplained gap between the code and the button under it. */
+  margin: 0 !important;
   width: 216px; height: 216px; border-radius: var(--tbt-r-lg);
   background-color: var(--tbt-surface); border: 3px solid var(--tbt-blue);
   display: flex; align-items: center; justify-content: center; box-shadow: var(--tbt-shadow-md);

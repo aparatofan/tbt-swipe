@@ -125,10 +125,6 @@
 		}
 	}
 
-	function pluralWord( n ) {
-		return 1 === n ? i18n.wordOne : i18n.wordMany;
-	}
-
 	function pluralCard( n ) {
 		return 1 === n ? i18n.cardOne : i18n.cardMany;
 	}
@@ -152,12 +148,13 @@
 
 	function initGenerator( root ) {
 		var titleInput = root.querySelector( '#tbts-fe-title' );
-		var classSelect = root.querySelector( '#tbts-fe-class' );
+		var classInput = root.querySelector( '#tbts-fe-class' );
+		var classList = root.querySelector( '#tbts-fe-class-list' );
+		var classIdField = role( root, 'class-id' );
+		var classHint = role( root, 'class-hint' );
 		var lessonSelect = root.querySelector( '#tbts-fe-lesson' );
 		var lessonWrap = role( root, 'lesson-wrap' );
 		var terms = root.querySelector( '#tbts-fe-terms' );
-		var countEl = role( root, 'count' );
-		var countNoun = role( root, 'count-noun' );
 		var stack = role( root, 'stack' );
 		var stackTerm = role( root, 'stack-term' );
 		var stackCount = role( root, 'stack-count' );
@@ -189,8 +186,9 @@
 		}
 
 		/**
-		 * The word counter and the preview stack read the same lines, so they
-		 * are updated together and can never disagree.
+		 * The preview stack is the only word counter on the page — it shows the
+		 * count, the first card's term and the empty state from one read of the
+		 * textarea, so there is nothing for a second counter to disagree with.
 		 *
 		 * The count is a pre-check only — the server enforces the real cap.
 		 */
@@ -198,14 +196,9 @@
 			var list = lines();
 			var n = list.length;
 
-			countEl.textContent = n;
-			countEl.classList.toggle( 'is-over', n > cfg.maxTerms );
-			if ( countNoun ) {
-				countNoun.textContent = pluralWord( n );
-			}
-
 			if ( stackCount ) {
 				stackCount.textContent = n;
+				stackCount.classList.toggle( 'is-over', n > cfg.maxTerms );
 			}
 			if ( stackTerm ) {
 				stackTerm.textContent = n ? list[ 0 ] : i18n.stackEmpty;
@@ -243,15 +236,75 @@
 		 *
 		 * Lessons load only for a class the server agrees this user owns.
 		 */
-		if ( classSelect && lessonSelect && lessonWrap ) {
-			classSelect.addEventListener( 'change', function () {
-				var classId = classSelect.value;
-				resetLessons();
+		/**
+		 * The class the typed text stands for.
+		 *
+		 * The datalist hands back a name, so the id it means is looked up here.
+		 * A name that matches nothing resolves to no class — deliberately, so a
+		 * half-typed name can never attach a deck to the wrong class.
+		 *
+		 * @param {string} text What the teacher typed.
+		 * @return {HTMLOptionElement|null} The matching entry, if there is one.
+		 */
+		function classOptionFor( text ) {
+			var wanted = ( text || '' ).trim().toLowerCase();
+			var found = null;
 
-				if ( ! classId ) {
-					lessonWrap.hidden = true;
+			if ( ! wanted || ! classList ) {
+				return null;
+			}
+
+			classList.querySelectorAll( 'option' ).forEach( function ( option ) {
+				if ( ! found && option.value.trim().toLowerCase() === wanted ) {
+					found = option;
+				}
+			} );
+
+			return found;
+		}
+
+		function setClass( id ) {
+			if ( classIdField ) {
+				classIdField.value = id || '';
+			}
+		}
+
+		if ( classInput && lessonSelect && lessonWrap ) {
+			// 'change' rather than 'input': it fires both when a suggestion is
+			// picked and when the field is left, so the lessons load once
+			// instead of on every keystroke.
+			classInput.addEventListener( 'change', function () {
+				var typed = classInput.value.trim();
+				var option = classOptionFor( typed );
+				var classId = option ? option.getAttribute( 'data-id' ) : '';
+
+				resetLessons();
+				lessonWrap.hidden = true;
+				setClass( '' );
+				if ( classHint ) {
+					classHint.hidden = true;
+				}
+
+				if ( ! typed ) {
 					return;
 				}
+
+				if ( ! option ) {
+					// Typed, but not one of this teacher's classes. Say so
+					// rather than silently saving the deck unattached.
+					if ( classHint ) {
+						classHint.hidden = false;
+					}
+					return;
+				}
+
+				if ( option.hasAttribute( 'data-lessonless' ) ) {
+					classInput.value = '';
+					showError( root, i18n.classNoLessons );
+					return;
+				}
+
+				setClass( classId );
 
 				request( 'classes/' + encodeURIComponent( classId ) + '/lessons' ).then( function ( data ) {
 					var lessons = data.lessons || [];
@@ -260,9 +313,10 @@
 						// Nothing to attach to. Say so, and take the class back
 						// out of play rather than leaving a selection that
 						// cannot be saved and does not explain itself.
-						markClassLessonless( classId );
+						markClassLessonless( option );
 						lessonWrap.hidden = true;
-						classSelect.value = '';
+						classInput.value = '';
+						setClass( '' );
 						showError( root, i18n.classNoLessons );
 						return;
 					}
@@ -280,6 +334,7 @@
 					lessonWrap.hidden = false;
 				} ).catch( function ( error ) {
 					lessonWrap.hidden = true;
+					setClass( '' );
 					showError( root, error.message );
 				} );
 			} );
@@ -289,16 +344,16 @@
 		 * Take a class with no lessons out of the picker, so the teacher cannot
 		 * land on it again and wonder why saving fails.
 		 *
-		 * @param {string} classId Class that came back empty.
+		 * The entry keeps its place in the list, renamed so the reason is
+		 * visible, and is flagged so picking it again explains itself instead
+		 * of quietly resolving to a class that cannot be saved.
+		 *
+		 * @param {HTMLOptionElement} option Entry for the class that came back empty.
 		 */
-		function markClassLessonless( classId ) {
-			var option = classSelect.querySelector( 'option[value="' + classId + '"]' );
-			if ( ! option ) {
-				return;
-			}
-			option.disabled = true;
-			if ( option.textContent.indexOf( i18n.noLessonsSuffix ) === -1 ) {
-				option.textContent = option.textContent.trim() + ' ' + i18n.noLessonsSuffix;
+		function markClassLessonless( option ) {
+			option.setAttribute( 'data-lessonless', '' );
+			if ( option.value.indexOf( i18n.noLessonsSuffix ) === -1 ) {
+				option.value = option.value.trim() + ' ' + i18n.noLessonsSuffix;
 			}
 		}
 
@@ -491,7 +546,7 @@
 				method: 'POST',
 				body: {
 					title: title,
-					class_id: classSelect ? classSelect.value : '',
+					class_id: classIdField ? classIdField.value : '',
 					lesson_id: lessonSelect ? lessonSelect.value : '',
 					cards: cards
 				}
