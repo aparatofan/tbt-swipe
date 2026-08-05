@@ -348,16 +348,29 @@
 		/**
 		 * An example sentence is never truncated: the field grows to fit it.
 		 *
+		 * scrollHeight covers the content and the padding but not the border,
+		 * and the reset makes every field border-box, so the border has to be
+		 * added back or the last line is clipped by a couple of pixels.
+		 *
 		 * @param {HTMLTextAreaElement} el Example field.
 		 */
 		function grow( el ) {
 			el.style.height = 'auto';
-			el.style.height = el.scrollHeight + 'px';
+			el.style.height = ( el.scrollHeight + ( el.offsetHeight - el.clientHeight ) ) + 'px';
 		}
 
 		function growAll() {
 			reviewBody.querySelectorAll( '[data-field="example"]' ).forEach( grow );
 		}
+
+		// A narrower row wraps the same sentence onto more lines, and a height
+		// fixed in pixels does not follow it, so every field is remeasured
+		// after a resize or an orientation change.
+		var growTimer = null;
+		window.addEventListener( 'resize', function () {
+			clearTimeout( growTimer );
+			growTimer = setTimeout( growAll, 120 );
+		} );
 
 		/* Numbering is positional, so it is recomputed rather than stored:
 		   remove row 2 of 5 and the rest still read 01…04. */

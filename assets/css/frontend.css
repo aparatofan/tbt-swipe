@@ -272,6 +272,11 @@
   .tbt-row-top { grid-template-columns: 30px minmax(0,1fr) 34px; row-gap: var(--tbt-s2); }
   .tbt-row-top .tbt-row-n { grid-row: span 3; align-self: start; padding-top: 12px; }
   .tbt-row-top .tbt-row-x { grid-row: span 3; align-self: start; }
+  /* The three fields stack down the wide middle column, between the number
+     and the remove button. Auto-placement would put the pronunciation beside
+     the term in the 34px column instead and squeeze it to nothing. */
+  .tbt-row-top .tbt-cell { grid-column: 2; }
+  .tbt-row-top .tbt-row-x { grid-column: 3; grid-row: 1 / span 3; }
   .tbt-row-ex { grid-template-columns: 30px minmax(0,1fr) 34px; }
   .tbt-saved { grid-template-columns: 1fr; justify-items: start; }
   .tbt-stage-title { font-size: 24px; }
@@ -285,4 +290,13 @@
   .tbt-btn--primary, .tbt-btn--soft { width: 100%; }
   .tbt-row-top, .tbt-row-ex { grid-template-columns: minmax(0,1fr) 34px; }
   .tbt-row-top .tbt-row-n { display: none; }
+  /* With the row number gone the fields stack in the wide column and the
+     remove button keeps the narrow one. Without this, auto-placement drops
+     the pronunciation into the 34px column and squeezes it to nothing. */
+  .tbt-row-top .tbt-cell { grid-column: 1; }
+  .tbt-row-top .tbt-row-x { grid-column: 2; grid-row: 1 / span 3; }
+  /* The example line's leading spacer exists only to line up with the row
+     number, so it goes when the number does — otherwise it takes the wide
+     column and the example lands in the 34px one. */
+  .tbt-row-ex > span:first-child { display: none; }
 }
