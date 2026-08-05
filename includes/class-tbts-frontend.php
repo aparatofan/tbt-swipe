@@ -70,14 +70,28 @@ class TBTS_Frontend {
 						<div class="tbt-field tbt-pair">
 							<div>
 								<label class="tbt-label" for="tbts-fe-class"><?php esc_html_e( 'Class', 'tbt-swipe' ); ?></label>
-								<select id="tbts-fe-class" class="tbt-select">
-									<option value="" selected><?php esc_html_e( 'No class', 'tbt-swipe' ); ?></option>
+								<?php
+								/*
+								 * A text field bound to a datalist rather than a select: a
+								 * teacher with thirty classes types two letters and the list
+								 * narrows, which a select cannot do. The datalist hands back
+								 * the class name, so the id it stands for is resolved in JS
+								 * and parked in the hidden field the save reads.
+								 */
+								?>
+								<input type="text" id="tbts-fe-class" class="tbt-input" list="tbts-fe-class-list"
+									autocomplete="off" spellcheck="false"
+									placeholder="<?php esc_attr_e( 'No class — type to filter', 'tbt-swipe' ); ?>">
+								<datalist id="tbts-fe-class-list">
 									<?php foreach ( $classes as $class ) : ?>
-										<option value="<?php echo esc_attr( (int) $class['id'] ); ?>">
-											<?php echo esc_html( $class['title'] ); ?>
-										</option>
+										<option value="<?php echo esc_attr( $class['title'] ); ?>"
+											data-id="<?php echo esc_attr( (int) $class['id'] ); ?>"></option>
 									<?php endforeach; ?>
-								</select>
+								</datalist>
+								<input type="hidden" data-role="class-id" value="">
+								<p class="tbt-help" data-role="class-hint" hidden>
+									<strong><?php esc_html_e( 'No class matches that. Pick one from the list, or clear the field to save without a class.', 'tbt-swipe' ); ?></strong>
+								</p>
 							</div>
 
 							<div data-role="lesson-wrap" hidden>
@@ -105,13 +119,17 @@ class TBTS_Frontend {
 								<textarea id="tbts-fe-terms" class="tbt-textarea" rows="10" spellcheck="false"
 									placeholder="<?php esc_attr_e( 'One word or phrase per line', 'tbt-swipe' ); ?>"></textarea>
 								<div class="tbt-meter">
-									<span><strong data-role="count">0</strong> <span data-role="count-noun"></span></span>
+									<?php
+									// No live word count here: the preview stack already
+									// counts the lines, and two counters that can disagree
+									// are worse than one.
+									?>
 									<span data-role="hint">
 										<?php
 										printf(
-											/* translators: %d: maximum number of words per deck */
-											esc_html__( 'Up to %d words per deck', 'tbt-swipe' ),
-											(int) $max
+											/* translators: %s: maximum number of words per deck, already wrapped in <strong> */
+											esc_html__( 'Up to %s words per deck', 'tbt-swipe' ),
+											'<strong>' . esc_html( (int) $max ) . '</strong>'
 										);
 										?>
 									</span>
@@ -186,7 +204,12 @@ class TBTS_Frontend {
 					</div>
 
 					<div class="tbt-saved" data-role="result" hidden>
-						<figure class="tbt-qr" data-role="result-qr"></figure>
+						<div class="tbt-saved-qr">
+							<figure class="tbt-qr" data-role="result-qr"></figure>
+							<button type="button" class="tbt-btn tbt-btn--primary" data-role="reset">
+								<?php esc_html_e( 'Create another deck', 'tbt-swipe' ); ?>
+							</button>
+						</div>
 						<div>
 							<div class="tbt-deck-title" data-role="result-title"></div>
 							<div class="tbt-deck-meta" data-role="result-meta"></div>
@@ -195,9 +218,6 @@ class TBTS_Frontend {
 								<button type="button" class="tbt-btn tbt-btn--ghost" data-role="copy"><?php esc_html_e( 'Copy link', 'tbt-swipe' ); ?></button>
 							</div>
 							<div class="tbt-saved-actions">
-								<button type="button" class="tbt-btn tbt-btn--primary" data-role="reset">
-									<?php esc_html_e( 'Create another deck', 'tbt-swipe' ); ?>
-								</button>
 								<a class="tbt-btn tbt-btn--ghost" data-role="result-open" href="#" target="_blank" rel="noopener">
 									<?php esc_html_e( 'Open deck', 'tbt-swipe' ); ?>
 								</a>

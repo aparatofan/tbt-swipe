@@ -78,8 +78,6 @@ class TBTS_Shortcode {
 				'nonce'    => wp_create_nonce( 'wp_rest' ),
 				'maxTerms' => (int) $max_terms,
 				'i18n'     => array(
-					'wordOne'       => __( 'word', 'tbt-swipe' ),
-					'wordMany'      => __( 'words', 'tbt-swipe' ),
 					'cardOne'       => __( 'card', 'tbt-swipe' ),
 					'cardMany'      => __( 'cards', 'tbt-swipe' ),
 					'tooMany'       => sprintf(

@@ -13,7 +13,7 @@ defined( 'ABSPATH' ) || exit;
 class TBTS_Generator {
 
 	/** Terms allowed in one generation, out of the box. */
-	const DEFAULT_MAX_CARDS = 30;
+	const DEFAULT_MAX_CARDS = 20;
 
 	/** Ceiling on the configurable per-generation cap, to protect the token budget. */
 	const HARD_MAX_CARDS = 100;
