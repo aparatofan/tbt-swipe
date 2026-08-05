@@ -232,10 +232,13 @@ class TBTS_Frontend {
 	 * The UI language here is Polish by design rather than by translation, so
 	 * _n() would only ever give two forms — Polish needs three.
 	 *
+	 * Public because the Notes bridge labels decks the same way; one wording,
+	 * one place to change it.
+	 *
 	 * @param int $count Number of cards.
 	 * @return string
 	 */
-	private static function card_count_label( $count ) {
+	public static function card_count_label( $count ) {
 		if ( 1 === $count ) {
 			return $count . ' ' . __( 'karta', 'tbt-swipe' );
 		}

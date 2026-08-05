@@ -171,6 +171,44 @@ class TBTS_DB {
 		);
 	}
 
+	/**
+	 * Published sets attached to a class, with card counts, newest first.
+	 *
+	 * Scoped by class_id alone — deliberately not by owner_id, and the opposite
+	 * of the catalogue rule in get_sets(). The catalogue answers "which sets are
+	 * mine?"; this answers "which sets belong to this class?", and its readers
+	 * are the class's students, who own nothing. Filtering by owner here would
+	 * return an empty list for every student.
+	 *
+	 * That is safe because the caller has already been proven a member of the
+	 * class (see TBTS_Notes_Bridge): class membership is the authorization
+	 * boundary here, not set ownership.
+	 *
+	 * Drafts are excluded in SQL, not hidden downstream, so an unfinished set
+	 * cannot reach a student by way of a rendering bug.
+	 *
+	 * @param int $class_id Class ID.
+	 * @return object[]
+	 */
+	public static function get_published_sets_for_class( $class_id ) {
+		global $wpdb;
+		$class_id = (int) $class_id;
+		if ( $class_id <= 0 ) {
+			return array();
+		}
+
+		$sets  = self::sets_table();
+		$cards = self::cards_table();
+		$count = "( SELECT COUNT(*) FROM {$cards} c WHERE c.set_id = s.id ) AS card_count";
+
+		return $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT s.*, {$count} FROM {$sets} s WHERE s.class_id = %d AND s.status = 'published' ORDER BY s.created DESC, s.id DESC",
+				$class_id
+			)
+		);
+	}
+
 	public static function get_cards( $set_id ) {
 		global $wpdb;
 		$cards = self::cards_table();
