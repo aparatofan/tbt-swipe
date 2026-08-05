@@ -39,89 +39,176 @@ class TBTS_Frontend {
 
 		ob_start();
 		?>
-		<div class="tbts-fe tbts-fe-generator" id="tbts-fe-generator">
-			<div class="tbts-fe-notice tbts-fe-error" data-role="error" hidden></div>
+		<div class="tbt" id="tbts-fe-generator">
+		<div class="tbt-page">
+		<div class="tbt-wrap">
 
-			<div class="tbts-fe-step">
-				<label class="tbts-fe-label" for="tbts-fe-title"><?php esc_html_e( 'Tytuł zestawu', 'tbt-swipe' ); ?></label>
-				<input type="text" id="tbts-fe-title" class="tbts-fe-input" required
-					placeholder="<?php esc_attr_e( 'np. Unit 4 — podróże', 'tbt-swipe' ); ?>">
-			</div>
+			<header class="tbt-masthead">
+				<div class="tbt-wordmark"><?php esc_html_e( 'Swipe', 'tbt-swipe' ); ?><span>.</span></div>
+				<p class="tbt-tagline">
+					<strong><?php esc_html_e( 'Your friendly flashcard tool.', 'tbt-swipe' ); ?></strong>
+					<?php esc_html_e( 'Words from lessons become decks your students can play on their phones.', 'tbt-swipe' ); ?>
+				</p>
+			</header>
 
-			<?php if ( ! empty( $classes ) ) : ?>
-				<div class="tbts-fe-step">
-					<label class="tbts-fe-label" for="tbts-fe-class"><?php esc_html_e( 'Klasa', 'tbt-swipe' ); ?></label>
-					<select id="tbts-fe-class" class="tbts-fe-select">
-						<option value="" selected><?php esc_html_e( 'Bez klasy', 'tbt-swipe' ); ?></option>
-						<?php foreach ( $classes as $class ) : ?>
-							<option value="<?php echo esc_attr( (int) $class['id'] ); ?>">
-								<?php echo esc_html( $class['title'] ); ?>
-							</option>
-						<?php endforeach; ?>
-					</select>
-					<p class="tbts-fe-help"><?php esc_html_e( 'Przypisz do klasy, żeby uczniowie mogli wrócić do zestawu.', 'tbt-swipe' ); ?></p>
+			<div class="tbt-notice tbt-notice--error" data-role="error" hidden></div>
 
-					<div class="tbts-fe-lesson-wrap" data-role="lesson-wrap" hidden>
-						<label class="tbts-fe-label" for="tbts-fe-lesson"><?php esc_html_e( 'Lekcja', 'tbt-swipe' ); ?></label>
-						<select id="tbts-fe-lesson" class="tbts-fe-select">
-							<option value="" selected></option>
-						</select>
+			<section class="tbt-stage" data-stage="1" data-state="active">
+				<div class="tbt-stage-card">
+					<div class="tbt-stage-head">
+						<h2 class="tbt-stage-title"><b><?php esc_html_e( 'Stage 1.', 'tbt-swipe' ); ?></b> <?php esc_html_e( 'Admin', 'tbt-swipe' ); ?></h2>
+						<p class="tbt-stage-sub"><?php esc_html_e( 'Name the deck, choose the class and lesson.', 'tbt-swipe' ); ?></p>
+					</div>
+
+					<div class="tbt-field">
+						<label class="tbt-label" for="tbts-fe-title"><?php esc_html_e( 'Tytuł zestawu', 'tbt-swipe' ); ?></label>
+						<input type="text" id="tbts-fe-title" class="tbt-input" required
+							placeholder="<?php esc_attr_e( 'np. Unit 4 — podróże', 'tbt-swipe' ); ?>">
+					</div>
+
+					<?php if ( ! empty( $classes ) ) : ?>
+						<div class="tbt-field tbt-pair">
+							<div>
+								<label class="tbt-label" for="tbts-fe-class"><?php esc_html_e( 'Klasa', 'tbt-swipe' ); ?></label>
+								<select id="tbts-fe-class" class="tbt-select">
+									<option value="" selected><?php esc_html_e( 'Bez klasy', 'tbt-swipe' ); ?></option>
+									<?php foreach ( $classes as $class ) : ?>
+										<option value="<?php echo esc_attr( (int) $class['id'] ); ?>">
+											<?php echo esc_html( $class['title'] ); ?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+							</div>
+
+							<div data-role="lesson-wrap" hidden>
+								<label class="tbt-label" for="tbts-fe-lesson"><?php esc_html_e( 'Lekcja', 'tbt-swipe' ); ?></label>
+								<select id="tbts-fe-lesson" class="tbt-select">
+									<option value="" selected></option>
+								</select>
+							</div>
+						</div>
+					<?php endif; ?>
+				</div>
+			</section>
+
+			<section class="tbt-stage" data-stage="2" data-state="active">
+				<div class="tbt-stage-card">
+					<div class="tbt-stage-head">
+						<h2 class="tbt-stage-title"><b><?php esc_html_e( 'Stage 2.', 'tbt-swipe' ); ?></b> <?php esc_html_e( 'Content', 'tbt-swipe' ); ?></h2>
+						<p class="tbt-stage-sub"><?php esc_html_e( 'Add words, generate cards, edit and approve the outcome.', 'tbt-swipe' ); ?></p>
+					</div>
+
+					<div class="tbt-compose">
+						<div>
+							<div class="tbt-field">
+								<label class="tbt-label" for="tbts-fe-terms"><?php esc_html_e( 'Słowa', 'tbt-swipe' ); ?></label>
+								<textarea id="tbts-fe-terms" class="tbt-textarea" rows="10" spellcheck="false"
+									placeholder="<?php esc_attr_e( 'Jedno słowo lub wyrażenie w linii', 'tbt-swipe' ); ?>"></textarea>
+								<div class="tbt-meter">
+									<span><strong data-role="count">0</strong> <span data-role="count-noun"></span></span>
+									<span data-role="hint">
+										<?php
+										printf(
+											/* translators: %d: maximum number of words per deck */
+											esc_html__( 'Up to %d words per deck', 'tbt-swipe' ),
+											(int) $max
+										);
+										?>
+									</span>
+								</div>
+							</div>
+							<button type="button" class="tbt-btn tbt-btn--primary" data-role="generate">
+								<?php esc_html_e( 'Generuj karty', 'tbt-swipe' ); ?>
+							</button>
+							<p class="tbt-help" data-role="generate-status"></p>
+						</div>
+
+						<aside class="tbt-stack-rail">
+							<p class="tbt-eyebrow"><?php esc_html_e( 'preview', 'tbt-swipe' ); ?></p>
+							<div class="tbt-stack" data-role="stack" data-empty="true">
+								<div class="tbt-stack-layer"></div>
+								<div class="tbt-stack-layer"></div>
+								<div class="tbt-stack-layer"></div>
+								<div class="tbt-stack-face">
+									<span class="tbt-stack-term" data-role="stack-term"><?php esc_html_e( 'Your first card lands here', 'tbt-swipe' ); ?></span>
+								</div>
+							</div>
+							<p class="tbt-stack-count">
+								<strong data-role="stack-count">0</strong>
+								<?php esc_html_e( 'cards in this deck', 'tbt-swipe' ); ?>
+							</p>
+						</aside>
+					</div>
+
+					<div class="tbt-review" data-role="review" hidden>
+						<h3 class="tbt-review-title"><?php esc_html_e( 'Sprawdź i popraw', 'tbt-swipe' ); ?></h3>
+						<p class="tbt-help" style="margin-bottom: var( --tbt-s5 )">
+							<?php esc_html_e( 'Każde pole możesz poprawić przed zapisaniem. Po zapisaniu zestawu kart nie da się już edytować tutaj.', 'tbt-swipe' ); ?>
+						</p>
+
+						<div class="tbt-colheads">
+							<span></span>
+							<span><?php esc_html_e( 'Słowo', 'tbt-swipe' ); ?></span>
+							<span><?php esc_html_e( 'Wymowa', 'tbt-swipe' ); ?></span>
+							<span><?php esc_html_e( 'Tłumaczenie', 'tbt-swipe' ); ?></span>
+							<span></span>
+						</div>
+
+						<div class="tbt-rows" data-role="review-body"></div>
+
+						<div class="tbt-review-foot">
+							<button type="button" class="tbt-btn tbt-btn--primary" data-role="save">
+								<?php esc_html_e( 'Zapisz zestaw', 'tbt-swipe' ); ?>
+							</button>
+							<button type="button" class="tbt-btn tbt-btn--ghost" data-role="add-row">
+								<?php esc_html_e( '+ Add row', 'tbt-swipe' ); ?>
+							</button>
+							<button type="button" class="tbt-btn tbt-btn--ghost" data-role="start-over">
+								<?php esc_html_e( 'Start over', 'tbt-swipe' ); ?>
+							</button>
+							<p class="tbt-help" data-role="save-status"></p>
+						</div>
 					</div>
 				</div>
-			<?php endif; ?>
+			</section>
 
-			<div class="tbts-fe-step">
-				<label class="tbts-fe-label" for="tbts-fe-terms"><?php esc_html_e( 'Słowa', 'tbt-swipe' ); ?></label>
-				<textarea id="tbts-fe-terms" class="tbts-fe-textarea" rows="10" spellcheck="false"
-					placeholder="<?php esc_attr_e( 'Jedno słowo lub wyrażenie w linii', 'tbt-swipe' ); ?>"></textarea>
-				<p class="tbts-fe-help">
-					<span data-role="count">0</span>
-					<span data-role="hint"></span>
-				</p>
-				<button type="button" class="tbts-fe-btn tbts-fe-btn-primary" data-role="generate">
-					<?php esc_html_e( 'Generuj karty', 'tbt-swipe' ); ?>
-				</button>
-				<span class="tbts-fe-status" data-role="generate-status"></span>
-			</div>
+			<section class="tbt-stage" data-stage="3" data-state="waiting">
+				<div class="tbt-stage-card">
+					<div class="tbt-stage-head">
+						<h2 class="tbt-stage-title"><b><?php esc_html_e( 'Stage 3.', 'tbt-swipe' ); ?></b> <?php esc_html_e( 'Save and share', 'tbt-swipe' ); ?></h2>
+						<p class="tbt-stage-sub"><?php esc_html_e( 'Save the deck. Share the deck with your students.', 'tbt-swipe' ); ?></p>
+					</div>
 
-			<div class="tbts-fe-step tbts-fe-review" data-role="review" hidden>
-				<h3 class="tbts-fe-heading"><?php esc_html_e( 'Sprawdź i popraw', 'tbt-swipe' ); ?></h3>
-				<p class="tbts-fe-help">
-					<?php esc_html_e( 'Każde pole możesz poprawić przed zapisaniem. Po zapisaniu zestawu kart nie da się już edytować tutaj.', 'tbt-swipe' ); ?>
-				</p>
-				<div class="tbts-fe-table-scroll">
-					<table class="tbts-fe-table">
-						<thead>
-							<tr>
-								<th><?php esc_html_e( 'Słowo', 'tbt-swipe' ); ?></th>
-								<th><?php esc_html_e( 'Wymowa', 'tbt-swipe' ); ?></th>
-								<th><?php esc_html_e( 'Tłumaczenie', 'tbt-swipe' ); ?></th>
-								<th><?php esc_html_e( 'Przykład', 'tbt-swipe' ); ?></th>
-								<th class="tbts-fe-col-tool"><span class="screen-reader-text"><?php esc_html_e( 'Usuń', 'tbt-swipe' ); ?></span></th>
-							</tr>
-						</thead>
-						<tbody data-role="review-body"></tbody>
-					</table>
+					<div data-role="result-wait">
+						<p class="tbt-stage-wait">
+							<?php esc_html_e( 'Your link and QR code appear here once the deck is saved.', 'tbt-swipe' ); ?>
+						</p>
+					</div>
+
+					<div class="tbt-saved" data-role="result" hidden>
+						<figure class="tbt-qr" data-role="result-qr"></figure>
+						<div>
+							<div class="tbt-deck-title" data-role="result-title"></div>
+							<div class="tbt-deck-meta" data-role="result-meta"></div>
+							<div class="tbt-linkrow">
+								<input type="text" class="tbt-input" data-role="result-url" readonly>
+								<button type="button" class="tbt-btn tbt-btn--ghost" data-role="copy"><?php esc_html_e( 'Kopiuj link', 'tbt-swipe' ); ?></button>
+							</div>
+							<div class="tbt-saved-actions">
+								<button type="button" class="tbt-btn tbt-btn--primary" data-role="reset">
+									<?php esc_html_e( 'Zrób kolejny zestaw', 'tbt-swipe' ); ?>
+								</button>
+								<a class="tbt-btn tbt-btn--ghost" data-role="result-open" href="#" target="_blank" rel="noopener">
+									<?php esc_html_e( 'Open deck', 'tbt-swipe' ); ?>
+								</a>
+							</div>
+						</div>
+					</div>
 				</div>
-				<button type="button" class="tbts-fe-btn tbts-fe-btn-primary" data-role="save">
-					<?php esc_html_e( 'Zapisz zestaw', 'tbt-swipe' ); ?>
-				</button>
-				<span class="tbts-fe-status" data-role="save-status"></span>
-			</div>
+			</section>
 
-			<div class="tbts-fe-step tbts-fe-result" data-role="result" hidden>
-				<h3 class="tbts-fe-heading"><?php esc_html_e( 'Zestaw zapisany', 'tbt-swipe' ); ?></h3>
-				<div class="tbts-fe-link-row">
-					<input type="text" class="tbts-fe-input tbts-fe-url" data-role="result-url" readonly>
-					<button type="button" class="tbts-fe-btn" data-role="copy"><?php esc_html_e( 'Kopiuj link', 'tbt-swipe' ); ?></button>
-				</div>
-				<div class="tbts-fe-qr" data-role="result-qr"></div>
-				<p>
-					<button type="button" class="tbts-fe-btn" data-role="reset">
-						<?php esc_html_e( 'Zrób kolejny zestaw', 'tbt-swipe' ); ?>
-					</button>
-				</p>
-			</div>
+		</div>
+		</div>
 		</div>
 		<?php
 		$html = ob_get_clean();
@@ -153,31 +240,44 @@ class TBTS_Frontend {
 
 		ob_start();
 		?>
-		<div class="tbts-fe tbts-fe-sets" id="tbts-fe-sets">
-			<div class="tbts-fe-notice tbts-fe-error" data-role="error" hidden></div>
+		<div class="tbt" id="tbts-fe-sets">
+		<div class="tbt-page">
+		<div class="tbt-wrap">
+
+			<div class="tbt-notice tbt-notice--error" data-role="error" hidden></div>
+
+			<div class="tbt-section-head">
+				<span class="tbt-section-title"><?php esc_html_e( 'Your decks', 'tbt-swipe' ); ?></span>
+				<span class="tbt-group-rule"></span>
+			</div>
 
 			<?php if ( empty( $sets ) ) : ?>
-				<p class="tbts-fe-empty"><?php esc_html_e( 'Nie masz jeszcze żadnych zestawów.', 'tbt-swipe' ); ?></p>
+				<div class="tbt-empty"><?php esc_html_e( 'Nie masz jeszcze żadnych zestawów.', 'tbt-swipe' ); ?></div>
 			<?php else : ?>
 				<?php foreach ( $groups as $group ) : ?>
-					<section class="tbts-fe-group">
-						<h3 class="tbts-fe-group-title"><?php echo esc_html( $group['title'] ); ?></h3>
-						<ul class="tbts-fe-list">
-							<?php foreach ( $group['sets'] as $set ) : ?>
-								<?php $this->render_set_row( $set ); ?>
-							<?php endforeach; ?>
-						</ul>
+					<section class="tbt-group" data-role="group">
+						<div class="tbt-group-head">
+							<span class="tbt-group-name"><?php echo esc_html( $group['title'] ); ?></span>
+							<span class="tbt-group-count"><?php echo esc_html( self::deck_count_label( count( $group['sets'] ) ) ); ?></span>
+							<span class="tbt-group-rule"></span>
+						</div>
+						<?php foreach ( $group['sets'] as $set ) : ?>
+							<?php $this->render_set_row( $set ); ?>
+						<?php endforeach; ?>
 					</section>
 				<?php endforeach; ?>
 			<?php endif; ?>
 
-			<div class="tbts-fe-modal" data-role="qr-modal" hidden>
-				<div class="tbts-fe-modal-box" role="dialog" aria-modal="true">
-					<p class="tbts-fe-modal-title" data-role="qr-title"></p>
-					<div class="tbts-fe-qr" data-role="qr-target"></div>
-					<button type="button" class="tbts-fe-btn" data-role="qr-close"><?php esc_html_e( 'Zamknij', 'tbt-swipe' ); ?></button>
+			<div class="tbt-modal" data-role="qr-modal" hidden>
+				<div class="tbt-modal-box" role="dialog" aria-modal="true">
+					<p class="tbt-modal-title" data-role="qr-title"></p>
+					<figure class="tbt-qr" data-role="qr-target"></figure>
+					<button type="button" class="tbt-btn tbt-btn--ghost" data-role="qr-close"><?php esc_html_e( 'Zamknij', 'tbt-swipe' ); ?></button>
 				</div>
 			</div>
+
+		</div>
+		</div>
 		</div>
 		<?php
 		$html = ob_get_clean();
@@ -188,41 +288,48 @@ class TBTS_Frontend {
 	}
 
 	/**
-	 * One set in the list.
+	 * One deck in the list.
 	 *
-	 * @param object $set Set row with card_count.
+	 * The chip names the lesson the deck belongs to. A deck with no lesson is a
+	 * supported state, not an error — it says so in the violet chip and carries
+	 * a violet spine, so the two kinds are told apart at a glance without one
+	 * of them looking broken.
+	 *
+	 * @param object $set Deck row with card_count.
 	 */
 	private function render_set_row( $set ) {
 		$deck_url    = TBTS_DB::deck_url( $set );
 		$lesson_name = $set->lesson_id ? TBTS_Classes::lesson_title( (int) $set->lesson_id ) : '';
+		$unattached  = '' === $lesson_name;
 		?>
-		<li class="tbts-fe-row" data-set-id="<?php echo esc_attr( (int) $set->id ); ?>">
-			<div class="tbts-fe-row-main">
-				<span class="tbts-fe-row-title"><?php echo esc_html( $set->title ); ?></span>
-				<span class="tbts-fe-row-meta">
-					<?php echo esc_html( self::card_count_label( (int) $set->card_count ) ); ?>
-					<?php if ( '' !== $lesson_name ) : ?>
-						<span class="tbts-fe-sep">·</span><?php echo esc_html( $lesson_name ); ?>
-					<?php endif; ?>
-					<span class="tbts-fe-sep">·</span><?php echo esc_html( mysql2date( get_option( 'date_format' ), $set->created ) ); ?>
-				</span>
+		<div class="tbt-deck<?php echo $unattached ? ' tbt-deck--none' : ''; ?>" data-set-id="<?php echo esc_attr( (int) $set->id ); ?>">
+			<div class="tbt-deck-body">
+				<div class="tbt-deck-title"><?php echo esc_html( $set->title ); ?></div>
+				<div class="tbt-deck-meta">
+					<span class="tbt-chip<?php echo $unattached ? ' tbt-chip--none' : ''; ?>">
+						<?php echo esc_html( $unattached ? __( 'Unattached', 'tbt-swipe' ) : $lesson_name ); ?>
+					</span>
+					<span><?php echo esc_html( self::card_count_label( (int) $set->card_count ) ); ?></span>
+					<span>·</span>
+					<span><?php echo esc_html( mysql2date( get_option( 'date_format' ), $set->created ) ); ?></span>
+				</div>
 			</div>
-			<div class="tbts-fe-row-actions">
+			<div class="tbt-deck-actions">
 				<?php if ( '' !== $deck_url ) : ?>
-					<a class="tbts-fe-btn tbts-fe-btn-small" href="<?php echo esc_url( $deck_url ); ?>" target="_blank" rel="noopener">
+					<a class="tbt-btn tbt-btn--ghost" href="<?php echo esc_url( $deck_url ); ?>" target="_blank" rel="noopener">
 						<?php esc_html_e( 'Otwórz', 'tbt-swipe' ); ?>
 					</a>
-					<button type="button" class="tbts-fe-btn tbts-fe-btn-small" data-role="copy"
+					<button type="button" class="tbt-btn tbt-btn--ghost" data-role="copy"
 						data-url="<?php echo esc_url( $deck_url ); ?>"><?php esc_html_e( 'Kopiuj link', 'tbt-swipe' ); ?></button>
-					<button type="button" class="tbts-fe-btn tbts-fe-btn-small" data-role="qr"
+					<button type="button" class="tbt-btn tbt-btn--ghost" data-role="qr"
 						data-url="<?php echo esc_url( $deck_url ); ?>"
 						data-title="<?php echo esc_attr( $set->title ); ?>"><?php esc_html_e( 'Kod QR', 'tbt-swipe' ); ?></button>
 				<?php endif; ?>
-				<button type="button" class="tbts-fe-btn tbts-fe-btn-small tbts-fe-btn-danger" data-role="delete">
+				<button type="button" class="tbt-btn tbt-btn--ghost tbt-btn--danger" data-role="delete">
 					<?php esc_html_e( 'Usuń', 'tbt-swipe' ); ?>
 				</button>
 			</div>
-		</li>
+		</div>
 		<?php
 	}
 
@@ -251,6 +358,20 @@ class TBTS_Frontend {
 		}
 
 		return $count . ' ' . __( 'kart', 'tbt-swipe' );
+	}
+
+	/**
+	 * "1 deck" / "3 decks", for the group headings in the library.
+	 *
+	 * @param int $count Number of decks in the group.
+	 * @return string
+	 */
+	public static function deck_count_label( $count ) {
+		return sprintf(
+			/* translators: %d: number of decks in a class group */
+			_n( '%d deck', '%d decks', $count, 'tbt-swipe' ),
+			$count
+		);
 	}
 
 	/**
