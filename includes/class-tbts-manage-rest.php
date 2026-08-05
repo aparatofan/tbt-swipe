@@ -93,7 +93,7 @@ class TBTS_Manage_Rest {
 		if ( ! TBTS_Capabilities::user_can_manage() ) {
 			return new WP_Error(
 				'tbts_forbidden',
-				__( 'Nie masz uprawnień do zarządzania zestawami.', 'tbt-swipe' ),
+				__( 'You don\'t have permission to manage decks.', 'tbt-swipe' ),
 				array( 'status' => rest_authorization_required_code() )
 			);
 		}
@@ -112,7 +112,7 @@ class TBTS_Manage_Rest {
 		if ( ! TBTS_Classes::user_owns_class( $user_id, $class_id ) ) {
 			return new WP_Error(
 				'tbts_invalid_class',
-				__( 'Nie masz dostępu do tej klasy.', 'tbt-swipe' ),
+				__( 'You don\'t have access to that class.', 'tbt-swipe' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -158,7 +158,7 @@ class TBTS_Manage_Rest {
 		if ( '' === $title ) {
 			return new WP_Error(
 				'tbts_no_title',
-				__( 'Podaj tytuł zestawu.', 'tbt-swipe' ),
+				__( 'Give the deck a title.', 'tbt-swipe' ),
 				array( 'status' => 400 )
 			);
 		}
@@ -186,7 +186,7 @@ class TBTS_Manage_Rest {
 		if ( ! $set ) {
 			return new WP_Error(
 				'tbts_save_failed',
-				__( 'Nie udało się zapisać zestawu. Spróbuj ponownie.', 'tbt-swipe' ),
+				__( 'Couldn\'t save the deck. Try again.', 'tbt-swipe' ),
 				array( 'status' => 500 )
 			);
 		}
@@ -212,7 +212,7 @@ class TBTS_Manage_Rest {
 		if ( ! TBTS_DB::get_set_for_owner( $set_id, get_current_user_id() ) ) {
 			return new WP_Error(
 				'tbts_not_found',
-				__( 'Nie znaleziono zestawu.', 'tbt-swipe' ),
+				__( 'Deck not found.', 'tbt-swipe' ),
 				array( 'status' => 404 )
 			);
 		}
@@ -232,7 +232,7 @@ class TBTS_Manage_Rest {
 		if ( ! is_array( $raw ) || empty( $raw ) ) {
 			return new WP_Error(
 				'tbts_no_cards',
-				__( 'Nie ma czego zapisać — najpierw wygeneruj karty.', 'tbt-swipe' ),
+				__( 'Nothing to save yet — generate cards first.', 'tbt-swipe' ),
 				array( 'status' => 400 )
 			);
 		}
@@ -242,7 +242,7 @@ class TBTS_Manage_Rest {
 				'tbts_too_many_cards',
 				sprintf(
 					/* translators: %d: maximum number of cards in one set */
-					__( 'Za dużo słów w jednym zestawie (maks. %d).', 'tbt-swipe' ),
+					__( 'Too many words — the maximum is %d.', 'tbt-swipe' ),
 					TBTS_Generator::HARD_MAX_CARDS
 				),
 				array( 'status' => 400 )
@@ -269,7 +269,7 @@ class TBTS_Manage_Rest {
 		if ( empty( $cards ) ) {
 			return new WP_Error(
 				'tbts_no_cards',
-				__( 'Nie ma czego zapisać — najpierw wygeneruj karty.', 'tbt-swipe' ),
+				__( 'Nothing to save yet — generate cards first.', 'tbt-swipe' ),
 				array( 'status' => 400 )
 			);
 		}

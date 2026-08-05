@@ -61,13 +61,13 @@ class TBTS_Ajax {
 			$status = 'draft';
 		}
 		if ( '' === $title ) {
-			wp_send_json_error( array( 'message' => __( 'Please give the set a title.', 'tbt-swipe' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Please give the deck a title.', 'tbt-swipe' ) ) );
 		}
 
 		// Editing an existing set requires owning it, not merely holding the
 		// capability. Administrators oversee every set.
 		if ( $set_id && ! TBTS_DB::user_can_edit_set( $set_id ) ) {
-			wp_send_json_error( array( 'message' => __( 'You are not allowed to edit that set.', 'tbt-swipe' ) ), 403 );
+			wp_send_json_error( array( 'message' => __( 'You are not allowed to edit that deck.', 'tbt-swipe' ) ), 403 );
 		}
 
 		$raw_cards = json_decode( $json, true );

@@ -48,23 +48,23 @@ The deck is chosen by the `?deck={slug}` query parameter, which the QR code sets
 [tbt_swipe_sets]
 ```
 
-Put both on one page (`/swipe/` is the intended home) so a teacher can build sets and manage them without wp-admin access. They are two shortcodes rather than one so they can be split across separate pages later without a code change.
+Put both on one page (`/swipe/` is the intended home) so a teacher can build decks and manage them without wp-admin access. They are two shortcodes rather than one so they can be split across separate pages later without a code change.
 
 Both render **nothing at all** — not even a "no access" notice — for a visitor without the `tbts_manage` capability. Students land on this page too, and there is no reason to advertise a tool they cannot use.
 
-The generator runs generate → **review and edit** → save. The review step is the point of the whole page: frontend teachers cannot reach wp-admin, so it is their only chance to fix AI output (grammar, doubled IPA characters) before students see it. There is no card editing after save in this version.
+The generator runs as three visible stages — Admin, Content, Save and share — all present from first load, with the stage the teacher is on lit up and finished stages marked green. Content runs generate → **review and edit** → save. The review step is the point of the whole page: frontend teachers cannot reach wp-admin, so it is their only chance to fix AI output (grammar, doubled IPA characters) before students see it. There is no card editing after save in this version.
 
-`[tbt_swipe_sets]` is server-rendered rather than fetched, so it paints in one pass inside Divi with no loading flash. It is scoped to the current user's own sets **without exception**, administrators included; wp-admin remains the place to see everyone's sets. Sets are grouped by class, with `Bez klasy` last — as an ordinary group, because an unattached set is a supported state, not an orphan.
+`[tbt_swipe_sets]` is server-rendered rather than fetched, so it paints in one pass inside Divi with no loading flash. It is scoped to the current user's own decks **without exception**, administrators included; wp-admin remains the place to see everyone's decks. Decks are grouped by class, with `No class` last — as an ordinary group, because an unattached deck is a supported state, not an orphan.
 
 The player and the management UI are separate surfaces: `deck.css` / `deck.js` load only where `[tbt_swipe]` itself is, never on a page holding only the two management shortcodes.
 
-> **Exclude the teacher page from page caching.** Writes go through the REST API with a `wp_rest` nonce. If the page is served from a cache, the nonce is the one minted for whoever warmed the cache, and every save comes back 403. The page shows `Sesja wygasła. Odśwież stronę.` when it detects this, but the real fix is to exclude the URL in your caching plugin (LiteSpeed, WP Rocket, Cloudflare page rules, and so on).
+> **Exclude the teacher page from page caching.** Writes go through the REST API with a `wp_rest` nonce. If the page is served from a cache, the nonce is the one minted for whoever warmed the cache, and every save comes back 403. The page shows `Your session has expired. Refresh the page.` when it detects this, but the real fix is to exclude the URL in your caching plugin (LiteSpeed, WP Rocket, Cloudflare page rules, and so on).
 
-## Who can build sets
+## Who can build decks
 
-Set and card management hangs off a single capability, `tbts_manage`, granted to the roles ticked under **TBT → TBT Swipe Settings → Who can build sets**. Administrators always have it.
+Deck and card management hangs off a single capability, `tbts_manage`, granted to the roles ticked under **TBT → TBT Swipe Settings → Who can build decks**. Administrators always have it.
 
-Settings themselves — API key, model, deck page, role grants, AI limits — stay on `manage_options` whatever is ticked. A teacher can build sets; only an administrator can change how the plugin is configured.
+Settings themselves — API key, model, deck page, role grants, AI limits — stay on `manage_options` whatever is ticked. A teacher can build decks; only an administrator can change how the plugin is configured.
 
 ## Classes and lessons
 
@@ -117,7 +117,8 @@ tbt-swipe/
 ├── assets/
 │   ├── css/admin.css
 │   ├── css/deck.css
-│   ├── css/frontend.css
+│   ├── css/frontend.css       # frontend components, needs tbt-tokens.css
+│   ├── css/tbt-tokens.css     # shared TBT variables + reset
 │   ├── fonts/roboto-slab-v36-latin.woff2      # self-hosted (base Latin)
 │   ├── fonts/roboto-slab-v36-latin-ext.woff2  # self-hosted (Polish diacritics)
 │   ├── img/tbt-logo.png       # TBT mark on each card face — see note below

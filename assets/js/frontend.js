@@ -68,7 +68,7 @@
 		if ( 'tbts_api_error' === code ) {
 			return { code: code, message: i18n.apiError };
 		}
-		// Server-side messages are already Polish and safe to show.
+		// Server-side messages are already user-facing English and safe to show.
 		return { code: code, message: ( data && data.message ) || i18n.networkError };
 	}
 
@@ -238,7 +238,7 @@
 		 * Mandatory should not mean an extra click: the lesson a teacher wants
 		 * is nearly always the one they just taught.
 		 *
-		 * "Bez klasy" stays the default and needs no lesson — only the class →
+		 * "No class" stays the default and needs no lesson — only the class →
 		 * lesson pairing is required.
 		 *
 		 * Lessons load only for a class the server agrees this user owns.

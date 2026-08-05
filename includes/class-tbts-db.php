@@ -247,7 +247,7 @@ class TBTS_DB {
 		if ( $id ) {
 			$existing = self::get_set( $id );
 			if ( ! $existing ) {
-				return new WP_Error( 'tbts_not_found', __( 'Set not found.', 'tbt-swipe' ) );
+				return new WP_Error( 'tbts_not_found', __( 'Deck not found.', 'tbt-swipe' ) );
 			}
 			$wpdb->update(
 				$sets_table,
@@ -309,7 +309,7 @@ class TBTS_DB {
 		global $wpdb;
 		$set = self::get_set( $id );
 		if ( ! $set ) {
-			return new WP_Error( 'tbts_not_found', __( 'Set not found.', 'tbt-swipe' ) );
+			return new WP_Error( 'tbts_not_found', __( 'Deck not found.', 'tbt-swipe' ) );
 		}
 
 		// The copy belongs to whoever made it, so it only keeps the class

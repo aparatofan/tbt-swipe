@@ -172,7 +172,7 @@ class TBTS_Classes {
 		if ( ! self::user_owns_class( $user_id, $class_id ) ) {
 			return new WP_Error(
 				'tbts_invalid_class',
-				__( 'Nie masz dostępu do tej klasy.', 'tbt-swipe' ),
+				__( 'You don\'t have access to that class.', 'tbt-swipe' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -184,7 +184,7 @@ class TBTS_Classes {
 		if ( null === $lesson_id ) {
 			return new WP_Error(
 				'tbts_lesson_required',
-				__( 'Wybierz lekcję dla tej klasy.', 'tbt-swipe' ),
+				__( 'Choose a lesson for that class.', 'tbt-swipe' ),
 				array( 'status' => 400 )
 			);
 		}
@@ -192,7 +192,7 @@ class TBTS_Classes {
 		if ( null !== $lesson_id && ! self::lesson_belongs_to_class( $lesson_id, $class_id ) ) {
 			return new WP_Error(
 				'tbts_invalid_lesson',
-				__( 'Ta lekcja nie należy do wybranej klasy.', 'tbt-swipe' ),
+				__( 'That lesson belongs to a different class.', 'tbt-swipe' ),
 				array( 'status' => 400 )
 			);
 		}

@@ -204,9 +204,9 @@ class TBTS_Settings {
 					</tr>
 				</table>
 
-				<h2 class="title"><?php esc_html_e( 'Who can build sets', 'tbt-swipe' ); ?></h2>
+				<h2 class="title"><?php esc_html_e( 'Who can build decks', 'tbt-swipe' ); ?></h2>
 				<p class="description">
-					<?php esc_html_e( 'Everyone in a ticked role can create, generate and delete their own sets — on the frontend page, with no wp-admin access needed. Avoid ticking a role that students also use. Each user only ever sees their own sets.', 'tbt-swipe' ); ?>
+					<?php esc_html_e( 'Everyone in a ticked role can create, generate and delete their own decks — on the frontend page, with no wp-admin access needed. Avoid ticking a role that students also use. Each user only ever sees their own decks.', 'tbt-swipe' ); ?>
 				</p>
 				<table class="form-table" role="presentation">
 					<tr>

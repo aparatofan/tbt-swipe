@@ -3,7 +3,7 @@
  * Standalone logic tests for TBTS_Classes::validate_attachment().
  *
  * This is the server-side guarantee behind the generator's class/lesson picker:
- * a deck attached to a class must name a lesson in that class, and "Bez klasy"
+ * a deck attached to a class must name a lesson in that class, and "No class"
  * stays a fully supported state needing no lesson. The picker's pre-selection is
  * convenience only, so these rules are asserted here rather than in the browser.
  *
@@ -64,14 +64,14 @@ ok( ! is_wp_error( $ok ) && $ok === array( 'class_id' => 5, 'lesson_id' => 7 ), 
 
 $missing = TBTS_Classes::validate_attachment( 2, 5, null );
 ok( is_wp_error( $missing ) && $missing->get_error_code() === 'tbts_lesson_required', 'a class with no lesson is rejected as tbts_lesson_required' );
-ok( is_wp_error( $missing ) && $missing->get_error_message() === 'Wybierz lekcję dla tej klasy.', 'the rejection explains what to do' );
+ok( is_wp_error( $missing ) && $missing->get_error_message() === 'Choose a lesson for that class.', 'the rejection explains what to do' );
 ok( is_wp_error( $missing ) && $missing->data['status'] === 400, 'it is a 400, not a 403 — the request is malformed, not forbidden' );
 
 // absint() turns an absent lesson_id into 0 before this is called.
 $zero = TBTS_Classes::validate_attachment( 2, 5, 0 );
 ok( is_wp_error( $zero ) && $zero->get_error_code() === 'tbts_lesson_required', 'lesson_id 0 is treated as absent, not as a lesson' );
 
-echo "Attachment validation — Bez klasy stays supported:\n";
+echo "Attachment validation — No class stays supported:\n";
 ok( TBTS_Classes::validate_attachment( 2, null, null ) === array( 'class_id' => null, 'lesson_id' => null ), 'no class and no lesson is accepted' );
 ok( TBTS_Classes::validate_attachment( 2, 0, 0 ) === array( 'class_id' => null, 'lesson_id' => null ), 'class 0 is unattached, not an error' );
 ok( TBTS_Classes::validate_attachment( 2, null, 7 ) === array( 'class_id' => null, 'lesson_id' => null ), 'a lesson without a class is dropped, not rejected' );
