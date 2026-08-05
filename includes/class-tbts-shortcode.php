@@ -90,6 +90,8 @@ class TBTS_Shortcode {
 					'staleNonce'    => __( 'Sesja wygasła. Odśwież stronę.', 'tbt-swipe' ),
 					'networkError'  => __( 'Coś poszło nie tak. Sprawdź połączenie i spróbuj ponownie.', 'tbt-swipe' ),
 					'noDeckPage'    => __( 'Zestaw zapisany, ale administrator nie wskazał jeszcze strony z talią, więc link nie jest gotowy.', 'tbt-swipe' ),
+					'classNoLessons' => __( 'Ta klasa nie ma jeszcze lekcji. Dodaj lekcję w Notes albo zapisz zestaw bez klasy.', 'tbt-swipe' ),
+					'noLessonsSuffix' => __( '(brak lekcji)', 'tbt-swipe' ),
 				),
 			)
 		);
