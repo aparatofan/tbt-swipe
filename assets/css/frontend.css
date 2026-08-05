@@ -186,6 +186,10 @@
 .tbt-row-x {
   display: flex; align-items: center; justify-content: center;
   width: 34px; height: 34px; border-radius: 10px;
+  /* Declared, not inherited from the reset: the reset sits in :where() and
+     loses to any theme rule that styles bare buttons, and this is the one
+     control with no background of its own to fall back on. */
+  background-color: transparent;
   color: var(--tbt-ink-faint); font-size: 19px; line-height: 1;
   transition: background-color .16s var(--tbt-ease), color .16s var(--tbt-ease);
 }
