@@ -2,12 +2,13 @@
 /**
  * Contributes Swipe decks to the TBT Notes class panel.
  *
- * Notes exposes a generic extension point — a `tbt_notes_class_extras` filter —
- * and knows nothing about Swipe. All the coupling lives here, in one file, on
+ * Notes exposes a generic extension point — a `tbt_notes_class_extras` filter
+ * for the data and a `tbt_notes_frontend_assets` action for the scripts — and
+ * knows nothing about Swipe. All the coupling lives here, in one file, on
  * Swipe's side of the line: the decks a class already has become reachable from
  * the notes panel instead of the teacher pasting links by hand.
  *
- * Notes is an optional dependency. The hook is Notes' own, so with Notes
+ * Notes is an optional dependency. Both hooks are Notes' own, so with Notes
  * inactive nothing in this class ever runs and Swipe behaves exactly as before.
  */
 
@@ -23,6 +24,7 @@ class TBTS_Notes_Bridge {
 
 	public function __construct() {
 		add_filter( 'tbt_notes_class_extras', array( $this, 'add_class_decks' ), 10, 3 );
+		add_action( 'tbt_notes_frontend_assets', array( $this, 'enqueue_qr_adapter' ) );
 	}
 
 	/**
@@ -114,4 +116,25 @@ class TBTS_Notes_Bridge {
 		return '' !== $lesson ? $lesson . ' · ' . $count : $count;
 	}
 
+	/**
+	 * Give the Notes panel a QR renderer.
+	 *
+	 * Notes ships no QR library and must not gain one, so it calls
+	 * window.TBTNotesQR.render() if something defined it and renders the link
+	 * alone if nothing did. Swipe already carries the library for its own
+	 * catalogue, so it supplies the adapter — and only when Notes says it has
+	 * loaded, never globally. Deactivate Swipe and no QR script goes near a
+	 * Notes page.
+	 *
+	 * @param array $context Context from Notes. Unused: the panel is identical
+	 *                       for teachers and students, so the QR is too.
+	 */
+	public function enqueue_qr_adapter( $context = array() ) {
+		if ( ! $this->notes_available() ) {
+			return;
+		}
+
+		wp_enqueue_script( 'tbts-qrcode', TBTS_URL . 'assets/js/lib/qrcode.min.js', array(), TBTS_VERSION, true );
+		wp_enqueue_script( 'tbts-notes-qr', TBTS_URL . 'assets/js/notes-qr.js', array( 'tbts-qrcode' ), TBTS_VERSION, true );
+	}
 }
