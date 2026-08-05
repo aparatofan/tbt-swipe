@@ -86,31 +86,48 @@
 .tbt-meter strong { color: var(--tbt-blue-deep); font-weight: 700; font-family: var(--tbt-display); }
 .tbt-meter .is-over { color: var(--tbt-maroon); }
 
-/* ---------- Buttons ---------- */
-.tbt-btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: var(--tbt-s2);
+/* ---------- Buttons ----------
+   The theme styles bare <button> and <a> elements, and those rules reach
+   inside .tbt because the reset deliberately carries no specificity. On the
+   live site they sized every button from the theme's own box instead of its
+   label — a fixed round blue box with the label wrapped on top of itself —
+   and repainted the ghost buttons solid blue.
+
+   So the button rules are scoped with .tbt for weight, and the declarations
+   that decide whether a button still reads as a button — its box, its label
+   and its colour — are pinned. Everything the theme has no opinion about is
+   left unpinned. This is the only part of the sheet that needs !important;
+   if it spreads further, the reset is the thing to reconsider. */
+.tbt .tbt-btn {
+  display: inline-flex !important; align-items: center; justify-content: center; gap: var(--tbt-s2);
+  /* Sized by the label, never by the theme's button box. */
+  width: auto !important; min-width: 0 !important; max-width: 100% !important;
+  height: auto !important; min-height: 0 !important; aspect-ratio: auto !important;
   font-family: var(--tbt-body); font-weight: 600;
+  font-size: 16px !important; line-height: 1.2 !important;
   text-transform: uppercase; letter-spacing: .08em;
-  border: 0; border-radius: var(--tbt-r-pill);
-  padding: 17px var(--tbt-s7); font-size: 16px; cursor: pointer;
+  text-align: center; text-indent: 0; text-decoration: none !important;
+  white-space: nowrap !important;
+  border: 0; border-radius: var(--tbt-r-pill) !important;
+  padding: 17px var(--tbt-s7) !important; cursor: pointer;
   transition: transform .16s var(--tbt-ease), background-color .16s var(--tbt-ease),
               box-shadow .16s var(--tbt-ease), border-color .16s var(--tbt-ease), color .16s var(--tbt-ease);
 }
-.tbt-btn:active { transform: translateY(1px); }
-.tbt-btn[disabled] { opacity: .5; cursor: default; }
-.tbt-btn--primary { background-color: var(--tbt-action); color: #FFFFFF; box-shadow: var(--tbt-shadow-action); }
-.tbt-btn--primary:hover:not([disabled]) { background-color: var(--tbt-action-hover); color: #FFFFFF; }
-.tbt-btn--soft { background-color: var(--tbt-periwinkle); color: var(--tbt-ink); }
-.tbt-btn--soft:hover:not([disabled]) { background-color: var(--tbt-action-hover); color: #FFFFFF; }
-.tbt-btn--ghost {
-  background-color: var(--tbt-surface); color: var(--tbt-blue-deep);
-  border: 1.5px solid var(--tbt-line);
+.tbt .tbt-btn:active { transform: translateY(1px); }
+.tbt .tbt-btn[disabled] { opacity: .5; cursor: default; }
+.tbt .tbt-btn--primary { background-color: var(--tbt-action) !important; color: #FFFFFF !important; box-shadow: var(--tbt-shadow-action); }
+.tbt .tbt-btn--primary:hover:not([disabled]) { background-color: var(--tbt-action-hover) !important; color: #FFFFFF !important; }
+.tbt .tbt-btn--soft { background-color: var(--tbt-periwinkle) !important; color: var(--tbt-ink) !important; }
+.tbt .tbt-btn--soft:hover:not([disabled]) { background-color: var(--tbt-action-hover) !important; color: #FFFFFF !important; }
+.tbt .tbt-btn--ghost {
+  background-color: var(--tbt-surface) !important; color: var(--tbt-blue-deep) !important;
+  border: 1.5px solid var(--tbt-line) !important;
   text-transform: none; letter-spacing: .01em; font-weight: 600;
-  font-family: var(--tbt-display); padding: 9px var(--tbt-s5); font-size: 15px;
+  font-family: var(--tbt-display); padding: 9px var(--tbt-s5) !important; font-size: 15px !important;
 }
-.tbt-btn--ghost:hover:not([disabled]) { border-color: var(--tbt-blue); background-color: var(--tbt-blue-wash); }
-.tbt-btn--danger { color: var(--tbt-maroon); }
-.tbt-btn--danger:hover:not([disabled]) { border-color: var(--tbt-maroon); background-color: #FAF0F0; color: var(--tbt-maroon); }
+.tbt .tbt-btn--ghost:hover:not([disabled]) { border-color: var(--tbt-blue) !important; background-color: var(--tbt-blue-wash) !important; }
+.tbt .tbt-btn--danger { color: var(--tbt-maroon) !important; }
+.tbt .tbt-btn--danger:hover:not([disabled]) { border-color: var(--tbt-maroon) !important; background-color: #FAF0F0 !important; color: var(--tbt-maroon) !important; }
 
 /* ---------- Content stage + preview stack ---------- */
 .tbt-compose { display: grid; grid-template-columns: minmax(0,1fr) 310px; gap: var(--tbt-s7); align-items: start; }
@@ -183,17 +200,20 @@
   font-size: 15px; color: var(--tbt-ink-soft); line-height: 1.5;
   resize: none; overflow: hidden; min-height: 44px; font-family: var(--tbt-body);
 }
-.tbt-row-x {
-  display: flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px; border-radius: 10px;
-  /* Declared, not inherited from the reset: the reset sits in :where() and
-     loses to any theme rule that styles bare buttons, and this is the one
-     control with no background of its own to fall back on. */
-  background-color: transparent;
-  color: var(--tbt-ink-faint); font-size: 19px; line-height: 1;
+/* The remove button is a bare glyph, so it has no modifier class to hide
+   behind and takes the theme's button styling square on — same pinning as
+   .tbt-btn, for the same reason. */
+.tbt .tbt-row-x {
+  display: flex !important; align-items: center; justify-content: center;
+  width: 34px !important; height: 34px !important;
+  min-width: 0 !important; min-height: 0 !important; aspect-ratio: auto !important;
+  padding: 0 !important; border: 0 !important; border-radius: 10px !important;
+  background-color: transparent !important; color: var(--tbt-ink-faint) !important;
+  font-size: 19px !important; line-height: 1 !important; text-indent: 0;
+  text-decoration: none !important;
   transition: background-color .16s var(--tbt-ease), color .16s var(--tbt-ease);
 }
-.tbt-row-x:hover { background-color: #FAF0F0; color: var(--tbt-maroon); }
+.tbt .tbt-row-x:hover { background-color: #FAF0F0 !important; color: var(--tbt-maroon) !important; }
 .tbt-review-foot { display: flex; align-items: center; gap: var(--tbt-s4); flex-wrap: wrap; margin-top: var(--tbt-s6); }
 .tbt-review-foot .tbt-help { margin-top: 0 !important; }
 
@@ -291,7 +311,7 @@
   .tbt-stack-rail { grid-template-columns: 1fr; }
   .tbt-stack { height: 210px; }
   .tbt-deck-actions { width: 100%; }
-  .tbt-btn--primary, .tbt-btn--soft { width: 100%; }
+  .tbt .tbt-btn--primary, .tbt .tbt-btn--soft { width: 100% !important; }
   .tbt-row-top, .tbt-row-ex { grid-template-columns: minmax(0,1fr) 34px; }
   .tbt-row-top .tbt-row-n { display: none; }
   /* With the row number gone the fields stack in the wide column and the
