@@ -37,6 +37,7 @@ require_once TBTS_DIR . 'includes/class-tbts-manage-rest.php';
 require_once TBTS_DIR . 'includes/class-tbts-shortcode.php';
 require_once TBTS_DIR . 'includes/class-tbts-frontend.php';
 require_once TBTS_DIR . 'includes/class-tbts-settings.php';
+require_once TBTS_DIR . 'includes/class-tbts-notes-bridge.php';
 
 /**
  * Register this plugin on the TBT Hub Overview page.
@@ -76,6 +77,8 @@ add_action( 'plugins_loaded', function () {
 	new TBTS_Manage_Rest();
 	new TBTS_Shortcode();
 	new TBTS_Frontend();
+	// Hooks TBT Notes' extension point. Inert when Notes is not installed.
+	new TBTS_Notes_Bridge();
 
 	if ( is_admin() ) {
 		new TBTS_Admin();
