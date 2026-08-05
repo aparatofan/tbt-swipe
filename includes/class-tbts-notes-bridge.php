@@ -82,10 +82,13 @@ class TBTS_Notes_Bridge {
 			}
 
 			$items[] = array(
-				'id'       => (int) $set->id,
-				'title'    => (string) $set->title,
-				'subtitle' => $this->subtitle( $set ),
-				'url'      => $url,
+				'id'        => (int) $set->id,
+				// Which lesson the deck belongs to, so Notes can put it on that
+				// lesson's row. 0 for an older deck attached to the class only.
+				'lesson_id' => (int) $set->lesson_id,
+				'title'     => (string) $set->title,
+				'subtitle'  => $this->subtitle( $set ),
+				'url'       => $url,
 			);
 		}
 
@@ -95,7 +98,8 @@ class TBTS_Notes_Bridge {
 
 		$extras[] = array(
 			'key'   => self::GROUP_KEY,
-			'label' => __( 'Fiszki', 'tbt-swipe' ),
+			'label' => __( 'Swipe decks', 'tbt-swipe' ),
+			'icon'  => self::icon_svg(),
 			'items' => $items,
 		);
 
@@ -103,17 +107,45 @@ class TBTS_Notes_Bridge {
 	}
 
 	/**
-	 * "Lekcja 3 · 18 kart" for a deck pinned to a lesson, just the card count
-	 * for one attached to the class as a whole.
+	 * The deck's own line under its title: the card count.
+	 *
+	 * The lesson name used to lead this string and no longer does. An anchored
+	 * deck is drawn on its lesson's row in the panel, so naming the lesson again
+	 * would just repeat what the position already says. An unanchored deck —
+	 * one from before lessons were required — has no lesson to name in the first
+	 * place, so it gets the same count-only line.
 	 *
 	 * @param object $set Set row with card_count.
 	 * @return string
 	 */
 	protected function subtitle( $set ) {
-		$count  = TBTS_Frontend::card_count_label( (int) $set->card_count );
-		$lesson = $set->lesson_id ? TBTS_Classes::lesson_title( (int) $set->lesson_id ) : '';
+		return TBTS_Frontend::card_count_label( (int) $set->card_count );
+	}
 
-		return '' !== $lesson ? $lesson . ' · ' . $count : $count;
+	/**
+	 * The Swipe mark, inline, for the extras contract.
+	 *
+	 * Shipped with the plugin rather than linked from uploads: a media-library
+	 * URL can be moved or cleaned up, and an uploaded file is one more request
+	 * for a 24px mark. Read once per request and cached, so a panel with several
+	 * groups does not re-read it.
+	 *
+	 * Multicolour by design — Notes is told not to recolour it — so it carries
+	 * its own fills and does not rely on currentColor.
+	 *
+	 * @return string SVG markup, or '' if the file cannot be read (Notes then
+	 *                falls back to its own glyph).
+	 */
+	protected static function icon_svg() {
+		static $svg = null;
+
+		if ( null === $svg ) {
+			$path = TBTS_DIR . 'assets/img/deck-icon.svg';
+			$raw  = is_readable( $path ) ? file_get_contents( $path ) : '';
+			$svg  = is_string( $raw ) ? trim( $raw ) : '';
+		}
+
+		return $svg;
 	}
 
 	/**

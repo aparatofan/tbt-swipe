@@ -16,6 +16,7 @@
 error_reporting( E_ALL );
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'TBTS_URL', 'https://example.test/wp-content/plugins/tbt-swipe/' );
+define( 'TBTS_DIR', dirname( __DIR__ ) . '/' );
 define( 'TBTS_VERSION', '1.4.0' );
 
 $pass = 0; $fail = 0;
@@ -94,18 +95,25 @@ $bridge = new TBTS_Notes_Bridge();
 echo "Bridge — group shape and ordering:\n";
 $out = $bridge->add_class_decks( array(), 5, 3 );
 ok( count( $out ) === 1, 'one group is appended' );
-ok( $out[0]['key'] === 'swipe_decks' && $out[0]['label'] === 'Fiszki', 'group key and label' );
+ok( $out[0]['key'] === 'swipe_decks' && $out[0]['label'] === 'Swipe decks', 'group key and label' );
 $titles = array_map( function ( $i ) { return $i['title']; }, $out[0]['items'] );
 ok( $titles === array( 'Phrasal verbs', 'Unit 4 — collocations', 'Deck od innego nauczyciela' ), 'newest first: ' . implode( ' | ', $titles ) );
 ok( ! in_array( 'Niedokończony', $titles, true ), 'a draft attached to the class never appears' );
 ok( ! in_array( 'Inna klasa', $titles, true ), 'another class\'s deck never appears' );
 ok( in_array( 'Deck od innego nauczyciela', $titles, true ), 'a deck owned by another teacher is still listed (class scoping, not owner)' );
 
-echo "Bridge — subtitles:\n";
+echo "Bridge — subtitles and lesson anchoring:\n";
 $byTitle = array();
 foreach ( $out[0]['items'] as $i ) { $byTitle[ $i['title'] ] = $i; }
-ok( $byTitle['Unit 4 — collocations']['subtitle'] === 'Lekcja 3 · 18 kart', 'lesson + card count when lesson_id is set (' . $byTitle['Unit 4 — collocations']['subtitle'] . ')' );
+ok( $byTitle['Unit 4 — collocations']['subtitle'] === '18 kart', 'card count alone for an anchored deck — the lesson row already places it (' . $byTitle['Unit 4 — collocations']['subtitle'] . ')' );
 ok( $byTitle['Phrasal verbs']['subtitle'] === '1 karta', 'card count alone when lesson_id is null' );
+ok( $byTitle['Unit 4 — collocations']['lesson_id'] === 7, 'an anchored deck carries its lesson_id' );
+ok( $byTitle['Phrasal verbs']['lesson_id'] === 0, 'an unanchored deck reports lesson_id 0' );
+
+echo "Bridge — group icon:\n";
+ok( strpos( $out[0]['icon'], '<svg' ) === 0, 'the group carries the plugin\'s own inline SVG' );
+ok( strpos( $out[0]['icon'], '<script' ) === false && strpos( $out[0]['icon'], 'onload' ) === false, 'the shipped icon carries no script or handler' );
+ok( ! preg_match( '/\b(href|src|url\()/i', $out[0]['icon'] ), 'the shipped icon fetches nothing — no href/src/url()' );
 ok( $byTitle['Phrasal verbs']['url'] === 'https://thebluetree.pl/swipe/?deck=slug2', 'url comes from the shared builder' );
 ok( $byTitle['Phrasal verbs']['id'] === 2, 'id is the set id' );
 
