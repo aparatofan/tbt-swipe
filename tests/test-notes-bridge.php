@@ -16,6 +16,7 @@
 error_reporting( E_ALL );
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'TBTS_URL', 'https://example.test/wp-content/plugins/tbt-swipe/' );
+define( 'TBTS_DIR', dirname( __DIR__ ) . '/' );
 define( 'TBTS_VERSION', '1.4.0' );
 
 $pass = 0; $fail = 0;
@@ -94,18 +95,25 @@ $bridge = new TBTS_Notes_Bridge();
 echo "Bridge — group shape and ordering:\n";
 $out = $bridge->add_class_decks( array(), 5, 3 );
 ok( count( $out ) === 1, 'one group is appended' );
-ok( $out[0]['key'] === 'swipe_decks' && $out[0]['label'] === 'Fiszki', 'group key and label' );
+ok( $out[0]['key'] === 'swipe_decks' && $out[0]['label'] === 'Swipe decks', 'group key and label' );
 $titles = array_map( function ( $i ) { return $i['title']; }, $out[0]['items'] );
 ok( $titles === array( 'Phrasal verbs', 'Unit 4 — collocations', 'Deck od innego nauczyciela' ), 'newest first: ' . implode( ' | ', $titles ) );
 ok( ! in_array( 'Niedokończony', $titles, true ), 'a draft attached to the class never appears' );
 ok( ! in_array( 'Inna klasa', $titles, true ), 'another class\'s deck never appears' );
 ok( in_array( 'Deck od innego nauczyciela', $titles, true ), 'a deck owned by another teacher is still listed (class scoping, not owner)' );
 
-echo "Bridge — subtitles:\n";
+echo "Bridge — subtitles and lesson anchoring:\n";
 $byTitle = array();
 foreach ( $out[0]['items'] as $i ) { $byTitle[ $i['title'] ] = $i; }
-ok( $byTitle['Unit 4 — collocations']['subtitle'] === 'Lekcja 3 · 18 kart', 'lesson + card count when lesson_id is set (' . $byTitle['Unit 4 — collocations']['subtitle'] . ')' );
+ok( $byTitle['Unit 4 — collocations']['subtitle'] === '18 kart', 'card count alone for an anchored deck — the lesson row already places it (' . $byTitle['Unit 4 — collocations']['subtitle'] . ')' );
 ok( $byTitle['Phrasal verbs']['subtitle'] === '1 karta', 'card count alone when lesson_id is null' );
+ok( $byTitle['Unit 4 — collocations']['lesson_id'] === 7, 'an anchored deck carries its lesson_id' );
+ok( $byTitle['Phrasal verbs']['lesson_id'] === 0, 'an unanchored deck reports lesson_id 0' );
+
+echo "Bridge — group icon:\n";
+ok( strpos( $out[0]['icon'], '<svg' ) === 0, 'the group carries the plugin\'s own inline SVG' );
+ok( strpos( $out[0]['icon'], '<script' ) === false && strpos( $out[0]['icon'], 'onload' ) === false, 'the shipped icon carries no script or handler' );
+ok( ! preg_match( '/\b(href|src|url\()/i', $out[0]['icon'] ), 'the shipped icon fetches nothing — no href/src/url()' );
 ok( $byTitle['Phrasal verbs']['url'] === 'https://thebluetree.pl/swipe/?deck=slug2', 'url comes from the shared builder' );
 ok( $byTitle['Phrasal verbs']['id'] === 2, 'id is the set id' );
 
@@ -126,6 +134,64 @@ ok( $bridge->add_class_decks( 'nonsense', 5, 3 ) === array(), 'a non-array extra
 
 echo "Bridge — scoping:\n";
 ok( array_values( array_unique( TBTS_DB::$queried ) ) === array( 5, 999 ), 'only the requested class is ever queried (' . implode( ',', array_unique( TBTS_DB::$queried ) ) . ')' );
+
+/*
+ * The shipped icon has to survive the allowlist Notes filters it through
+ * (TBT_Notes_REST::sanitize_extras_icon). Anything outside that list is
+ * stripped, and a shape whose fill points at a stripped gradient renders
+ * invisible — a blank control rather than a visible fallback. Design tools
+ * export gradients, clip paths and <style> blocks routinely, so this guards the
+ * artwork itself: replace deck-icon.svg with such an export and this fails
+ * rather than shipping an icon nobody can see.
+ */
+echo "Bridge — the shipped icon fits the allowlist Notes enforces:\n";
+
+$allowed_elements = array( 'svg', 'g', 'defs', 'title', 'path', 'circle', 'rect', 'polygon' );
+$shape_attrs      = array(
+	'fill', 'fill-rule', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-linecap',
+	'stroke-linejoin', 'stroke-opacity', 'clip-rule', 'opacity', 'transform', 'class',
+);
+$allowed_attrs = array(
+	'svg'     => array_merge( $shape_attrs, array( 'xmlns', 'viewbox', 'width', 'height', 'role', 'aria-hidden', 'focusable' ) ),
+	'g'       => $shape_attrs,
+	'defs'    => array(),
+	'title'   => array(),
+	'path'    => array_merge( $shape_attrs, array( 'd' ) ),
+	'circle'  => array_merge( $shape_attrs, array( 'cx', 'cy', 'r' ) ),
+	'rect'    => array_merge( $shape_attrs, array( 'x', 'y', 'width', 'height', 'rx', 'ry' ) ),
+	'polygon' => array_merge( $shape_attrs, array( 'points' ) ),
+);
+
+$icon = file_get_contents( dirname( __DIR__ ) . '/assets/img/deck-icon.svg' );
+ok( is_string( $icon ) && '' !== trim( $icon ), 'the icon file is present and non-empty' );
+
+$doc = new DOMDocument();
+libxml_use_internal_errors( true );
+ok( $doc->loadXML( $icon ), 'the icon parses as XML' );
+libxml_clear_errors();
+
+$bad_elements = array();
+$bad_attrs    = array();
+foreach ( $doc->getElementsByTagName( '*' ) as $node ) {
+	$tag = strtolower( $node->nodeName );
+	if ( ! in_array( $tag, $allowed_elements, true ) ) {
+		$bad_elements[] = $tag;
+		continue;
+	}
+	foreach ( $node->attributes as $attr ) {
+		if ( ! in_array( strtolower( $attr->nodeName ), $allowed_attrs[ $tag ], true ) ) {
+			$bad_attrs[] = $tag . '/' . $attr->nodeName;
+		}
+	}
+}
+
+ok( empty( $bad_elements ), 'every element is on the allowlist (' . implode( ',', array_unique( $bad_elements ) ) . ')' );
+ok( empty( $bad_attrs ), 'every attribute is on the allowlist (' . implode( ',', array_unique( $bad_attrs ) ) . ')' );
+
+// A fill or stroke pointing at a definition — url(#gradient) — only works if
+// that definition survives, and none of the elements that hold one do.
+ok( ! preg_match( '/url\(\s*#/i', $icon ), 'no fill or stroke references a definition that the allowlist would strip' );
+ok( ! preg_match( '/\son[a-z]+\s*=/i', $icon ), 'the icon carries no event handler' );
 
 echo "\nPassed: $pass  Failed: $fail\n";
 exit( $fail > 0 ? 1 : 0 );

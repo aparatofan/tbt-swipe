@@ -196,7 +196,17 @@
 			}
 		}
 
-		/* Lessons load only for a class the server agrees this user owns. */
+		/*
+		 * A deck attached to a class must name a lesson, so choosing a class
+		 * loads that class's lessons and picks the newest one straight away.
+		 * Mandatory should not mean an extra click: the lesson a teacher wants
+		 * is nearly always the one they just taught.
+		 *
+		 * "Bez klasy" stays the default and needs no lesson — only the class →
+		 * lesson pairing is required.
+		 *
+		 * Lessons load only for a class the server agrees this user owns.
+		 */
 		if ( classSelect && lessonSelect && lessonWrap ) {
 			classSelect.addEventListener( 'change', function () {
 				var classId = classSelect.value;
@@ -208,13 +218,30 @@
 				}
 
 				request( 'classes/' + encodeURIComponent( classId ) + '/lessons' ).then( function ( data ) {
-					( data.lessons || [] ).forEach( function ( lesson ) {
+					var lessons = data.lessons || [];
+
+					if ( ! lessons.length ) {
+						// Nothing to attach to. Say so, and take the class back
+						// out of play rather than leaving a selection that
+						// cannot be saved and does not explain itself.
+						markClassLessonless( classId );
+						lessonWrap.hidden = true;
+						classSelect.value = '';
+						showError( root, i18n.classNoLessons );
+						return;
+					}
+
+					// The route returns lessons newest-first; option 0 is the
+					// most recent, so no client-side sorting is involved.
+					lessonSelect.innerHTML = '';
+					lessons.forEach( function ( lesson ) {
 						var option = document.createElement( 'option' );
 						option.value = lesson.id;
 						option.textContent = lesson.title;
 						lessonSelect.appendChild( option );
 					} );
-					lessonWrap.hidden = ! ( data.lessons && data.lessons.length );
+					lessonSelect.selectedIndex = 0;
+					lessonWrap.hidden = false;
 				} ).catch( function ( error ) {
 					lessonWrap.hidden = true;
 					showError( root, error.message );
@@ -222,6 +249,24 @@
 			} );
 		}
 
+		/**
+		 * Take a class with no lessons out of the picker, so the teacher cannot
+		 * land on it again and wonder why saving fails.
+		 *
+		 * @param {string} classId Class that came back empty.
+		 */
+		function markClassLessonless( classId ) {
+			var option = classSelect.querySelector( 'option[value="' + classId + '"]' );
+			if ( ! option ) {
+				return;
+			}
+			option.disabled = true;
+			if ( option.textContent.indexOf( i18n.noLessonsSuffix ) === -1 ) {
+				option.textContent = option.textContent.trim() + ' ' + i18n.noLessonsSuffix;
+			}
+		}
+
+		/* The empty first option exists only until a class is chosen. */
 		function resetLessons() {
 			lessonSelect.innerHTML = '';
 			var blank = document.createElement( 'option' );

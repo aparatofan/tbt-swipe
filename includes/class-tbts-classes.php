@@ -177,6 +177,18 @@ class TBTS_Classes {
 			);
 		}
 
+		// A deck attached to a class must say which lesson it belongs to: the
+		// Notes panel puts it on that lesson's row, and one with no lesson has
+		// nowhere to go. The picker pre-selects a lesson, but that is
+		// convenience — this is the guarantee.
+		if ( null === $lesson_id ) {
+			return new WP_Error(
+				'tbts_lesson_required',
+				__( 'Wybierz lekcję dla tej klasy.', 'tbt-swipe' ),
+				array( 'status' => 400 )
+			);
+		}
+
 		if ( null !== $lesson_id && ! self::lesson_belongs_to_class( $lesson_id, $class_id ) ) {
 			return new WP_Error(
 				'tbts_invalid_lesson',
