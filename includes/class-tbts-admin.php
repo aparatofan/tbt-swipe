@@ -151,7 +151,7 @@ class TBTS_Admin {
 				'maxTerms' => TBTS_Generator::max_cards_per_generation(),
 				'set'      => $set_data,
 				'i18n'     => array(
-					'confirmDelete' => __( 'Delete this set and all of its cards? This cannot be undone.', 'tbt-swipe' ),
+					'confirmDelete' => __( 'Delete this deck and all of its cards? This cannot be undone.', 'tbt-swipe' ),
 					'tooFew'        => __( 'Add at least one term to generate.', 'tbt-swipe' ),
 					'tooMany'       => sprintf(
 						/* translators: %d: maximum number of terms per generation */
@@ -162,7 +162,7 @@ class TBTS_Admin {
 					'generating'    => __( 'Generating cards… this can take up to 30 seconds.', 'tbt-swipe' ),
 					'saving'        => __( 'Saving…', 'tbt-swipe' ),
 					'copied'        => __( 'Copied!', 'tbt-swipe' ),
-					'needTitle'     => __( 'Please give the set a title before saving.', 'tbt-swipe' ),
+					'needTitle'     => __( 'Please give the deck a title before saving.', 'tbt-swipe' ),
 					'noCards'       => __( 'Nothing to save yet — generate cards first.', 'tbt-swipe' ),
 					'networkError'  => __( 'Request failed. Please check your connection and try again.', 'tbt-swipe' ),
 				),
@@ -191,7 +191,7 @@ class TBTS_Admin {
 			<hr class="wp-header-end">
 
 			<?php if ( isset( $_GET['deleted'] ) ) : ?>
-				<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Set deleted.', 'tbt-swipe' ); ?></p></div>
+				<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Deck deleted.', 'tbt-swipe' ); ?></p></div>
 			<?php endif; ?>
 
 			<table class="wp-list-table widefat fixed striped">
@@ -206,7 +206,7 @@ class TBTS_Admin {
 				</thead>
 				<tbody>
 				<?php if ( empty( $sets ) ) : ?>
-					<tr><td colspan="5"><?php esc_html_e( 'No sets yet. Click "Add New" to create your first deck.', 'tbt-swipe' ); ?></td></tr>
+					<tr><td colspan="5"><?php esc_html_e( 'No decks yet. Click "Add New" to create your first deck.', 'tbt-swipe' ); ?></td></tr>
 				<?php else : ?>
 					<?php foreach ( $sets as $set ) :
 						$edit_url = add_query_arg( array( 'page' => 'tbt-swipe', 'action' => 'edit', 'set' => $set->id ), admin_url( 'admin.php' ) );
@@ -260,11 +260,11 @@ class TBTS_Admin {
 		$list_url = add_query_arg( 'page', 'tbt-swipe', admin_url( 'admin.php' ) );
 		?>
 		<div class="wrap tbts-wrap tbts-editor">
-			<h1><?php echo $is_edit ? esc_html__( 'Edit Set', 'tbt-swipe' ) : esc_html__( 'New Set', 'tbt-swipe' ); ?></h1>
-			<p><a href="<?php echo esc_url( $list_url ); ?>">&larr; <?php esc_html_e( 'Back to all sets', 'tbt-swipe' ); ?></a></p>
+			<h1><?php echo $is_edit ? esc_html__( 'Edit Deck', 'tbt-swipe' ) : esc_html__( 'New Deck', 'tbt-swipe' ); ?></h1>
+			<p><a href="<?php echo esc_url( $list_url ); ?>">&larr; <?php esc_html_e( 'Back to all decks', 'tbt-swipe' ); ?></a></p>
 
 			<?php if ( isset( $_GET['updated'] ) ) : ?>
-				<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Set saved.', 'tbt-swipe' ); ?></p></div>
+				<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Deck saved.', 'tbt-swipe' ); ?></p></div>
 			<?php endif; ?>
 
 			<div id="tbts-error" class="notice notice-error" hidden><p></p></div>
@@ -322,7 +322,7 @@ class TBTS_Admin {
 					<option value="draft" <?php selected( $status, 'draft' ); ?>><?php esc_html_e( 'Draft', 'tbt-swipe' ); ?></option>
 					<option value="published" <?php selected( $status, 'published' ); ?>><?php esc_html_e( 'Published', 'tbt-swipe' ); ?></option>
 				</select>
-				<button type="button" class="button button-primary" id="tbts-save"><?php esc_html_e( 'Save set', 'tbt-swipe' ); ?></button>
+				<button type="button" class="button button-primary" id="tbts-save"><?php esc_html_e( 'Save deck', 'tbt-swipe' ); ?></button>
 				<span class="spinner" id="tbts-save-spinner"></span>
 			</div>
 
@@ -330,7 +330,7 @@ class TBTS_Admin {
 				<div class="tbts-panel" id="tbts-qr-panel">
 					<h2><?php esc_html_e( 'QR code', 'tbt-swipe' ); ?></h2>
 					<?php if ( 'published' !== $set->status ) : ?>
-						<p><?php esc_html_e( 'Publish the set to get a scannable QR code.', 'tbt-swipe' ); ?></p>
+						<p><?php esc_html_e( 'Publish the deck to get a scannable QR code.', 'tbt-swipe' ); ?></p>
 					<?php elseif ( ! $page_set || '' === $deck_url ) : ?>
 						<p>
 							<?php

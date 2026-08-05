@@ -44,10 +44,7 @@ class TBTS_Classes {
 
 class TBTS_Frontend {
 	public static function card_count_label( $n ) {
-		if ( 1 === $n ) { return $n . ' karta'; }
-		$l2 = $n % 100; $l1 = $n % 10;
-		if ( $l1 >= 2 && $l1 <= 4 && ( $l2 < 12 || $l2 > 14 ) ) { return $n . ' karty'; }
-		return $n . ' kart';
+		return $n . ( 1 === $n ? ' card' : ' cards' );
 	}
 }
 
@@ -105,8 +102,8 @@ ok( in_array( 'Deck od innego nauczyciela', $titles, true ), 'a deck owned by an
 echo "Bridge — subtitles and lesson anchoring:\n";
 $byTitle = array();
 foreach ( $out[0]['items'] as $i ) { $byTitle[ $i['title'] ] = $i; }
-ok( $byTitle['Unit 4 — collocations']['subtitle'] === '18 kart', 'card count alone for an anchored deck — the lesson row already places it (' . $byTitle['Unit 4 — collocations']['subtitle'] . ')' );
-ok( $byTitle['Phrasal verbs']['subtitle'] === '1 karta', 'card count alone when lesson_id is null' );
+ok( $byTitle['Unit 4 — collocations']['subtitle'] === '18 cards', 'card count alone for an anchored deck — the lesson row already places it (' . $byTitle['Unit 4 — collocations']['subtitle'] . ')' );
+ok( $byTitle['Phrasal verbs']['subtitle'] === '1 card', 'card count alone when lesson_id is null' );
 ok( $byTitle['Unit 4 — collocations']['lesson_id'] === 7, 'an anchored deck carries its lesson_id' );
 ok( $byTitle['Phrasal verbs']['lesson_id'] === 0, 'an unanchored deck reports lesson_id 0' );
 

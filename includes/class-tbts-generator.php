@@ -140,7 +140,7 @@ class TBTS_Generator {
 		if ( ! TBTS_Capabilities::user_can_manage( $user_id ) ) {
 			return new WP_Error(
 				'tbts_forbidden',
-				__( 'Nie masz uprawnień do generowania zestawów.', 'tbt-swipe' ),
+				__( 'You don\'t have permission to create decks.', 'tbt-swipe' ),
 				array( 'status' => 403 )
 			);
 		}
@@ -150,7 +150,7 @@ class TBTS_Generator {
 		if ( empty( $terms ) ) {
 			return new WP_Error(
 				'tbts_no_terms',
-				__( 'Wpisz przynajmniej jedno słowo.', 'tbt-swipe' ),
+				__( 'Add at least one word.', 'tbt-swipe' ),
 				array( 'status' => 400 )
 			);
 		}
@@ -161,7 +161,7 @@ class TBTS_Generator {
 				'tbts_too_many_cards',
 				sprintf(
 					/* translators: %d: maximum number of terms per generation */
-					__( 'Za dużo słów w jednym zestawie (maks. %d).', 'tbt-swipe' ),
+					__( 'Too many words — the maximum is %d.', 'tbt-swipe' ),
 					$max
 				),
 				array(
@@ -175,7 +175,7 @@ class TBTS_Generator {
 		if ( null !== $remaining && $remaining < 1 ) {
 			return new WP_Error(
 				'tbts_quota_exceeded',
-				__( 'Dzienny limit generowania został wyczerpany.', 'tbt-swipe' ),
+				__( 'You\'ve used today\'s generation limit.', 'tbt-swipe' ),
 				array( 'status' => 429 )
 			);
 		}

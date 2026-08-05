@@ -1,0 +1,93 @@
+/* TBT design tokens — shared across TBT plugins.
+   Component CSS must reference these variables, never literal hex. */
+
+/* ---- Roboto Slab, self-hosted (no fonts.googleapis.com request) ----
+   Both subsets are bundled: `latin` carries the base ASCII letters, and
+   `latin-ext` carries the Polish diacritics (ą ć ę ł ń ó ś ź ż) so class and
+   lesson names never fall back to a substitute font. Each subset is a single
+   variable woff2, so one @font-face per subset declares the whole 400–700
+   range and the browser picks the weight off the variable axis.
+   The deck player carries its own copy of these rules in deck.css: it loads
+   without this file, and neither surface loads the other's stylesheet. */
+@font-face {
+	font-family: 'Roboto Slab';
+	font-style: normal;
+	font-weight: 400 700;
+	font-display: swap;
+	src: url( ../fonts/roboto-slab-v36-latin.woff2 ) format( 'woff2' );
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+	font-family: 'Roboto Slab';
+	font-style: normal;
+	font-weight: 400 700;
+	font-display: swap;
+	src: url( ../fonts/roboto-slab-v36-latin-ext.woff2 ) format( 'woff2' );
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+.tbt {
+  --tbt-ink:        #0E2A4F;
+  --tbt-ink-soft:   #4E6689;
+  --tbt-ink-faint:  #8299B8;
+
+  --tbt-blue:       #0856C9;
+  --tbt-blue-deep:  #06429B;
+  --tbt-periwinkle: #7BA7E8;
+  --tbt-blue-wash:  #E3EEFD;
+  --tbt-blue-tint:  #F0F5FE;
+
+  --tbt-action:       #0856C9;
+  --tbt-action-hover: #4B84CE;
+
+  --tbt-violet:     #5F53A0;
+  --tbt-maroon:     #660000;
+  --tbt-green:      #2E7D4F;
+
+  --tbt-surface:    #FFFFFF;
+  --tbt-canvas:     #EDF3FC;
+  --tbt-line:       #D5E2F5;
+  --tbt-line-soft:  #E8F0FB;
+
+  --tbt-s1: 4px;  --tbt-s2: 8px;  --tbt-s3: 12px; --tbt-s4: 16px;
+  --tbt-s5: 24px; --tbt-s6: 32px; --tbt-s7: 48px; --tbt-s8: 64px;
+
+  --tbt-r-sm: 8px; --tbt-r-md: 12px; --tbt-r-lg: 16px; --tbt-r-xl: 22px;
+  --tbt-r-pill: 999px;
+
+  --tbt-shadow-sm: 0 1px 2px rgba(14,42,79,.06), 0 2px 8px rgba(14,42,79,.06);
+  --tbt-shadow-md: 0 2px 4px rgba(14,42,79,.07), 0 12px 28px rgba(14,42,79,.10);
+  --tbt-shadow-action: 0 2px 6px rgba(8,86,201,.24), 0 10px 24px rgba(8,86,201,.18);
+
+  --tbt-display: 'Roboto Slab', Georgia, serif;
+  --tbt-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --tbt-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --tbt-ease: cubic-bezier(.22,.61,.36,1);
+}
+
+/* Reset — scoped to .tbt so Divi's typography stops at the container edge,
+   and wrapped in :where() so it carries ZERO specificity. */
+:where(.tbt), :where(.tbt *), :where(.tbt *::before), :where(.tbt *::after) { box-sizing: border-box; }
+.tbt {
+  font-family: var(--tbt-body); color: var(--tbt-ink);
+  font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased;
+}
+:where(.tbt p, .tbt h1, .tbt h2, .tbt h3, .tbt h4, .tbt ul, .tbt ol, .tbt li, .tbt figure) { margin: 0; padding: 0; }
+:where(.tbt ul, .tbt ol) { list-style: none; }
+:where(.tbt button) { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+:where(.tbt input, .tbt select, .tbt textarea) { font: inherit; color: inherit; }
+:where(.tbt a) { color: var(--tbt-blue); text-decoration: none; }
+.tbt a:hover { text-decoration: underline; }
+.tbt :focus-visible { outline: 3px solid var(--tbt-periwinkle); outline-offset: 2px; border-radius: var(--tbt-r-sm); }
+
+/* Divi sets display on plenty of elements, which beats the [hidden]
+   attribute's default. Panels that start hidden must stay hidden, so this
+   needs !important — :where() zeroes the specificity, not the priority. */
+:where(.tbt) [hidden] { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tbt *, .tbt *::before, .tbt *::after {
+    animation-duration: .001ms !important; transition-duration: .001ms !important;
+  }
+}

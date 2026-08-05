@@ -1,359 +1,306 @@
-/* TBT Swipe — frontend management page (generator + set list).
-   Everything is scoped under .tbts-fe and reset defensively, because this
-   renders inside Divi, whose typography and form styles otherwise leak in.
-   Deliberately does not load deck.css: the player and the management UI are
-   separate surfaces. */
+/* TBT Swipe — frontend components. Requires tbt-tokens.css. */
 
-.tbts-fe,
-.tbts-fe * {
-	box-sizing: border-box;
+.tbt-page { padding: var(--tbt-s6) 0 var(--tbt-s8); }
+.tbt-wrap { max-width: 1140px; margin: 0 auto; }
+
+/* ---------- Masthead ---------- */
+.tbt-masthead {
+  padding-bottom: var(--tbt-s5);
+  border-bottom: 3px solid var(--tbt-blue);
+  margin-bottom: var(--tbt-s7);
+}
+.tbt-wordmark {
+  font-family: var(--tbt-display); font-weight: 700;
+  font-size: clamp(34px, 6vw, 52px);
+  letter-spacing: -.02em; line-height: 1; color: var(--tbt-blue);
+}
+.tbt-wordmark span { color: var(--tbt-maroon); }
+.tbt-tagline {
+  font-size: 19px; color: var(--tbt-ink-soft);
+  margin-top: var(--tbt-s3) !important; max-width: 64ch;
+}
+.tbt-tagline strong { display: block; color: var(--tbt-ink); font-weight: 600; }
+
+/* ---------- Stages ---------- */
+.tbt-stage { margin-bottom: var(--tbt-s7); }
+.tbt-stage-card {
+  background-color: var(--tbt-surface);
+  border: 1px solid var(--tbt-line);
+  border-top: 5px solid var(--tbt-blue);
+  border-radius: var(--tbt-r-xl);
+  box-shadow: var(--tbt-shadow-md);
+  padding: var(--tbt-s6);
+}
+.tbt-stage[data-state="waiting"] .tbt-stage-card {
+  border-top-color: var(--tbt-line); box-shadow: none; background-color: #FAFCFF;
+}
+.tbt-stage[data-state="done"] .tbt-stage-card { border-top-color: var(--tbt-green); }
+.tbt-stage-head { margin-bottom: var(--tbt-s5); }
+.tbt-stage-title {
+  font-family: var(--tbt-display); font-size: 28px; font-weight: 700;
+  letter-spacing: -.01em; color: var(--tbt-ink);
+}
+.tbt-stage-title b { color: var(--tbt-blue); font-weight: 700; }
+.tbt-stage[data-state="waiting"] .tbt-stage-title,
+.tbt-stage[data-state="waiting"] .tbt-stage-title b { color: var(--tbt-ink-faint); }
+.tbt-stage[data-state="done"] .tbt-stage-title b { color: var(--tbt-green); }
+.tbt-stage-sub { font-size: 17px; color: var(--tbt-ink-soft); margin-top: var(--tbt-s2) !important; }
+.tbt-stage-wait {
+  font-size: 16px; color: var(--tbt-ink-faint);
+  border: 2px dashed var(--tbt-line); border-radius: var(--tbt-r-lg);
+  padding: var(--tbt-s6); text-align: center;
 }
 
-/* Divi sets display on plenty of elements, which beats the [hidden]
-   attribute's default. Panels that start hidden must stay hidden. */
-.tbts-fe [hidden] {
-	display: none !important;
+/* ---------- Form ---------- */
+.tbt-field { margin-bottom: var(--tbt-s5); }
+.tbt-label {
+  display: block; font-family: var(--tbt-display);
+  font-size: 15px; font-weight: 600; color: var(--tbt-ink); margin-bottom: var(--tbt-s2);
+}
+.tbt-help { font-size: 15px; color: var(--tbt-ink-soft); margin-top: var(--tbt-s2) !important; }
+.tbt-help strong { color: var(--tbt-maroon); font-weight: 600; }
+.tbt-input, .tbt-select, .tbt-textarea {
+  width: 100%; background-color: var(--tbt-blue-tint);
+  border: 1.5px solid var(--tbt-line); border-radius: var(--tbt-r-md);
+  padding: 13px var(--tbt-s4);
+  transition: border-color .18s var(--tbt-ease), background-color .18s var(--tbt-ease), box-shadow .18s var(--tbt-ease);
+}
+.tbt-input::placeholder, .tbt-textarea::placeholder { color: var(--tbt-ink-faint); }
+.tbt-input:hover, .tbt-select:hover, .tbt-textarea:hover { border-color: var(--tbt-periwinkle); }
+.tbt-input:focus, .tbt-select:focus, .tbt-textarea:focus {
+  outline: none; background-color: var(--tbt-surface);
+  border-color: var(--tbt-blue); box-shadow: 0 0 0 4px var(--tbt-blue-wash);
+}
+.tbt-textarea { min-height: 230px; resize: vertical; line-height: 1.9; font-family: var(--tbt-mono); font-size: 15px; }
+.tbt-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5l5-5' stroke='%230856C9' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right var(--tbt-s4) center; padding-right: var(--tbt-s7);
+}
+.tbt-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--tbt-s4); }
+.tbt-meter {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--tbt-s3); flex-wrap: wrap; font-size: 15px; color: var(--tbt-ink-soft);
+  margin-top: var(--tbt-s3); margin-bottom: var(--tbt-s5);
+}
+.tbt-meter strong { color: var(--tbt-blue-deep); font-weight: 700; font-family: var(--tbt-display); }
+.tbt-meter .is-over { color: var(--tbt-maroon); }
+
+/* ---------- Buttons ---------- */
+.tbt-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--tbt-s2);
+  font-family: var(--tbt-body); font-weight: 600;
+  text-transform: uppercase; letter-spacing: .08em;
+  border: 0; border-radius: var(--tbt-r-pill);
+  padding: 17px var(--tbt-s7); font-size: 16px; cursor: pointer;
+  transition: transform .16s var(--tbt-ease), background-color .16s var(--tbt-ease),
+              box-shadow .16s var(--tbt-ease), border-color .16s var(--tbt-ease), color .16s var(--tbt-ease);
+}
+.tbt-btn:active { transform: translateY(1px); }
+.tbt-btn[disabled] { opacity: .5; cursor: default; }
+.tbt-btn--primary { background-color: var(--tbt-action); color: #FFFFFF; box-shadow: var(--tbt-shadow-action); }
+.tbt-btn--primary:hover:not([disabled]) { background-color: var(--tbt-action-hover); color: #FFFFFF; }
+.tbt-btn--soft { background-color: var(--tbt-periwinkle); color: var(--tbt-ink); }
+.tbt-btn--soft:hover:not([disabled]) { background-color: var(--tbt-action-hover); color: #FFFFFF; }
+.tbt-btn--ghost {
+  background-color: var(--tbt-surface); color: var(--tbt-blue-deep);
+  border: 1.5px solid var(--tbt-line);
+  text-transform: none; letter-spacing: .01em; font-weight: 600;
+  font-family: var(--tbt-display); padding: 9px var(--tbt-s5); font-size: 15px;
+}
+.tbt-btn--ghost:hover:not([disabled]) { border-color: var(--tbt-blue); background-color: var(--tbt-blue-wash); }
+.tbt-btn--danger { color: var(--tbt-maroon); }
+.tbt-btn--danger:hover:not([disabled]) { border-color: var(--tbt-maroon); background-color: #FAF0F0; color: var(--tbt-maroon); }
+
+/* ---------- Content stage + preview stack ---------- */
+.tbt-compose { display: grid; grid-template-columns: minmax(0,1fr) 310px; gap: var(--tbt-s7); align-items: start; }
+.tbt-eyebrow {
+  font-family: var(--tbt-mono); font-size: 13px; letter-spacing: .12em;
+  text-transform: lowercase; color: var(--tbt-violet);
+  display: flex; align-items: center; gap: var(--tbt-s2); margin-bottom: var(--tbt-s3);
+}
+.tbt-eyebrow::before, .tbt-eyebrow::after { content: '/'; color: var(--tbt-periwinkle); }
+.tbt-stack-rail { position: sticky; top: var(--tbt-s5); }
+.tbt-stack { position: relative; height: 260px; margin: var(--tbt-s5) 0; }
+.tbt-stack-layer { position: absolute; inset: 0; border-radius: var(--tbt-r-lg); transition: transform .4s var(--tbt-ease), opacity .4s var(--tbt-ease); }
+.tbt-stack-layer:nth-child(1) { background-color: var(--tbt-violet); transform: rotate(-7deg) translateY(10px); opacity: .30; }
+.tbt-stack-layer:nth-child(2) { background-color: var(--tbt-periwinkle); transform: rotate(-3.5deg) translateY(5px); opacity: .55; }
+.tbt-stack-layer:nth-child(3) { background-color: var(--tbt-surface); border: 2px solid var(--tbt-blue); transform: rotate(2deg); box-shadow: var(--tbt-shadow-md); }
+.tbt-stack[data-empty="true"] .tbt-stack-layer:nth-child(1),
+.tbt-stack[data-empty="true"] .tbt-stack-layer:nth-child(2) { transform: none; opacity: 0; }
+.tbt-stack[data-empty="true"] .tbt-stack-layer:nth-child(3) { border-style: dashed; border-color: var(--tbt-periwinkle); box-shadow: none; transform: none; }
+.tbt-stack-face {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: var(--tbt-s2);
+  padding: var(--tbt-s5); text-align: center; transform: rotate(2deg);
+  transition: transform .4s var(--tbt-ease);
+}
+.tbt-stack[data-empty="true"] .tbt-stack-face { transform: none; }
+.tbt-stack-term { font-family: var(--tbt-display); font-size: 24px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; color: var(--tbt-ink); }
+.tbt-stack[data-empty="true"] .tbt-stack-term { color: var(--tbt-ink-faint); font-weight: 400; font-size: 17px; }
+.tbt-stack-count { text-align: center; font-size: 15px; color: var(--tbt-ink-soft); }
+.tbt-stack-count strong { display: block; font-family: var(--tbt-display); font-size: 40px; font-weight: 700; color: var(--tbt-blue); line-height: 1; margin-bottom: var(--tbt-s1); }
+
+/* ---------- Review ---------- */
+.tbt-review { margin-top: var(--tbt-s7); padding-top: var(--tbt-s6); border-top: 2px solid var(--tbt-line-soft); }
+.tbt-review-title { font-family: var(--tbt-display); font-size: 21px; font-weight: 600; margin-bottom: var(--tbt-s2) !important; }
+.tbt-colheads {
+  display: grid; grid-template-columns: 40px minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr) 40px;
+  gap: var(--tbt-s3); padding: 0 var(--tbt-s4) var(--tbt-s2);
+}
+.tbt-colheads span {
+  font-family: var(--tbt-mono); font-size: 12px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--tbt-violet); padding-left: var(--tbt-s3);
+}
+.tbt-rows { display: flex; flex-direction: column; gap: var(--tbt-s3); }
+.tbt-row {
+  background-color: var(--tbt-blue-tint);
+  border: 1.5px solid transparent; border-left: 4px solid var(--tbt-periwinkle);
+  border-radius: var(--tbt-r-lg); padding: var(--tbt-s3) var(--tbt-s4);
+  transition: border-color .18s var(--tbt-ease), background-color .18s var(--tbt-ease);
+}
+.tbt-row:hover { background-color: var(--tbt-surface); border-color: var(--tbt-line); border-left-color: var(--tbt-blue); }
+.tbt-row:focus-within { background-color: var(--tbt-surface); border-color: var(--tbt-blue); border-left-color: var(--tbt-blue); }
+.tbt-row-top {
+  display: grid; grid-template-columns: 40px minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr) 40px;
+  gap: var(--tbt-s3); align-items: center;
+}
+.tbt-row-ex {
+  display: grid; grid-template-columns: 40px minmax(0,1fr) 40px;
+  gap: var(--tbt-s3); align-items: start; margin-top: var(--tbt-s2);
+}
+.tbt-row-n { font-family: var(--tbt-display); font-size: 14px; font-weight: 700; color: var(--tbt-periwinkle); text-align: center; }
+.tbt-cell {
+  background-color: var(--tbt-surface); border: 1.5px solid var(--tbt-line);
+  border-radius: var(--tbt-r-md); padding: 10px var(--tbt-s3); width: 100%;
+  transition: border-color .16s var(--tbt-ease), box-shadow .16s var(--tbt-ease);
+}
+.tbt-cell:hover { border-color: var(--tbt-periwinkle); }
+.tbt-cell:focus { outline: none; border-color: var(--tbt-blue); box-shadow: 0 0 0 3px var(--tbt-blue-wash); }
+.tbt-cell--term { font-weight: 600; font-family: var(--tbt-display); }
+.tbt-cell--ipa { font-family: var(--tbt-mono); font-size: 14px; color: var(--tbt-maroon); }
+.tbt-cell--ex {
+  font-size: 15px; color: var(--tbt-ink-soft); line-height: 1.5;
+  resize: none; overflow: hidden; min-height: 44px; font-family: var(--tbt-body);
+}
+.tbt-row-x {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 10px;
+  /* Declared, not inherited from the reset: the reset sits in :where() and
+     loses to any theme rule that styles bare buttons, and this is the one
+     control with no background of its own to fall back on. */
+  background-color: transparent;
+  color: var(--tbt-ink-faint); font-size: 19px; line-height: 1;
+  transition: background-color .16s var(--tbt-ease), color .16s var(--tbt-ease);
+}
+.tbt-row-x:hover { background-color: #FAF0F0; color: var(--tbt-maroon); }
+.tbt-review-foot { display: flex; align-items: center; gap: var(--tbt-s4); flex-wrap: wrap; margin-top: var(--tbt-s6); }
+.tbt-review-foot .tbt-help { margin-top: 0 !important; }
+
+/* ---------- Save and share ---------- */
+.tbt-saved { display: grid; grid-template-columns: 216px minmax(0,1fr); gap: var(--tbt-s6); align-items: center; }
+.tbt-qr {
+  width: 216px; height: 216px; border-radius: var(--tbt-r-lg);
+  background-color: var(--tbt-surface); border: 3px solid var(--tbt-blue);
+  display: flex; align-items: center; justify-content: center; box-shadow: var(--tbt-shadow-md);
+}
+.tbt-qr canvas, .tbt-qr img, .tbt-qr svg { width: 176px; height: 176px; }
+.tbt-linkrow { display: flex; gap: var(--tbt-s3); margin: var(--tbt-s4) 0 var(--tbt-s5); flex-wrap: wrap; align-items: center; }
+.tbt-linkrow .tbt-input { flex: 1 1 260px; font-family: var(--tbt-mono); font-size: 14px; background-color: var(--tbt-surface); }
+.tbt-saved-actions { display: flex; gap: var(--tbt-s3); flex-wrap: wrap; align-items: center; }
+
+/* ---------- Library ---------- */
+.tbt-section-head { display: flex; align-items: baseline; gap: var(--tbt-s4); margin-bottom: var(--tbt-s5); }
+.tbt-section-title { font-family: var(--tbt-display); font-size: 28px; font-weight: 700; color: var(--tbt-blue); letter-spacing: -.01em; }
+.tbt-group { margin-bottom: var(--tbt-s6); }
+.tbt-group-head { display: flex; align-items: baseline; gap: var(--tbt-s3); margin-bottom: var(--tbt-s4); }
+.tbt-group-name { font-family: var(--tbt-display); font-size: 19px; font-weight: 600; color: var(--tbt-ink); }
+.tbt-group-count { font-size: 15px; color: var(--tbt-ink-soft); }
+.tbt-group-rule { flex: 1; height: 2px; background-color: var(--tbt-line); }
+.tbt-deck {
+  display: flex; align-items: center; gap: var(--tbt-s4); flex-wrap: wrap;
+  background-color: var(--tbt-surface);
+  border: 1.5px solid var(--tbt-line); border-left: 6px solid var(--tbt-blue);
+  border-radius: var(--tbt-r-lg); padding: var(--tbt-s4) var(--tbt-s5);
+  margin-bottom: var(--tbt-s3); box-shadow: var(--tbt-shadow-sm);
+  transition: transform .18s var(--tbt-ease), box-shadow .18s var(--tbt-ease), border-color .18s var(--tbt-ease);
+}
+.tbt-deck:hover { transform: translateY(-2px); box-shadow: var(--tbt-shadow-md); border-color: var(--tbt-periwinkle); border-left-color: var(--tbt-blue-deep); }
+.tbt-deck--none { border-left-color: var(--tbt-violet); }
+.tbt-deck--none:hover { border-left-color: var(--tbt-violet); }
+.tbt-deck-body { flex: 1 1 260px; min-width: 0; }
+.tbt-deck-title { font-family: var(--tbt-display); font-size: 19px; font-weight: 600; }
+.tbt-deck-meta { display: flex; align-items: center; gap: var(--tbt-s3); flex-wrap: wrap; font-size: 15px; color: var(--tbt-ink-soft); margin-top: var(--tbt-s2); }
+.tbt-chip {
+  display: inline-block; font-family: var(--tbt-display);
+  font-size: 14px; font-weight: 600; letter-spacing: .02em;
+  background-color: var(--tbt-maroon); color: #FFFFFF;
+  border-radius: var(--tbt-r-sm); padding: 4px 12px;
+}
+.tbt-chip--none { background-color: var(--tbt-violet); }
+.tbt-deck-actions { display: flex; gap: var(--tbt-s2); flex-wrap: wrap; }
+.tbt-empty {
+  text-align: center; padding: var(--tbt-s8) var(--tbt-s5);
+  background-color: var(--tbt-surface); border: 2px dashed var(--tbt-periwinkle);
+  border-radius: var(--tbt-r-xl); color: var(--tbt-ink-soft); font-size: 16px;
 }
 
-.tbts-fe {
-	--tbts-blue: #0859C6;
-	--tbts-blue-dark: #06459c;
-	--tbts-ink: #2C2C2A;
-	--tbts-soft: #6b6a66;
-	--tbts-line: #dcdbd6;
-	--tbts-bg: #f7f7f5;
-	--tbts-danger: #b3261e;
-
-	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-	font-size: 16px;
-	line-height: 1.5;
-	color: var( --tbts-ink );
-	max-width: 900px;
-	margin: 0 auto 2rem;
+/* ---------- Notices ---------- */
+.tbt-notice {
+  border-radius: var(--tbt-r-md); padding: var(--tbt-s3) var(--tbt-s4);
+  margin-bottom: var(--tbt-s4); font-size: 15px;
 }
+.tbt-notice--error { background-color: #FAF0F0; border-left: 4px solid var(--tbt-maroon); color: var(--tbt-maroon); }
 
-/* ---- Notices ---- */
-
-.tbts-fe-notice {
-	padding: 0.75rem 1rem;
-	border-radius: 6px;
-	margin-bottom: 1rem;
+/* ---------- QR modal ---------- */
+.tbt-modal {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(14,42,79,.55); padding: var(--tbt-s5);
 }
-
-.tbts-fe-error {
-	background: #fdecea;
-	border-left: 4px solid var( --tbts-danger );
-	color: #6b1810;
+.tbt-modal-box {
+  background-color: var(--tbt-surface); border-radius: var(--tbt-r-xl);
+  padding: var(--tbt-s6); text-align: center; box-shadow: var(--tbt-shadow-md);
+  display: flex; flex-direction: column; align-items: center; gap: var(--tbt-s4);
 }
+.tbt-modal-title { font-family: var(--tbt-display); font-size: 19px; font-weight: 600; }
 
-/* ---- Form ---- */
-
-.tbts-fe-step {
-	margin-bottom: 1.75rem;
+/* ---------- Responsive ---------- */
+@media (max-width: 920px) {
+  .tbt-compose { grid-template-columns: 1fr; gap: var(--tbt-s6); }
+  .tbt-stack-rail { position: static; display: grid; grid-template-columns: 170px 1fr; gap: var(--tbt-s5); align-items: center; }
+  .tbt-stack { height: 180px; margin: 0; }
+  .tbt-stack-term { font-size: 18px; }
+  .tbt-stack-count { text-align: left; }
+  .tbt-colheads { display: none; }
+  .tbt-row-top { grid-template-columns: 30px minmax(0,1fr) 34px; row-gap: var(--tbt-s2); }
+  .tbt-row-top .tbt-row-n { grid-row: span 3; align-self: start; padding-top: 12px; }
+  .tbt-row-top .tbt-row-x { grid-row: span 3; align-self: start; }
+  /* The three fields stack down the wide middle column, between the number
+     and the remove button. Auto-placement would put the pronunciation beside
+     the term in the 34px column instead and squeeze it to nothing. */
+  .tbt-row-top .tbt-cell { grid-column: 2; }
+  .tbt-row-top .tbt-row-x { grid-column: 3; grid-row: 1 / span 3; }
+  .tbt-row-ex { grid-template-columns: 30px minmax(0,1fr) 34px; }
+  .tbt-saved { grid-template-columns: 1fr; justify-items: start; }
+  .tbt-stage-title { font-size: 24px; }
 }
-
-.tbts-fe-heading {
-	font-size: 1.15rem;
-	margin: 0 0 0.35rem;
-	color: var( --tbts-ink );
-}
-
-.tbts-fe-label {
-	display: block;
-	font-weight: 600;
-	margin-bottom: 0.35rem;
-}
-
-.tbts-fe-input,
-.tbts-fe-select,
-.tbts-fe-textarea {
-	width: 100%;
-	max-width: 100%;
-	padding: 0.55rem 0.7rem;
-	font-family: inherit;
-	font-size: 1rem;
-	line-height: 1.4;
-	color: var( --tbts-ink );
-	background: #fff;
-	border: 1px solid var( --tbts-line );
-	border-radius: 6px;
-}
-
-.tbts-fe-input:focus,
-.tbts-fe-select:focus,
-.tbts-fe-textarea:focus {
-	outline: 2px solid var( --tbts-blue );
-	outline-offset: 1px;
-	border-color: var( --tbts-blue );
-}
-
-.tbts-fe-textarea {
-	resize: vertical;
-	min-height: 9rem;
-}
-
-.tbts-fe-help {
-	margin: 0.35rem 0 0.75rem;
-	font-size: 0.875rem;
-	color: var( --tbts-soft );
-}
-
-.tbts-fe-lesson-wrap {
-	margin-top: 1rem;
-}
-
-/* The count turns red once the paste is over the per-generation cap. This is
-   a hint only — the server enforces the real limit. */
-.tbts-fe-over .tbts-fe-help {
-	color: var( --tbts-danger );
-	font-weight: 600;
-}
-
-.tbts-fe-status {
-	display: inline-block;
-	margin-left: 0.6rem;
-	font-size: 0.875rem;
-	color: var( --tbts-soft );
-}
-
-/* ---- Buttons ---- */
-
-.tbts-fe-btn {
-	display: inline-block;
-	padding: 0.5rem 1rem;
-	font-family: inherit;
-	font-size: 0.95rem;
-	font-weight: 600;
-	line-height: 1.3;
-	color: var( --tbts-ink );
-	text-decoration: none;
-	background: #fff;
-	border: 1px solid var( --tbts-line );
-	border-radius: 6px;
-	cursor: pointer;
-}
-
-.tbts-fe-btn:hover {
-	border-color: var( --tbts-blue );
-	color: var( --tbts-blue );
-}
-
-.tbts-fe-btn:disabled {
-	opacity: 0.55;
-	cursor: default;
-}
-
-.tbts-fe-btn-primary {
-	color: #fff;
-	background: var( --tbts-blue );
-	border-color: var( --tbts-blue );
-}
-
-.tbts-fe-btn-primary:hover {
-	color: #fff;
-	background: var( --tbts-blue-dark );
-	border-color: var( --tbts-blue-dark );
-}
-
-.tbts-fe-btn-small {
-	padding: 0.3rem 0.65rem;
-	font-size: 0.85rem;
-}
-
-.tbts-fe-btn-danger:hover {
-	color: var( --tbts-danger );
-	border-color: var( --tbts-danger );
-}
-
-/* ---- Review table ---- */
-
-/* The table is wider than a phone. It scrolls inside its own box so the page
-   itself never scrolls sideways. */
-.tbts-fe-table-scroll {
-	overflow-x: auto;
-	margin-bottom: 1rem;
-	border: 1px solid var( --tbts-line );
-	border-radius: 6px;
-}
-
-.tbts-fe-table {
-	width: 100%;
-	min-width: 640px;
-	border-collapse: collapse;
-	background: #fff;
-}
-
-.tbts-fe-table th,
-.tbts-fe-table td {
-	padding: 0.4rem 0.5rem;
-	text-align: left;
-	border-bottom: 1px solid var( --tbts-line );
-	vertical-align: middle;
-}
-
-.tbts-fe-table th {
-	font-size: 0.8rem;
-	text-transform: uppercase;
-	letter-spacing: 0.03em;
-	color: var( --tbts-soft );
-	background: var( --tbts-bg );
-}
-
-.tbts-fe-table .tbts-fe-input {
-	padding: 0.35rem 0.45rem;
-	font-size: 0.95rem;
-}
-
-.tbts-fe-col-tool {
-	width: 2.5rem;
-	text-align: center;
-}
-
-.tbts-fe-row-btn {
-	padding: 0.2rem 0.45rem;
-	font-size: 0.9rem;
-	line-height: 1;
-	color: var( --tbts-soft );
-	background: none;
-	border: 1px solid transparent;
-	border-radius: 4px;
-	cursor: pointer;
-}
-
-.tbts-fe-row-btn:hover {
-	color: var( --tbts-danger );
-	border-color: var( --tbts-danger );
-}
-
-/* ---- Result ---- */
-
-.tbts-fe-link-row {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.5rem;
-	align-items: center;
-	margin-bottom: 1rem;
-}
-
-.tbts-fe-url {
-	flex: 1 1 16rem;
-	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-	font-size: 0.9rem;
-}
-
-.tbts-fe-qr {
-	display: inline-block;
-	padding: 0.75rem;
-	background: #fff;
-	border: 1px solid var( --tbts-line );
-	border-radius: 6px;
-}
-
-.tbts-fe-qr img,
-.tbts-fe-qr canvas {
-	display: block;
-	width: 100%;
-	max-width: 320px;
-	height: auto;
-}
-
-/* ---- Set list ---- */
-
-.tbts-fe-group {
-	margin-bottom: 2rem;
-}
-
-/* "Bez klasy" is styled exactly like every other group. An unattached set is
-   a supported state, not an orphan to flag. */
-.tbts-fe-group-title {
-	font-size: 1.05rem;
-	margin: 0 0 0.6rem;
-	padding-bottom: 0.35rem;
-	border-bottom: 2px solid var( --tbts-line );
-}
-
-.tbts-fe-list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
-.tbts-fe-row {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.75rem;
-	align-items: center;
-	justify-content: space-between;
-	padding: 0.7rem 0.85rem;
-	margin-bottom: 0.5rem;
-	background: #fff;
-	border: 1px solid var( --tbts-line );
-	border-radius: 6px;
-}
-
-.tbts-fe-row-main {
-	flex: 1 1 14rem;
-	min-width: 0;
-}
-
-.tbts-fe-row-title {
-	display: block;
-	font-weight: 600;
-	overflow-wrap: anywhere;
-}
-
-.tbts-fe-row-meta {
-	display: block;
-	font-size: 0.85rem;
-	color: var( --tbts-soft );
-}
-
-.tbts-fe-sep {
-	margin: 0 0.35rem;
-}
-
-.tbts-fe-row-actions {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.35rem;
-}
-
-.tbts-fe-empty {
-	color: var( --tbts-soft );
-}
-
-/* ---- QR modal ---- */
-
-.tbts-fe-modal {
-	position: fixed;
-	inset: 0;
-	z-index: 100000;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 1rem;
-	background: rgba( 0, 0, 0, 0.55 );
-}
-
-.tbts-fe-modal-box {
-	max-width: 24rem;
-	padding: 1.25rem;
-	text-align: center;
-	background: #fff;
-	border-radius: 10px;
-}
-
-.tbts-fe-modal-title {
-	margin: 0 0 0.75rem;
-	font-weight: 600;
-}
-
-.tbts-fe-modal-box .tbts-fe-qr {
-	margin-bottom: 1rem;
-}
-
-@media ( max-width: 600px ) {
-	.tbts-fe-row-actions {
-		width: 100%;
-	}
+@media (max-width: 580px) {
+  .tbt-stage-card { padding: var(--tbt-s5); }
+  .tbt-pair { grid-template-columns: 1fr; }
+  .tbt-stack-rail { grid-template-columns: 1fr; }
+  .tbt-stack { height: 210px; }
+  .tbt-deck-actions { width: 100%; }
+  .tbt-btn--primary, .tbt-btn--soft { width: 100%; }
+  .tbt-row-top, .tbt-row-ex { grid-template-columns: minmax(0,1fr) 34px; }
+  .tbt-row-top .tbt-row-n { display: none; }
+  /* With the row number gone the fields stack in the wide column and the
+     remove button keeps the narrow one. Without this, auto-placement drops
+     the pronunciation into the 34px column and squeezes it to nothing. */
+  .tbt-row-top .tbt-cell { grid-column: 1; }
+  .tbt-row-top .tbt-row-x { grid-column: 2; grid-row: 1 / span 3; }
+  /* The example line's leading spacer exists only to line up with the row
+     number, so it goes when the number does — otherwise it takes the wide
+     column and the example lands in the 34px one. */
+  .tbt-row-ex > span:first-child { display: none; }
 }
