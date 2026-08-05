@@ -125,18 +125,12 @@
 		}
 	}
 
-	/* "1 słowo" / "3 słowa" / "7 słów". Polish needs three forms, so the
-	   two-argument plural helpers are not enough. */
 	function pluralWord( n ) {
-		if ( 1 === n ) {
-			return i18n.countOne;
-		}
-		var lastTwo = n % 100;
-		var lastOne = n % 10;
-		if ( lastOne >= 2 && lastOne <= 4 && ( lastTwo < 12 || lastTwo > 14 ) ) {
-			return i18n.countFew;
-		}
-		return i18n.countMany;
+		return 1 === n ? i18n.wordOne : i18n.wordMany;
+	}
+
+	function pluralCard( n ) {
+		return 1 === n ? i18n.cardOne : i18n.cardMany;
 	}
 
 	function renderQr( target, url ) {
@@ -163,37 +157,79 @@
 		var lessonWrap = role( root, 'lesson-wrap' );
 		var terms = root.querySelector( '#tbts-fe-terms' );
 		var countEl = role( root, 'count' );
-		var hintEl = role( root, 'hint' );
+		var countNoun = role( root, 'count-noun' );
+		var stack = role( root, 'stack' );
+		var stackTerm = role( root, 'stack-term' );
+		var stackCount = role( root, 'stack-count' );
 		var generateBtn = role( root, 'generate' );
 		var generateStatus = role( root, 'generate-status' );
 		var reviewPanel = role( root, 'review' );
 		var reviewBody = role( root, 'review-body' );
 		var saveBtn = role( root, 'save' );
 		var saveStatus = role( root, 'save-status' );
+		var resultWait = role( root, 'result-wait' );
 		var resultPanel = role( root, 'result' );
+		var resultTitle = role( root, 'result-title' );
+		var resultMeta = role( root, 'result-meta' );
 		var resultUrl = role( root, 'result-url' );
 		var resultQr = role( root, 'result-qr' );
+		var resultOpen = role( root, 'result-open' );
 
 		terms.addEventListener( 'input', updateCount );
 		updateCount();
 
-		function lineCount() {
+		function lines() {
 			return terms.value.split( /\r?\n/ ).map( function ( line ) {
 				return line.trim();
-			} ).filter( Boolean ).length;
+			} ).filter( Boolean );
 		}
 
-		/* Pre-check only. The server enforces the real cap. */
+		function lineCount() {
+			return lines().length;
+		}
+
+		/**
+		 * The word counter and the preview stack read the same lines, so they
+		 * are updated together and can never disagree.
+		 *
+		 * The count is a pre-check only — the server enforces the real cap.
+		 */
 		function updateCount() {
-			var n = lineCount();
-			countEl.textContent = n + ' ' + pluralWord( n );
-			if ( n > cfg.maxTerms ) {
-				hintEl.textContent = '— ' + i18n.tooMany;
-				root.classList.add( 'tbts-fe-over' );
-			} else {
-				hintEl.textContent = '';
-				root.classList.remove( 'tbts-fe-over' );
+			var list = lines();
+			var n = list.length;
+
+			countEl.textContent = n;
+			countEl.classList.toggle( 'is-over', n > cfg.maxTerms );
+			if ( countNoun ) {
+				countNoun.textContent = pluralWord( n );
 			}
+
+			if ( stackCount ) {
+				stackCount.textContent = n;
+			}
+			if ( stackTerm ) {
+				stackTerm.textContent = n ? list[ 0 ] : i18n.stackEmpty;
+			}
+			if ( stack ) {
+				stack.setAttribute( 'data-empty', n ? 'false' : 'true' );
+			}
+		}
+
+		/**
+		 * Where the teacher is in the flow. All three stages are always in the
+		 * DOM; only their data-state changes, and the CSS does the rest.
+		 *
+		 * @param {string} first  State for stage 1.
+		 * @param {string} second State for stage 2.
+		 * @param {string} third  State for stage 3.
+		 */
+		function setStages( first, second, third ) {
+			[ first, second, third ].forEach( function ( state, index ) {
+				var stage = root.querySelector( '[data-stage="' + ( index + 1 ) + '"]' );
+				if ( stage ) {
+					stage.setAttribute( 'data-state', state );
+				}
+			} );
 		}
 
 		/*
@@ -297,6 +333,10 @@
 				( data.cards || [] ).forEach( addRow );
 				reviewPanel.hidden = false;
 				resultPanel.hidden = true;
+				// Rows built inside a hidden panel all measure zero, so the
+				// example fields only get their true height once it is shown.
+				growAll();
+				setStages( 'done', 'active', 'waiting' );
 				reviewPanel.scrollIntoView( { behavior: 'smooth', block: 'start' } );
 			} ).catch( function ( error ) {
 				generateBtn.disabled = false;
@@ -305,44 +345,108 @@
 			} );
 		} );
 
-		/* Every generated field is editable — this is the teacher's only
-		   chance to fix AI output before students see it. */
-		function addRow( card ) {
-			var tr = document.createElement( 'tr' );
-			tr.className = 'tbts-fe-row-card';
+		/**
+		 * An example sentence is never truncated: the field grows to fit it.
+		 *
+		 * @param {HTMLTextAreaElement} el Example field.
+		 */
+		function grow( el ) {
+			el.style.height = 'auto';
+			el.style.height = el.scrollHeight + 'px';
+		}
 
-			[ 'term', 'ipa', 'translation', 'example' ].forEach( function ( field ) {
-				var td = document.createElement( 'td' );
+		function growAll() {
+			reviewBody.querySelectorAll( '[data-field="example"]' ).forEach( grow );
+		}
+
+		/* Numbering is positional, so it is recomputed rather than stored:
+		   remove row 2 of 5 and the rest still read 01…04. */
+		function renumber() {
+			Array.prototype.forEach.call( reviewBody.children, function ( row, index ) {
+				var label = row.querySelector( '[data-role="row-n"]' );
+				if ( label ) {
+					label.textContent = ( index + 1 < 10 ? '0' : '' ) + ( index + 1 );
+				}
+			} );
+		}
+
+		/* Every generated field is editable — this is the teacher's only
+		   chance to fix AI output before students see it.
+
+		   Term, pronunciation and translation share the top line so they stay
+		   comparable down the column; the example sits on its own line below,
+		   with the full width of the row to grow into. */
+		function addRow( card ) {
+			var data = card || {};
+			var row = document.createElement( 'div' );
+			row.className = 'tbt-row';
+
+			var top = document.createElement( 'div' );
+			top.className = 'tbt-row-top';
+
+			var number = document.createElement( 'span' );
+			number.className = 'tbt-row-n';
+			number.setAttribute( 'data-role', 'row-n' );
+			top.appendChild( number );
+
+			[
+				[ 'term', 'tbt-cell tbt-cell--term' ],
+				[ 'ipa', 'tbt-cell tbt-cell--ipa' ],
+				[ 'translation', 'tbt-cell tbt-cell--tr' ]
+			].forEach( function ( field ) {
 				var input = document.createElement( 'input' );
 				input.type = 'text';
-				input.className = 'tbts-fe-input';
-				input.setAttribute( 'data-field', field );
-				input.value = card[ field ] || '';
-				td.appendChild( input );
-				tr.appendChild( td );
+				input.className = field[ 1 ];
+				input.setAttribute( 'data-field', field[ 0 ] );
+				input.value = data[ field[ 0 ] ] || '';
+				top.appendChild( input );
 			} );
 
-			var toolTd = document.createElement( 'td' );
-			toolTd.className = 'tbts-fe-col-tool';
 			var remove = document.createElement( 'button' );
 			remove.type = 'button';
-			remove.className = 'tbts-fe-row-btn';
-			remove.textContent = '✕';
+			remove.className = 'tbt-row-x';
+			remove.textContent = '×';
+			remove.setAttribute( 'aria-label', i18n.removeRow );
 			remove.addEventListener( 'click', function () {
-				tr.parentNode.removeChild( tr );
+				row.parentNode.removeChild( row );
+				renumber();
 			} );
-			toolTd.appendChild( remove );
-			tr.appendChild( toolTd );
+			top.appendChild( remove );
 
-			reviewBody.appendChild( tr );
+			// The two spacer spans hold the example line to the same grid as
+			// the line above. They carry no label: the columns are already
+			// named in the header strip.
+			var exampleRow = document.createElement( 'div' );
+			exampleRow.className = 'tbt-row-ex';
+			exampleRow.appendChild( document.createElement( 'span' ) );
+
+			var example = document.createElement( 'textarea' );
+			example.className = 'tbt-cell tbt-cell--ex';
+			example.rows = 1;
+			example.setAttribute( 'data-field', 'example' );
+			example.value = data.example || '';
+			example.addEventListener( 'input', function () {
+				grow( example );
+			} );
+			exampleRow.appendChild( example );
+			exampleRow.appendChild( document.createElement( 'span' ) );
+
+			row.appendChild( top );
+			row.appendChild( exampleRow );
+			reviewBody.appendChild( row );
+
+			grow( example );
+			renumber();
+
+			return row;
 		}
 
 		function collectCards() {
 			var cards = [];
-			reviewBody.querySelectorAll( 'tr.tbts-fe-row-card' ).forEach( function ( tr ) {
+			Array.prototype.forEach.call( reviewBody.children, function ( row ) {
 				var card = {};
-				tr.querySelectorAll( 'input[data-field]' ).forEach( function ( input ) {
-					card[ input.getAttribute( 'data-field' ) ] = input.value.trim();
+				row.querySelectorAll( '[data-field]' ).forEach( function ( field ) {
+					card[ field.getAttribute( 'data-field' ) ] = field.value.trim();
 				} );
 				if ( card.term ) {
 					cards.push( card );
@@ -381,18 +485,38 @@
 			} ).then( function ( data ) {
 				saveBtn.disabled = false;
 				saveStatus.textContent = '';
+				// Saved cards are no longer editable here, so the review panel
+				// closes rather than offering edits that would go nowhere.
 				reviewPanel.hidden = true;
+
+				if ( resultTitle ) {
+					resultTitle.textContent = title;
+				}
+				if ( resultMeta ) {
+					resultMeta.textContent = cards.length + ' ' + pluralCard( cards.length );
+				}
 
 				if ( data.deckUrl ) {
 					resultUrl.value = data.deckUrl;
 					resultUrl.hidden = false;
 					renderQr( resultQr, data.deckUrl );
+					if ( resultOpen ) {
+						resultOpen.href = data.deckUrl;
+						resultOpen.hidden = false;
+					}
 				} else {
 					resultUrl.hidden = true;
+					if ( resultOpen ) {
+						resultOpen.hidden = true;
+					}
 					showError( root, i18n.noDeckPage );
 				}
 
+				if ( resultWait ) {
+					resultWait.hidden = true;
+				}
 				resultPanel.hidden = false;
+				setStages( 'done', 'done', 'active' );
 				resultPanel.scrollIntoView( { behavior: 'smooth', block: 'start' } );
 			} ).catch( function ( error ) {
 				saveBtn.disabled = false;
@@ -401,6 +525,17 @@
 			} );
 		} );
 
+		var addRowBtn = role( root, 'add-row' );
+		if ( addRowBtn ) {
+			addRowBtn.addEventListener( 'click', function () {
+				var row = addRow( {} );
+				var term = row.querySelector( '[data-field="term"]' );
+				if ( term ) {
+					term.focus();
+				}
+			} );
+		}
+
 		var copyBtn = role( root, 'copy' );
 		if ( copyBtn ) {
 			copyBtn.addEventListener( 'click', function () {
@@ -408,20 +543,29 @@
 			} );
 		}
 
-		var resetBtn = role( root, 'reset' );
-		if ( resetBtn ) {
-			resetBtn.addEventListener( 'click', function () {
-				clearError( root );
-				titleInput.value = '';
-				terms.value = '';
-				reviewBody.innerHTML = '';
-				reviewPanel.hidden = true;
-				resultPanel.hidden = true;
-				updateCount();
-				titleInput.scrollIntoView( { behavior: 'smooth', block: 'center' } );
-				titleInput.focus();
-			} );
+		/* Back to an empty first stage, from either "Start over" in the review
+		   or "Create another deck" once a deck is saved. */
+		function reset() {
+			clearError( root );
+			titleInput.value = '';
+			terms.value = '';
+			reviewBody.innerHTML = '';
+			reviewPanel.hidden = true;
+			resultPanel.hidden = true;
+			if ( resultWait ) {
+				resultWait.hidden = false;
+			}
+			setStages( 'active', 'active', 'waiting' );
+			updateCount();
+			titleInput.scrollIntoView( { behavior: 'smooth', block: 'center' } );
+			titleInput.focus();
 		}
+
+		[ role( root, 'reset' ), role( root, 'start-over' ) ].forEach( function ( button ) {
+			if ( button ) {
+				button.addEventListener( 'click', reset );
+			}
+		} );
 	}
 
 	/* ---------------------------------------------------------------- *
@@ -470,8 +614,10 @@
 			} );
 		}
 
+		/* Rows and groups are found by their behavioural attributes, never by
+		   the class names the design owns. */
 		function deleteSet( button ) {
-			var row = button.closest( '.tbts-fe-row' );
+			var row = button.closest( '[data-set-id]' );
 			if ( ! row || ! window.confirm( i18n.confirmDelete ) ) {
 				return;
 			}
@@ -481,10 +627,10 @@
 
 			request( 'sets/' + encodeURIComponent( row.getAttribute( 'data-set-id' ) ), { method: 'DELETE' } )
 				.then( function () {
-					var group = row.closest( '.tbts-fe-group' );
+					var group = row.closest( '[data-role="group"]' );
 					row.parentNode.removeChild( row );
-					// Drop a group that just lost its last set.
-					if ( group && ! group.querySelector( '.tbts-fe-row' ) ) {
+					// Drop a group that just lost its last deck.
+					if ( group && ! group.querySelector( '[data-set-id]' ) ) {
 						group.parentNode.removeChild( group );
 					}
 				} )
