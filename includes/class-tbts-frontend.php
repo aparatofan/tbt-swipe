@@ -54,8 +54,16 @@ class TBTS_Frontend {
 				<div class="tbt-hero-content">
 					<p class="tbt-hero-eyebrow"><?php esc_html_e( 'The Blue Tree Teacher Tools', 'tbt-swipe' ); ?></p>
 					<h1 class="tbt-hero-title"><?php esc_html_e( 'Swipe', 'tbt-swipe' ); ?></h1>
+					<?php
+					/*
+					 * Two sentences, two lines, two strings: the break is
+					 * structural rather than a <br>, so a translation that
+					 * runs longer still gets its own line.
+					 */
+					?>
 					<p class="tbt-hero-sub">
-						<?php esc_html_e( 'Your friendly flashcard tool. Words from lessons become decks your students can play on their phones.', 'tbt-swipe' ); ?>
+						<span><?php esc_html_e( 'Your friendly flashcard tool.', 'tbt-swipe' ); ?></span>
+						<span><?php esc_html_e( 'Words from lessons become decks your students can play on their phones.', 'tbt-swipe' ); ?></span>
 					</p>
 				</div>
 				<img class="tbt-hero-logo"
