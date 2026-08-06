@@ -52,6 +52,8 @@ Put both on one page (`/swipe/` is the intended home) so a teacher can build dec
 
 Both render **nothing at all** — not even a "no access" notice — for a visitor without the `tbts_manage` capability. Students land on this page too, and there is no reason to advertise a tool they cannot use.
 
+The page opens with the same blue gradient hero the [TBT Matching Game](https://github.com/aparatofan/tbt_matching_game) uses — same gradient, radius, padding and logo — so the two tools read as one product rather than two designs. Those values live in `tbt-tokens.css` as `--tbt-hero-*`, and are copied from the Matching Game rather than re-picked.
+
 The generator runs as three visible stages — Admin, Content, Save and share — all present from first load, with the stage the teacher is on lit up and finished stages marked green. Content runs generate → **review and edit** → save. The review step is the point of the whole page: frontend teachers cannot reach wp-admin, so it is their only chance to fix AI output (grammar, doubled IPA characters) before students see it. There is no card editing after save in this version.
 
 `[tbt_swipe_sets]` is server-rendered rather than fetched, so it paints in one pass inside Divi with no loading flash. It is scoped to the current user's own decks **without exception**, administrators included; wp-admin remains the place to see everyone's decks. Decks are grouped by class, with `No class` last — as an ordinary group, because an unattached deck is a supported state, not an orphan.
@@ -121,6 +123,8 @@ tbt-swipe/
 │   ├── css/tbt-tokens.css     # shared TBT variables + reset
 │   ├── fonts/roboto-slab-v36-latin.woff2      # self-hosted (base Latin)
 │   ├── fonts/roboto-slab-v36-latin-ext.woff2  # self-hosted (Polish diacritics)
+│   ├── fonts/roboto-mono-v31-latin.woff2      # self-hosted, hero title only
+│   ├── fonts/roboto-mono-v31-latin-ext.woff2  # self-hosted, hero title only
 │   ├── img/tbt-logo.png       # TBT mark on each card face — see note below
 │   ├── js/admin.js
 │   ├── js/deck.js
@@ -132,6 +136,8 @@ tbt-swipe/
 
 **Branding assets.** Roboto Slab is self-hosted (two weights, `latin` + `latin-ext`
 subsets) rather than hotlinked from Google Fonts, so no visitor IP is sent to Google.
+Roboto Mono 700 — the face of the hero title — is self-hosted for the same reason,
+even though the Matching Game loads that weight from Google.
 `assets/img/tbt-logo.png` is currently a **placeholder mark** — replace it with the
 official TBT logo PNG (same path/filename, roughly 28–32px tall when displayed,
 transparent background) and it will appear on both card faces automatically.

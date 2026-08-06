@@ -43,12 +43,25 @@ class TBTS_Frontend {
 		<div class="tbt-page">
 		<div class="tbt-wrap">
 
-			<header class="tbt-masthead">
-				<div class="tbt-wordmark"><?php esc_html_e( 'Swipe', 'tbt-swipe' ); ?><span>.</span></div>
-				<p class="tbt-tagline">
-					<strong><?php esc_html_e( 'Your friendly flashcard tool.', 'tbt-swipe' ); ?></strong>
-					<?php esc_html_e( 'Words from lessons become decks your students can play on their phones.', 'tbt-swipe' ); ?>
-				</p>
+			<?php
+			/*
+			 * The same header the Matching Game renders, down to the logo URL.
+			 * The title is uppercased by CSS, not in the string, so a
+			 * translation is not forced to shout.
+			 */
+			?>
+			<header class="tbt-hero">
+				<div class="tbt-hero-content">
+					<p class="tbt-hero-eyebrow"><?php esc_html_e( 'The Blue Tree Teacher Tools', 'tbt-swipe' ); ?></p>
+					<h1 class="tbt-hero-title"><?php esc_html_e( 'Swipe', 'tbt-swipe' ); ?></h1>
+					<p class="tbt-hero-sub">
+						<?php esc_html_e( 'Your friendly flashcard tool. Words from lessons become decks your students can play on their phones.', 'tbt-swipe' ); ?>
+					</p>
+				</div>
+				<img class="tbt-hero-logo"
+					src="https://thebluetree.pl/wp-content/uploads/2020/12/TBT-white-logo.png"
+					alt="<?php esc_attr_e( 'The Blue Tree', 'tbt-swipe' ); ?>"
+					loading="lazy" decoding="async">
 			</header>
 
 			<div class="tbt-notice tbt-notice--error" data-role="error" hidden></div>
