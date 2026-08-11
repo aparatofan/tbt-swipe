@@ -60,13 +60,14 @@ class TBTS_Shortcode {
 
 		// Tokens first, and declared as a dependency rather than merely queued
 		// earlier, so the variables exist whatever order WordPress prints in.
-		// The handle is deliberately plugin-neutral: another TBT plugin on the
-		// same page shares this one file, so register it only once.
-		if ( ! wp_style_is( 'tbt-tokens', 'registered' ) ) {
-			wp_register_style( 'tbt-tokens', TBTS_URL . 'assets/css/tbt-tokens.css', array(), TBTS_VERSION );
-		}
-		wp_enqueue_style( 'tbt-tokens' );
-		wp_enqueue_style( 'tbts-frontend', TBTS_URL . 'assets/css/frontend.css', array( 'tbt-tokens' ), TBTS_VERSION );
+		// Swipe's token file is not interchangeable with the Hub's. Besides a
+		// spacing/radius/font vocabulary the Hub file does not define, it
+		// carries the self-hosted @font-face rules, the .tbt reset and the
+		// [hidden] guard that keeps closed panels closed under Divi. Own the
+		// handle outright so no other plugin can substitute a file that
+		// frontend.css was never written against.
+		wp_enqueue_style( 'tbts-tokens', TBTS_URL . 'assets/css/tbt-tokens.css', array(), TBTS_VERSION );
+		wp_enqueue_style( 'tbts-frontend', TBTS_URL . 'assets/css/frontend.css', array( 'tbts-tokens' ), TBTS_VERSION );
 		wp_enqueue_script( 'tbts-qrcode', TBTS_URL . 'assets/js/lib/qrcode.min.js', array(), TBTS_VERSION, true );
 		wp_enqueue_script( 'tbts-frontend', TBTS_URL . 'assets/js/frontend.js', array( 'tbts-qrcode' ), TBTS_VERSION, true );
 
