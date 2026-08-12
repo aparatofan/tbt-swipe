@@ -48,7 +48,7 @@
 }
 
 .tbts-deck {
-	--tbts-blue: #0859C6;
+	--tbts-blue: #0856C9;
 	--tbts-white: #FFFFFF;
 	--tbts-grey: #5F5E5A;        /* IPA */
 	--tbts-soft: #888780;        /* example, hint */
@@ -270,25 +270,6 @@ body.tbts-deck-open {
 	font-size: 0.8rem;
 	color: var(--tbts-soft);
 	letter-spacing: 0.02em;
-}
-
-/* ---- Disintegration (up / known) ---- */
-.tbts-frag-layer {
-	position: absolute;
-	top: 0;
-	left: 16px;
-	right: 16px;
-	bottom: 0;
-	pointer-events: none;
-	z-index: 20;
-}
-.tbts-frag {
-	position: absolute;
-	inset: 0;
-	border-radius: 18px;
-	opacity: 1;
-	/* Only transform + opacity animate; will-change added in JS and
-	   removed on completion. */
 }
 
 /* ---- Summary screen ---- */

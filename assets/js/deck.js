@@ -355,11 +355,11 @@
 		var cardEl = current.el;
 
 		if ( dir === 'up' ) {
-			// Known → disintegrate.
+			// Known → flick away along the gesture axis.
 			if ( reducedMotion ) {
 				fadeOut( cardEl, 150, afterCommit );
 			} else {
-				disintegrate( cardEl, afterCommit );
+				flickOut( cardEl, afterCommit );
 			}
 		} else {
 			// Not yet → slide down and off, keep for the next round.
@@ -377,118 +377,32 @@
 		nextCard();
 	}
 
-	/* ---- Up: disintegration ---- */
-	function disintegrate( cardEl, done ) {
-		var faceClass = cardEl.classList.contains( 'tbts-flipped' ) ? 'tbts-face-back' : 'tbts-face-front';
-		var sourceFace = cardEl.querySelector( '.' + faceClass );
-		var w = cardEl.offsetWidth;
-		var h = cardEl.offsetHeight;
+	/* ---- Up: the flick (known) ---- */
+	/* A fast, decisive exit: the card accelerates off the top of the screen on a
+	   slight arc and is gone in about a fifth of a second. The next card is
+	   dealt at 210ms — the learner never waits on the animation. */
+	function flickOut( cardEl, done ) {
+		var rect = cardEl.getBoundingClientRect();
+		// Past the top of the viewport plus a margin, so the card clears any
+		// screen height before it is removed.
+		var ty = -( rect.bottom + 300 );
+		// ±10–18deg, with a matching horizontal drift so the card leaves on a
+		// believable arc rather than straight up.
+		var rot = ( 10 + Math.random() * 8 ) * ( Math.random() < 0.5 ? -1 : 1 );
+		var tx = rot * 4;
 
-		if ( ! sourceFace || ! w || ! h ) {
-			fadeOut( cardEl, 150, done );
-			return;
-		}
+		cardEl.style.willChange = 'transform, opacity';
+		cardEl.style.transition =
+			'transform 200ms cubic-bezier(.4,0,.9,.5), ' +
+			// The fade trails the movement instead of pre-empting it.
+			'opacity 200ms linear 60ms';
+		cardEl.style.transform = 'translate(' + tx.toFixed( 1 ) + 'px,' + ty.toFixed( 1 ) + 'px) rotate(' + rot.toFixed( 1 ) + 'deg)';
+		cardEl.style.opacity = '0';
 
-		var cols = 6, rows = 5; // 30 fragments — small enough to read as dust
-
-		// Jittered vertex lattice: interior vertices are nudged so cell
-		// boundaries are irregular, but neighbours share vertices so the
-		// pieces still tile seamlessly (no visible grid seams). Edge
-		// vertices stay pinned to 0/100 so the card outline stays crisp.
-		var vx = [], vy = [];
-		for ( var r = 0; r <= rows; r++ ) {
-			vx[ r ] = []; vy[ r ] = [];
-			for ( var c = 0; c <= cols; c++ ) {
-				var bx = ( c / cols ) * 100;
-				var by = ( r / rows ) * 100;
-				var jx = ( c === 0 || c === cols ) ? 0 : ( Math.random() - 0.5 ) * ( 100 / cols ) * 0.6;
-				var jy = ( r === 0 || r === rows ) ? 0 : ( Math.random() - 0.5 ) * ( 100 / rows ) * 0.6;
-				vx[ r ][ c ] = bx + jx;
-				vy[ r ][ c ] = by + jy;
-			}
-		}
-
-		var layer = el( 'div', 'tbts-frag-layer' );
-		var pending = 0;
-		var finished = false;
-		function tryFinish() {
-			if ( finished || pending > 0 ) {
-				return;
-			}
-			finished = true;
-			removeEl( layer );
-		}
-
-		for ( var rr = 0; rr < rows; rr++ ) {
-			for ( var cc = 0; cc < cols; cc++ ) {
-				var frag = sourceFace.cloneNode( true );
-				frag.classList.add( 'tbts-frag' );
-				frag.style.transform = 'none';
-
-				var poly = 'polygon(' +
-					pt( vx[ rr ][ cc ], vy[ rr ][ cc ] ) + ',' +
-					pt( vx[ rr ][ cc + 1 ], vy[ rr ][ cc + 1 ] ) + ',' +
-					pt( vx[ rr + 1 ][ cc + 1 ], vy[ rr + 1 ][ cc + 1 ] ) + ',' +
-					pt( vx[ rr + 1 ][ cc ], vy[ rr + 1 ][ cc ] ) + ')';
-				frag.style.clipPath = poly;
-				frag.style.webkitClipPath = poly;
-
-				// Cell centre as a fraction of the card (0..1).
-				var ccx = ( vx[ rr ][ cc ] + vx[ rr ][ cc + 1 ] + vx[ rr + 1 ][ cc + 1 ] + vx[ rr + 1 ][ cc ] ) / 400;
-				var ccy = ( vy[ rr ][ cc ] + vy[ rr ][ cc + 1 ] + vy[ rr + 1 ][ cc + 1 ] + vy[ rr + 1 ][ cc ] ) / 400;
-				var dirx = ccx - 0.5;
-				var diry = ccy - 0.5;
-				var dist = Math.sqrt( dirx * dirx + diry * diry ); // 0..~0.707
-
-				// Stagger by distance from centre so the break spreads outward.
-				var delay = Math.round( ( dist / 0.7071 ) * 120 );
-
-				// Outward, biased upward (following the gesture).
-				var tx = dirx * w * 0.9 + ( Math.random() - 0.5 ) * w * 0.25;
-				var ty = diry * h * 0.9 - h * 0.6 + ( Math.random() - 0.5 ) * h * 0.25;
-				var rot = ( Math.random() - 0.5 ) * 80;
-				var dur = 700 + Math.random() * 150;
-
-				frag.style.willChange = 'transform, opacity';
-				frag.style.transition =
-					'transform ' + dur + 'ms cubic-bezier(0.25,0.46,0.45,0.94) ' + delay + 'ms, ' +
-					'opacity ' + dur + 'ms cubic-bezier(0.25,0.46,0.45,0.94) ' + delay + 'ms';
-
-				layer.appendChild( frag );
-				pending++;
-
-				frag.addEventListener( 'transitionend', ( function ( f ) {
-					return function ( ev ) {
-						if ( ev.propertyName !== 'transform' ) {
-							return;
-						}
-						f.style.willChange = '';
-						removeEl( f );
-						pending--;
-						tryFinish();
-					};
-				} )( frag ) );
-
-				( function ( f, x, y, rotation ) {
-					requestAnimationFrame( function () {
-						requestAnimationFrame( function () {
-							f.style.transform = 'translate(' + x + 'px,' + y + 'px) rotate(' + rotation + 'deg) scale(0.8)';
-							f.style.opacity = '0';
-						} );
-					} );
-				} )( frag, tx, ty, rot );
-			}
-		}
-
-		// The clones carry the show; drop the real card now.
-		removeEl( cardEl );
-		stage.appendChild( layer );
-
-		// Safety net in case a transitionend is missed.
-		setTimeout( function () { pending = 0; tryFinish(); }, 1100 );
-
-		// The next card must be interactive well before the fragments finish.
-		setTimeout( done, 250 );
+		setTimeout( function () {
+			removeEl( cardEl );
+			done();
+		}, 210 );
 	}
 
 	/* ---- Down: plain exit ---- */
@@ -610,9 +524,6 @@
 		var e = document.createElement( tag );
 		if ( cls ) { e.className = cls; }
 		return e;
-	}
-	function pt( x, y ) {
-		return x.toFixed( 2 ) + '% ' + y.toFixed( 2 ) + '%';
 	}
 	function removeEl( node ) {
 		if ( node && node.parentNode ) { node.parentNode.removeChild( node ); }
