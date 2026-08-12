@@ -227,6 +227,18 @@
   border-radius: var(--tbt-r-lg); padding: var(--tbt-s3) var(--tbt-s4);
   transition: border-color .18s var(--tbt-ease), background-color .18s var(--tbt-ease);
 }
+/* TBT-Hub's tbt-components.css claims the unprefixed class name `.tbt-row`
+   and sets `display: flex` on it. That sheet loads site-wide, including on
+   /swipe/, and at equal specificity load order decides the winner. Flex turns
+   `.tbt-row-top` and `.tbt-row-ex` into siblings on one line, which pushes the
+   example field beside the remove button instead of below the row.
+
+   Two classes plus a child combinator outranks the Hub's single class, and
+   `!important` makes the outcome independent of load order. The real fix is
+   renaming Swipe's row classes to the `tbts-` prefix; until that happens, this
+   line is what keeps the review layout correct. Do not remove it as
+   redundant — it looks redundant precisely because it is working. */
+.tbt .tbt-rows > .tbt-row { display: block !important; }
 .tbt-row:hover { background-color: var(--tbt-surface); border-color: var(--tbt-line); border-left-color: var(--tbt-blue); }
 .tbt-row:focus-within { background-color: var(--tbt-surface); border-color: var(--tbt-blue); border-left-color: var(--tbt-blue); }
 .tbt-row-top {
