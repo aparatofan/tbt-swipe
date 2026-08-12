@@ -16,7 +16,18 @@
 	var FLICK_VELOCITY = 0.5;     // px/ms — a fast flick commits below threshold
 	var SCALE_MIN = 0.94;         // card scale at threshold (recedes)
 
-	var root, stage, progressEl;
+	/* Desktop: the card becomes a fixed 380x500 portrait card on a table, with
+	   a stack of backs beneath it. Deliberately width-only — a Surface or an
+	   iPad in landscape should get the table, so no `pointer: fine`. These two
+	   constants must match the width/height in the min-width:900px block. */
+	var DESKTOP_MQ = window.matchMedia ? window.matchMedia( '( min-width: 900px )' ) : null;
+	var CARD_W = 380;
+	var CARD_H = 500;
+	var STACK_MAX = 4;            // card backs drawn under the live card
+	var ZONE_ARM = 40;            // px of drag before a desktop zone lights up
+	var HEAP_SHOW = 130;          // px of a heaped card left showing above the edge
+
+	var root, stage, progressEl, stackEl;
 	var zones = null;    // { up: {el,label,arrow}, down: {el,label,arrow} }
 	var fullDeck = [];   // original loaded cards
 	var queue = [];      // cards still to review this round
@@ -24,6 +35,8 @@
 	var seenCount = 0;   // cards shown this round (for progress)
 	var roundTotal = 0;
 	var current = null;  // active card DOM state
+	var heap = [];       // desktop only: { el, idx, card } left on the table
+	var heapZ = 0;       // later cards lie on top of earlier ones
 
 	document.addEventListener( 'DOMContentLoaded', init );
 
@@ -40,6 +53,7 @@
 		// One document-level key handler for the whole session; it consults
 		// `current`, so it is inert on the loading and summary screens.
 		document.addEventListener( 'keydown', onKeydown );
+		window.addEventListener( 'resize', onResize );
 
 		var slug = getSlug();
 		if ( ! slug ) {
@@ -105,12 +119,22 @@
 		seenCount = 0;
 		roundTotal = queue.length;
 		current = null;
+		// A heap card from the previous round must never survive into this
+		// one; root.innerHTML below drops the elements, this drops the refs.
+		heap = [];
+		heapZ = 0;
 
 		root.innerHTML = '';
 
 		var up = buildZone( 'up' );
 		stage = el( 'div', 'tbts-stage' );
 		var down = buildZone( 'down' );
+
+		// The undealt remainder, drawn beneath the live card. Presentational
+		// only; CSS hides it below the desktop breakpoint.
+		stackEl = el( 'div', 'tbts-stack' );
+		stackEl.setAttribute( 'aria-hidden', 'true' );
+		stage.appendChild( stackEl );
 
 		root.appendChild( up.el );
 		root.appendChild( stage );
@@ -159,6 +183,7 @@
 		var card = queue.shift();
 		seenCount++;
 		updateProgress();
+		renderStack();
 		renderCard( card );
 	}
 
@@ -168,13 +193,34 @@
 		}
 	}
 
+	/* The stack of backs under the live card: one per undealt card, up to
+	   four, so the deck visibly thins as it is played and vanishes on the
+	   last card. No pointer events, no content. */
+	function renderStack() {
+		if ( ! stackEl ) {
+			return;
+		}
+		stackEl.innerHTML = '';
+		var n = Math.min( STACK_MAX, queue.length );
+		for ( var i = 0; i < n; i++ ) {
+			var back = el( 'div', 'tbts-stack-card' );
+			var depth = i + 1;
+			var rot = ( depth % 2 ? 1 : -1 ) * 0.5 * depth;
+			back.style.transform = 'translate(' + ( depth * 2 ) + 'px,' + ( depth * 3 ) + 'px) rotate(' + rot + 'deg)';
+			back.style.opacity = ( 1 - depth * 0.08 ).toFixed( 2 );
+			// Deeper cards paint behind, so the faded ones never wash over
+			// the card immediately under the live one.
+			back.style.zIndex = String( STACK_MAX - depth );
+			stackEl.appendChild( back );
+		}
+	}
+
 	/* ---- Card rendering ---- */
 	function renderCard( card ) {
 		var cardEl = el( 'div', 'tbts-card' );
 		var inner = el( 'div', 'tbts-card-inner' );
 
 		var front = el( 'div', 'tbts-face tbts-face-front' );
-		addLogo( front );
 		var term = el( 'div', 'tbts-term' );
 		term.textContent = card.term;
 		front.appendChild( term );
@@ -183,7 +229,6 @@
 		front.appendChild( hint );
 
 		var back = el( 'div', 'tbts-face tbts-face-back' );
-		addLogo( back );
 		if ( card.ipa ) {
 			var ipa = el( 'div', 'tbts-ipa' );
 			ipa.textContent = card.ipa;
@@ -210,18 +255,6 @@
 		attachPointer( cardEl );
 	}
 
-	function addLogo( face ) {
-		if ( ! cfg.logo ) {
-			return;
-		}
-		var img = document.createElement( 'img' );
-		img.className = 'tbts-logo';
-		img.src = cfg.logo;
-		img.alt = '';
-		img.setAttribute( 'aria-hidden', 'true' );
-		face.appendChild( img );
-	}
-
 	/* ---- Pointer / drag handling ---- */
 	function attachPointer( cardEl ) {
 		var startX = 0, startY = 0, startT = 0;
@@ -230,7 +263,9 @@
 		var height = cardEl.offsetHeight || 360;
 
 		cardEl.addEventListener( 'pointerdown', function ( e ) {
-			if ( current.locked ) {
+			// `current` is null once a card has been committed; a heaped card
+			// keeps its listeners, so every guard here has to tolerate that.
+			if ( ! current || current.locked ) {
 				return;
 			}
 			dragging = true;
@@ -244,7 +279,7 @@
 		} );
 
 		cardEl.addEventListener( 'pointermove', function ( e ) {
-			if ( ! dragging || current.locked ) {
+			if ( ! dragging || ! current || current.locked ) {
 				return;
 			}
 			var dx = e.clientX - startX;
@@ -265,7 +300,7 @@
 			cardEl.classList.remove( 'tbts-dragging' );
 			try { cardEl.releasePointerCapture( e.pointerId ); } catch ( err ) {}
 
-			if ( current.locked ) {
+			if ( ! current || current.locked ) {
 				return;
 			}
 
@@ -300,16 +335,25 @@
 		current.el.style.transform = 'translateY(' + dy + 'px) scale(' + scale.toFixed( 3 ) + ')';
 
 		if ( dy < 0 ) {
-			zoneFeedback( zones.up, zones.down, progress );
+			zoneFeedback( zones.up, zones.down, progress, dy );
 		} else if ( dy > 0 ) {
-			zoneFeedback( zones.down, zones.up, progress );
+			zoneFeedback( zones.down, zones.up, progress, dy );
 		} else {
 			resetZones();
 		}
 	}
 
 	// Brighten the zone the card is heading toward, dim the opposite one.
-	function zoneFeedback( active, dim, progress ) {
+	// Mobile ramps the opacity with the drag; on the desktop table the label
+	// is a typographic mark that simply arms once the drag passes 40px, so
+	// the state lives in a class and the inline opacity stays out of it.
+	function zoneFeedback( active, dim, progress, dy ) {
+		if ( isDesktop() ) {
+			var armed = Math.abs( dy ) > ZONE_ARM;
+			active.el.classList.toggle( 'is-active', armed );
+			dim.el.classList.toggle( 'is-dim', armed );
+			return;
+		}
 		var a = ( 0.6 + 0.4 * progress ).toFixed( 3 );
 		var d = ( 0.6 - 0.3 * progress ).toFixed( 3 );
 		active.label.style.opacity = a;
@@ -336,7 +380,7 @@
 	}
 
 	function flip() {
-		if ( current.locked ) {
+		if ( ! current || current.locked ) {
 			return;
 		}
 		current.flipped = ! current.flipped;
@@ -355,16 +399,22 @@
 		var cardEl = current.el;
 
 		if ( dir === 'up' ) {
-			// Known → disintegrate.
+			// Known → flick away along the gesture axis.
 			if ( reducedMotion ) {
 				fadeOut( cardEl, 150, afterCommit );
 			} else {
-				disintegrate( cardEl, afterCommit );
+				flickOut( cardEl, afterCommit );
 			}
 		} else {
-			// Not yet → slide down and off, keep for the next round.
+			// Not yet → keep for the next round.
 			unknown.push( card );
-			if ( reducedMotion ) {
+			if ( isDesktop() ) {
+				// On the table the card stays put as a record of the round.
+				// The next card arrives at 300ms, before the flop finishes:
+				// the learner never waits for an animation.
+				toHeap( cardEl, card );
+				setTimeout( afterCommit, reducedMotion ? 0 : 300 );
+			} else if ( reducedMotion ) {
 				fadeOut( cardEl, 150, afterCommit );
 			} else {
 				slideDown( cardEl, afterCommit );
@@ -377,118 +427,86 @@
 		nextCard();
 	}
 
-	/* ---- Up: disintegration ---- */
-	function disintegrate( cardEl, done ) {
-		var faceClass = cardEl.classList.contains( 'tbts-flipped' ) ? 'tbts-face-back' : 'tbts-face-front';
-		var sourceFace = cardEl.querySelector( '.' + faceClass );
-		var w = cardEl.offsetWidth;
-		var h = cardEl.offsetHeight;
+	/* ---- Up: the flick (known) ---- */
+	/* A fast, decisive exit: the card accelerates off the top of the screen on a
+	   slight arc and is gone in about a fifth of a second. The next card is
+	   dealt at 210ms — the learner never waits on the animation. */
+	function flickOut( cardEl, done ) {
+		var rect = cardEl.getBoundingClientRect();
+		// Past the top of the viewport plus a margin, so the card clears any
+		// screen height before it is removed.
+		var ty = -( rect.bottom + 300 );
+		// ±10–18deg, with a matching horizontal drift so the card leaves on a
+		// believable arc rather than straight up.
+		var rot = ( 10 + Math.random() * 8 ) * ( Math.random() < 0.5 ? -1 : 1 );
+		var tx = rot * 4;
 
-		if ( ! sourceFace || ! w || ! h ) {
-			fadeOut( cardEl, 150, done );
-			return;
+		cardEl.style.willChange = 'transform, opacity';
+		cardEl.style.transition =
+			'transform 200ms cubic-bezier(.4,0,.9,.5), ' +
+			// The fade trails the movement instead of pre-empting it.
+			'opacity 200ms linear 60ms';
+		cardEl.style.transform = 'translate(' + tx.toFixed( 1 ) + 'px,' + ty.toFixed( 1 ) + 'px) rotate(' + rot.toFixed( 1 ) + 'deg)';
+		cardEl.style.opacity = '0';
+
+		setTimeout( function () {
+			removeEl( cardEl );
+			done();
+		}, 210 );
+	}
+
+	/* ---- Down: the heap (desktop) ----
+	   A "not yet" card lands at the bottom edge of the table and stays there
+	   for the rest of the round, so the learner can see the pile growing. */
+	function toHeap( cardEl, card ) {
+		// Position is keyed to the card's index in the full deck, never to
+		// Math.random(): the same card must land in the same place every
+		// time, or a re-render or a resize would reshuffle the heap.
+		var idx = fullDeck.indexOf( card );
+		if ( idx < 0 ) {
+			idx = heap.length;
 		}
 
-		var cols = 6, rows = 5; // 30 fragments — small enough to read as dust
+		heapZ++;
+		// Cards lie face up on the table, whichever side was showing.
+		cardEl.classList.remove( 'tbts-flipped' );
+		cardEl.classList.add( 'tbts-heap-card' );
+		cardEl.style.zIndex = String( heapZ );
+		cardEl.style.opacity = '';
+		// Decelerating, so the card settles rather than snaps.
+		cardEl.style.transition = reducedMotion ? 'none' : 'transform 420ms cubic-bezier(.25,.9,.3,1)';
+		cardEl.style.transform = heapTransform( idx );
 
-		// Jittered vertex lattice: interior vertices are nudged so cell
-		// boundaries are irregular, but neighbours share vertices so the
-		// pieces still tile seamlessly (no visible grid seams). Edge
-		// vertices stay pinned to 0/100 so the card outline stays crisp.
-		var vx = [], vy = [];
-		for ( var r = 0; r <= rows; r++ ) {
-			vx[ r ] = []; vy[ r ] = [];
-			for ( var c = 0; c <= cols; c++ ) {
-				var bx = ( c / cols ) * 100;
-				var by = ( r / rows ) * 100;
-				var jx = ( c === 0 || c === cols ) ? 0 : ( Math.random() - 0.5 ) * ( 100 / cols ) * 0.6;
-				var jy = ( r === 0 || r === rows ) ? 0 : ( Math.random() - 0.5 ) * ( 100 / rows ) * 0.6;
-				vx[ r ][ c ] = bx + jx;
-				vy[ r ][ c ] = by + jy;
-			}
+		heap.push( { el: cardEl, idx: idx, card: card } );
+	}
+
+	/* A cheap seeded hash: deterministic per card, cheap enough to call on
+	   every resize. */
+	function seeded( i, salt ) {
+		var x = Math.sin( ( i + 1 ) * 12.9898 + salt * 78.233 ) * 43758.5453;
+		return x - Math.floor( x );   // 0..1
+	}
+
+	function heapTransform( idx ) {
+		var stageH = ( stage && stage.offsetHeight ) || window.innerHeight;
+		var x = ( seeded( idx, 1 ) - 0.5 ) * 520;
+		var rot = ( seeded( idx, 2 ) - 0.5 ) * 38;
+		var depth = seeded( idx, 3 ) * 26;
+		// The card rests centred, so translate from there to a position that
+		// leaves ~130px showing above the table edge. Derived from the table
+		// height rather than hard-coded, so it survives any viewport.
+		var restTop = ( stageH - CARD_H ) / 2;
+		var y = ( stageH - HEAP_SHOW + depth ) - restTop;
+		return 'translate(' + x.toFixed( 1 ) + 'px,' + y.toFixed( 1 ) + 'px) rotate(' + rot.toFixed( 2 ) + 'deg)';
+	}
+
+	// Keep the heap pinned to the bottom edge, without animating while the
+	// window is being dragged.
+	function onResize() {
+		for ( var i = 0; i < heap.length; i++ ) {
+			heap[ i ].el.style.transition = 'none';
+			heap[ i ].el.style.transform = heapTransform( heap[ i ].idx );
 		}
-
-		var layer = el( 'div', 'tbts-frag-layer' );
-		var pending = 0;
-		var finished = false;
-		function tryFinish() {
-			if ( finished || pending > 0 ) {
-				return;
-			}
-			finished = true;
-			removeEl( layer );
-		}
-
-		for ( var rr = 0; rr < rows; rr++ ) {
-			for ( var cc = 0; cc < cols; cc++ ) {
-				var frag = sourceFace.cloneNode( true );
-				frag.classList.add( 'tbts-frag' );
-				frag.style.transform = 'none';
-
-				var poly = 'polygon(' +
-					pt( vx[ rr ][ cc ], vy[ rr ][ cc ] ) + ',' +
-					pt( vx[ rr ][ cc + 1 ], vy[ rr ][ cc + 1 ] ) + ',' +
-					pt( vx[ rr + 1 ][ cc + 1 ], vy[ rr + 1 ][ cc + 1 ] ) + ',' +
-					pt( vx[ rr + 1 ][ cc ], vy[ rr + 1 ][ cc ] ) + ')';
-				frag.style.clipPath = poly;
-				frag.style.webkitClipPath = poly;
-
-				// Cell centre as a fraction of the card (0..1).
-				var ccx = ( vx[ rr ][ cc ] + vx[ rr ][ cc + 1 ] + vx[ rr + 1 ][ cc + 1 ] + vx[ rr + 1 ][ cc ] ) / 400;
-				var ccy = ( vy[ rr ][ cc ] + vy[ rr ][ cc + 1 ] + vy[ rr + 1 ][ cc + 1 ] + vy[ rr + 1 ][ cc ] ) / 400;
-				var dirx = ccx - 0.5;
-				var diry = ccy - 0.5;
-				var dist = Math.sqrt( dirx * dirx + diry * diry ); // 0..~0.707
-
-				// Stagger by distance from centre so the break spreads outward.
-				var delay = Math.round( ( dist / 0.7071 ) * 120 );
-
-				// Outward, biased upward (following the gesture).
-				var tx = dirx * w * 0.9 + ( Math.random() - 0.5 ) * w * 0.25;
-				var ty = diry * h * 0.9 - h * 0.6 + ( Math.random() - 0.5 ) * h * 0.25;
-				var rot = ( Math.random() - 0.5 ) * 80;
-				var dur = 700 + Math.random() * 150;
-
-				frag.style.willChange = 'transform, opacity';
-				frag.style.transition =
-					'transform ' + dur + 'ms cubic-bezier(0.25,0.46,0.45,0.94) ' + delay + 'ms, ' +
-					'opacity ' + dur + 'ms cubic-bezier(0.25,0.46,0.45,0.94) ' + delay + 'ms';
-
-				layer.appendChild( frag );
-				pending++;
-
-				frag.addEventListener( 'transitionend', ( function ( f ) {
-					return function ( ev ) {
-						if ( ev.propertyName !== 'transform' ) {
-							return;
-						}
-						f.style.willChange = '';
-						removeEl( f );
-						pending--;
-						tryFinish();
-					};
-				} )( frag ) );
-
-				( function ( f, x, y, rotation ) {
-					requestAnimationFrame( function () {
-						requestAnimationFrame( function () {
-							f.style.transform = 'translate(' + x + 'px,' + y + 'px) rotate(' + rotation + 'deg) scale(0.8)';
-							f.style.opacity = '0';
-						} );
-					} );
-				} )( frag, tx, ty, rot );
-			}
-		}
-
-		// The clones carry the show; drop the real card now.
-		removeEl( cardEl );
-		stage.appendChild( layer );
-
-		// Safety net in case a transitionend is missed.
-		setTimeout( function () { pending = 0; tryFinish(); }, 1100 );
-
-		// The next card must be interactive well before the fragments finish.
-		setTimeout( done, 250 );
 	}
 
 	/* ---- Down: plain exit ---- */
@@ -526,9 +544,28 @@
 		}
 	}
 
-	/* ---- Summary screen ---- */
+	/* ---- Summary screen ----
+	   Scoring is per deck, not per round: the number of cards known is
+	   fullDeck.length - unknown.length, so there is no counter to keep in
+	   sync. The in-round progress pill stays per round — that one is about
+	   position, not achievement. */
+	var BEAT_HOLD = 900;   // ms the score holds before anything moves
+
 	function endRound() {
-		root.innerHTML = '';
+		// On the table the heap is the material for the deal, so the stage
+		// survives; everywhere else the round is torn down as before.
+		var dealing = isDesktop() && heap.length > 0;
+
+		if ( dealing ) {
+			removeEl( zones.up.el );
+			removeEl( zones.down.el );
+			removeEl( stackEl );
+			stackEl = null;
+		} else {
+			root.innerHTML = '';
+			heap = [];
+			heapZ = 0;
+		}
 		zones = null;
 		progressEl = null;
 
@@ -537,14 +574,65 @@
 			return;
 		}
 
-		var end = el( 'div', 'tbts-end' );
-		var h2 = el( 'h2' );
-		h2.textContent = i18n.stillLearn;
-		end.appendChild( h2 );
+		var known = fullDeck.length - unknown.length;
+		var end = el( 'div', 'tbts-end' + ( dealing ? ' tbts-end-table' : '' ) );
+		end.appendChild( buildBeat(
+			i18n.wellDone,
+			fmt( i18n.knewLine, [ known, fullDeck.length, plural( fullDeck.length ) ] ),
+			fmt( i18n.toWorkOn, [ unknown.length, plural( unknown.length ) ] )
+		) );
 
-		// <div>s, not <ul>/<li>: the list is presentational (each item is a
-		// self-contained card), and divs sidestep the bullet markers Divi and
-		// WP core inject into content lists.
+		// The reading matter arrives after the beat. "Go again" is appended
+		// now and stays put: the choice to skip the reading exists without a
+		// gate in front of it.
+		var slot = el( 'div', 'tbts-end-slot' );
+		end.appendChild( slot );
+
+		var again = el( 'button', 'tbts-again' );
+		again.type = 'button';
+		again.textContent = i18n.goAgain;
+		again.addEventListener( 'click', function () {
+			startRound( shuffle( unknown.slice() ) );
+		} );
+
+		var actions = el( 'div', 'tbts-end-actions' );
+		actions.appendChild( again );
+		end.appendChild( actions );
+
+		root.appendChild( end );
+
+		setTimeout( function () {
+			if ( dealing ) {
+				dealHeap( end );
+			} else {
+				slot.appendChild( buildWordList() );
+			}
+		}, BEAT_HOLD );
+	}
+
+	/* Well done! / You knew 12 of 15 words. / 3 WORDS TO WORK ON */
+	function buildBeat( heading, line, sub ) {
+		var beat = el( 'div', 'tbts-beat' );
+
+		var h = el( 'h2', 'tbts-beat-head' );
+		h.textContent = heading;
+		beat.appendChild( h );
+
+		var l = el( 'div', 'tbts-beat-line' );
+		l.textContent = line;
+		beat.appendChild( l );
+
+		var s = el( 'div', 'tbts-beat-sub' );
+		s.textContent = sub;
+		beat.appendChild( s );
+
+		return beat;
+	}
+
+	// <div>s, not <ul>/<li>: the list is presentational (each item is a
+	// self-contained card), and divs sidestep the bullet markers Divi and
+	// WP core inject into content lists.
+	function buildWordList() {
 		var list = el( 'div', 'tbts-end-list' );
 		unknown.forEach( function ( card ) {
 			var item = el( 'div', 'tbts-end-item' );
@@ -569,27 +657,16 @@
 			}
 			list.appendChild( item );
 		} );
-		end.appendChild( list );
-
-		var again = el( 'button', 'tbts-again' );
-		again.type = 'button';
-		again.textContent = i18n.goAgain;
-		again.addEventListener( 'click', function () {
-			startRound( shuffle( unknown.slice() ) );
-		} );
-
-		var actions = el( 'div', 'tbts-end-actions' );
-		actions.appendChild( again );
-		end.appendChild( actions );
-
-		root.appendChild( end );
+		return list;
 	}
 
 	function renderAllKnown() {
 		var end = el( 'div', 'tbts-end' );
-		var msg = el( 'div', 'tbts-end-success' );
-		msg.textContent = i18n.allKnown;
-		end.appendChild( msg );
+		end.appendChild( buildBeat(
+			i18n.allTitle,
+			fmt( i18n.allLine, [ fullDeck.length, plural( fullDeck.length ) ] ),
+			i18n.allSub
+		) );
 
 		var restart = el( 'button', 'tbts-again' );
 		restart.type = 'button';
@@ -605,14 +682,149 @@
 		root.appendChild( end );
 	}
 
+	/* ---- The deal (desktop) ----
+	   The heap gathers itself and lays out as a grid of word tiles: each card
+	   animates from where it landed to its slot, FLIP-style. */
+	function dealHeap( end ) {
+		var n = heap.length;
+		var perRow = Math.min( n, 5 );
+		var rows = Math.ceil( n / perRow );
+		var gapX = 26, gapY = 22;
+		// The header tightens when the grid is deep, to buy back the room.
+		var headH = rows > 2 ? 150 : 210;
+		var footH = 110;   // room for "Go again"
+
+		var tableW = stage.offsetWidth || window.innerWidth;
+		var tableH = stage.offsetHeight || window.innerHeight;
+		var availW = tableW * 0.92;
+		var availH = tableH - headH - footH;
+
+		var scaleW = ( availW - ( perRow - 1 ) * gapX ) / ( perRow * CARD_W );
+		var scaleH = ( availH - ( rows - 1 ) * gapY ) / ( rows * CARD_H );
+		// The 0.44 floor is deliberate: a large heap runs slightly long
+		// rather than shrinking the type into illegibility.
+		var scale = Math.max( 0.44, Math.min( 0.72, Math.min( scaleW, scaleH ) ) );
+		var blockH = rows * CARD_H * scale + ( rows - 1 ) * gapY;
+
+		// …but running long must never hide a tile behind "Go again". The
+		// floor gives way just enough to clear the button, down to a hard
+		// 0.40: the type on a tile is scale-compensated, so the tile box
+		// tightens without the words getting any smaller.
+		if ( headH + blockH > tableH - footH ) {
+			var fits = ( tableH - footH - headH - ( rows - 1 ) * gapY ) / ( rows * CARD_H );
+			scale = Math.max( 0.4, Math.min( scale, fits ) );
+			blockH = rows * CARD_H * scale + ( rows - 1 ) * gapY;
+		}
+
+		if ( rows > 2 ) {
+			end.classList.add( 'is-compact' );
+		}
+
+		var tileW = CARD_W * scale;
+		var tileH = CARD_H * scale;
+		var top = headH + Math.max( 0, ( availH - blockH ) / 2 );
+
+		heap.forEach( function ( h, i ) {
+			var row = Math.floor( i / perRow );
+			var inRow = i % perRow;
+			// A short final row centres on its own.
+			var rowCount = Math.min( perRow, n - row * perRow );
+			var rowW = rowCount * tileW + ( rowCount - 1 ) * gapX;
+			var x = ( tableW - rowW ) / 2 + inRow * ( tileW + gapX );
+			var y = top + row * ( tileH + gapY );
+
+			h.el.appendChild( buildTileFace( h.card, scale ) );
+			h.el.classList.add( 'tbts-tile' );
+			h.el.style.zIndex = String( 10 + i );
+
+			// The card rests centred on the table, and scales about its own
+			// centre, so the translation is centre-to-centre.
+			var dx = x + tileW / 2 - tableW / 2;
+			var dy = y + tileH / 2 - tableH / 2;
+			var to = 'translate(' + dx.toFixed( 1 ) + 'px,' + dy.toFixed( 1 ) + 'px) scale(' + scale.toFixed( 4 ) + ')';
+
+			if ( reducedMotion ) {
+				h.el.style.transition = 'none';
+				h.el.style.transform = to;
+				return;
+			}
+			h.el.style.transition = 'transform 620ms cubic-bezier(.22,.9,.25,1) ' + ( i * 45 ) + 'ms';
+			h.el.style.transform = to;
+		} );
+	}
+
+	/* A fourth face, shown only in the summary. Not the card back: a screen
+	   titled "words to work on" that omits the words is the wrong screen, and
+	   the card back has never carried the term.
+
+	   Everything here is sized in JS rather than CSS because the tile sits
+	   inside a scale() — dividing by the scale cancels the transform, so the
+	   learner reads the size intended rather than a thinner, greyer one. */
+	function buildTileFace( card, scale ) {
+		var big = scale > 0.55;
+		function px( v ) {
+			return Math.round( v / scale ) + 'px';
+		}
+
+		var face = el( 'div', 'tbts-face tbts-face-tile' );
+		face.style.borderRadius = px( 14 );
+		face.style.padding = px( 18 ) + ' ' + px( 14 );
+		face.style.boxShadow = '0 ' + px( 10 ) + ' ' + px( 26 ) + ' rgba(4,30,74,.16)';
+
+		var term = el( 'div', 'tbts-tile-term' );
+		term.textContent = card.term;
+		term.style.fontSize = px( big ? 22 : 19 );
+		face.appendChild( term );
+
+		if ( card.ipa ) {
+			var ipa = el( 'div', 'tbts-tile-ipa' );
+			ipa.textContent = card.ipa;
+			ipa.style.fontSize = px( big ? 12 : 11 );
+			ipa.style.marginTop = px( 4 );
+			face.appendChild( ipa );
+		}
+
+		var rule = el( 'div', 'tbts-tile-rule' );
+		rule.style.height = px( 1 );
+		rule.style.margin = px( 12 ) + ' 0';
+		face.appendChild( rule );
+
+		if ( card.translation ) {
+			var tr = el( 'div', 'tbts-tile-tr' );
+			tr.textContent = card.translation;
+			tr.style.fontSize = px( big ? 19 : 16 );
+			face.appendChild( tr );
+		}
+
+		if ( card.example ) {
+			var ex = el( 'div', 'tbts-tile-ex' );
+			ex.textContent = card.example;
+			ex.style.fontSize = px( big ? 14 : 12.5 );
+			ex.style.marginTop = px( 8 );
+			face.appendChild( ex );
+		}
+
+		return face;
+	}
+
 	/* ---- Helpers ---- */
+	function plural( n ) {
+		return n === 1 ? i18n.wordOne : i18n.wordMany;
+	}
+	// Positional placeholders, so a translation can reorder the counts and
+	// the inflected noun. Matches the %1$d / %2$s the PHP side ships.
+	function fmt( tpl, vals ) {
+		return String( tpl || '' ).replace( /%(\d+)\$[ds]/g, function ( m, n ) {
+			return vals[ n - 1 ];
+		} );
+	}
+	function isDesktop() {
+		return !! ( DESKTOP_MQ && DESKTOP_MQ.matches );
+	}
 	function el( tag, cls ) {
 		var e = document.createElement( tag );
 		if ( cls ) { e.className = cls; }
 		return e;
-	}
-	function pt( x, y ) {
-		return x.toFixed( 2 ) + '% ' + y.toFixed( 2 ) + '%';
 	}
 	function removeEl( node ) {
 		if ( node && node.parentNode ) { node.parentNode.removeChild( node ); }

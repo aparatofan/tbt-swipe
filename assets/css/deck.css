@@ -48,12 +48,15 @@
 }
 
 .tbts-deck {
-	--tbts-blue: #0859C6;
+	--tbts-blue: #0856C9;
 	--tbts-white: #FFFFFF;
 	--tbts-grey: #5F5E5A;        /* IPA */
 	--tbts-soft: #888780;        /* example, hint */
 	--tbts-dark: #2C2C2A;        /* summary translation */
+	--tbts-table: #EEF1F6;       /* desktop table surface */
+	--tbts-rule: #DDE4EE;        /* summary tile hairline */
 	--tbts-slab: 'Roboto Slab', Georgia, serif;
+	--tbts-mono: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
 	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 	/* Fixed full-viewport overlay. This escapes Divi's section/row geometry
@@ -215,13 +218,19 @@ body.tbts-deck-open {
 	overflow: hidden;
 }
 
-/* Logo: a quiet printed-flashcard mark, top-right, both faces. */
-.tbts-logo {
+/* Logo: a quiet printed-flashcard mark, top-right, both faces. Drawn from
+   CSS rather than an <img> so the deck asset URL is a stylesheet concern
+   and the card faces stay free of markup that carries no meaning. */
+.tbts-face-front::after,
+.tbts-face-back::after {
+	content: '';
 	position: absolute;
 	top: 10px;
 	right: 10px;
-	height: 30px;
-	width: auto;
+	width: 30px;
+	height: 26px;   /* the mark is 120x104 */
+	background: url( ../img/tbt-logo-colour.png ) no-repeat center / contain;
+	opacity: 0.85;
 	pointer-events: none;
 }
 
@@ -272,25 +281,6 @@ body.tbts-deck-open {
 	letter-spacing: 0.02em;
 }
 
-/* ---- Disintegration (up / known) ---- */
-.tbts-frag-layer {
-	position: absolute;
-	top: 0;
-	left: 16px;
-	right: 16px;
-	bottom: 0;
-	pointer-events: none;
-	z-index: 20;
-}
-.tbts-frag {
-	position: absolute;
-	inset: 0;
-	border-radius: 18px;
-	opacity: 1;
-	/* Only transform + opacity animate; will-change added in JS and
-	   removed on completion. */
-}
-
 /* ---- Summary screen ---- */
 .tbts-end {
 	flex: 1 1 auto;
@@ -302,16 +292,49 @@ body.tbts-deck-open {
 	   "Go again" button pinned while the words scroll between them. */
 	overflow: hidden;
 }
-.tbts-end h2 {
+
+/* ---- The end-of-round beat ----
+   "Well done! / You knew 12 of 15 words. / 3 WORDS TO WORK ON". Held for
+   900ms before the reading matter arrives; there is no question and no
+   branch, so it needs no controls of its own. */
+.tbts-beat {
 	flex: 0 0 auto;
-	font-size: 1rem;
-	font-weight: 700;
-	letter-spacing: 0.16em;
-	text-transform: uppercase;
-	margin: 4px 0 16px;
 	text-align: center;
+	padding: 8px 4px 18px;
+}
+.tbts-end .tbts-beat-head {
+	font-family: var(--tbts-slab);
+	font-size: 2.4rem;
+	font-weight: 700;
+	line-height: 1.15;
+	letter-spacing: 0;
+	text-transform: none;
+	margin: 0 0 10px;
 	color: var(--tbts-white);
 }
+.tbts-beat-line {
+	font-size: 1.15rem;
+	line-height: 1.4;
+	color: var(--tbts-white);
+}
+.tbts-beat-sub {
+	margin-top: 10px;
+	font-family: var(--tbts-mono);
+	font-size: 12px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.18em;
+	color: rgba( 255, 255, 255, 0.65 );
+}
+
+/* The word list drops in here once the beat has held. */
+.tbts-end-slot {
+	flex: 1 1 auto;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+
 .tbts-end-list {
 	/* The scroll region: a 14-word list won't fit on one screen. */
 	flex: 1 1 auto;
@@ -369,14 +392,6 @@ body.tbts-deck-open {
 	flex: 0 0 auto;
 	padding-top: 12px;
 }
-.tbts-end-success {
-	text-align: center;
-	font-size: 1.3rem;
-	font-weight: 700;
-	margin: auto 0 24px;
-	color: var(--tbts-white);
-}
-
 /* "Go again" / "Start over": white on blue, full width, comfortable tap. */
 .tbts-again {
 	display: block;
@@ -393,6 +408,244 @@ body.tbts-deck-open {
 	-webkit-tap-highlight-color: transparent;
 }
 .tbts-again:active { transform: scale( 0.98 ); }
+
+/* ---- The summary tile: a fourth card face (desktop only) ----
+   Deliberately not the card back. The back has never carried the term — on
+   a physical card you are holding the front — and a screen titled "words to
+   work on" that omits the words leaves the learner reverse-engineering the
+   English out of the Polish.
+
+   Every size on the tile is set from JS as round( px / scale ), because the
+   tile sits inside a scale() transform. Fixed values here would be shrunk
+   along with everything else. */
+.tbts-card.tbts-tile { pointer-events: none; }
+.tbts-card.tbts-tile .tbts-card-inner { display: none; }
+
+.tbts-face-tile {
+	justify-content: center;
+	overflow: hidden;
+}
+.tbts-tile-term {
+	font-family: var(--tbts-slab);
+	font-weight: 700;
+	line-height: 1.15;
+	color: var(--tbts-blue);
+	word-break: break-word;
+}
+.tbts-tile-ipa {
+	font-family: var(--tbts-mono);
+	font-weight: 700;
+	color: var(--tbts-grey);
+}
+.tbts-tile-rule {
+	width: 34%;
+	background: var(--tbts-rule);
+}
+.tbts-tile-tr {
+	font-family: var(--tbts-slab);
+	font-weight: 600;
+	line-height: 1.2;
+	color: var(--tbts-dark);
+}
+.tbts-tile-ex {
+	font-family: var(--tbts-slab);
+	font-style: italic;
+	line-height: 1.35;
+	color: var(--tbts-soft);
+}
+
+/* ---- Deck stack (desktop only) ----
+   The undealt remainder, drawn as card backs beneath the live card. Hidden
+   below the breakpoint: on a phone the card fills the stage, so there is
+   nothing for a stack to peek out from behind. */
+.tbts-stack { display: none; }
+
+/* ---- The not-yet heap (desktop only) ----
+   Below the breakpoint a "not yet" card slides off and is discarded, so a
+   heap card can only exist on the table. Hiding it outside the breakpoint
+   keeps a mid-round resize from stranding a full-bleed card on a phone. */
+.tbts-heap-card { display: none; }
+
+/* =====================================================================
+   Desktop table (>= 900px)
+
+   Width-only on purpose: a Surface or an iPad in landscape should get the
+   table. Below this breakpoint every rule above stands unchanged — the
+   phone layout is the baseline, not a special case.
+   ===================================================================== */
+@media ( min-width: 900px ) {
+	.tbts-deck {
+		/* The deck background stops being the brand field and becomes the
+		   table the cards lie on. */
+		background: var(--tbts-table);
+		color: var(--tbts-dark);
+	}
+	/* White-on-blue copy has to come back down to the table. */
+	.tbts-deck-loading,
+	.tbts-message {
+		color: var(--tbts-soft);
+	}
+
+	/* The stage fills the overlay; the zones lift out of the flex flow and
+	   become typographic marks pinned to the top and bottom edges. */
+	.tbts-stage {
+		position: absolute;
+		inset: 0;
+		padding: 0;
+	}
+
+	.tbts-zone {
+		position: absolute;
+		left: 0;
+		right: 0;
+		width: 100%;
+		padding: 6px 12px;
+		gap: 0;
+		/* Above the heap and the live card both: the heap piles up over the
+		   bottom edge, and the label has to stay readable on top of it. The
+		   card never reaches this far, so nothing is obscured. */
+		z-index: 900;
+	}
+	.tbts-zone-up { top: 26px; }
+	.tbts-zone-down { bottom: 26px; }
+	.tbts-zone:focus-visible { outline-color: var(--tbts-blue); }
+	/* The arrows were wayfinding for a thumb; on a table the label is enough. */
+	.tbts-zone-arrow { display: none; }
+
+	.tbts-zone-label {
+		font-family: var(--tbts-mono);
+		font-size: 13px;
+		font-weight: 700;
+		letter-spacing: 0.18em;
+		text-transform: uppercase;
+		color: var(--tbts-soft);
+		opacity: 0.55;
+		transition: opacity 150ms ease, color 150ms ease;
+	}
+	/* Armed once the drag passes 40px toward the zone (set in JS). */
+	.tbts-zone.is-active .tbts-zone-label {
+		opacity: 1;
+		color: var(--tbts-blue);
+	}
+	.tbts-zone.is-dim .tbts-zone-label { opacity: 0.18; }
+
+	.tbts-progress {
+		/* Pinned to the table, not to the zone band it lives in. The deck is
+		   a fixed full-viewport overlay, so this is the table's bottom edge. */
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 70px;
+		z-index: 900;
+		margin: 0 auto;
+		width: max-content;
+		padding: 5px 14px;
+		border-radius: 999px;
+		background: rgba( 255, 255, 255, 0.8 );
+		color: var(--tbts-soft);
+		font-family: var(--tbts-mono);
+		font-size: 12px;
+		letter-spacing: 0.08em;
+	}
+
+	/* A 3:4 portrait card, centred — not the full-bleed slab the mobile
+	   inset rules produce on a wide monitor. The insets are overridden here
+	   rather than deleted so mobile keeps them. */
+	.tbts-card {
+		top: 50%;
+		left: 50%;
+		right: auto;
+		bottom: auto;
+		width: 380px;
+		height: 500px;
+		margin: -250px 0 0 -190px;
+		z-index: 500;
+	}
+
+	/* Cards left on the table. Pointer events off: the element keeps the
+	   drag listeners it was dealt with, and it must never answer them. */
+	.tbts-heap-card {
+		display: block;
+		pointer-events: none;
+		cursor: default;
+		will-change: auto;
+	}
+
+	.tbts-stack {
+		display: block;
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 380px;
+		height: 500px;
+		margin: -250px 0 0 -190px;
+		pointer-events: none;
+		z-index: 1;
+	}
+	/* ---- Summary on the table ----
+	   The beat and the button are the only chrome; the heap itself becomes
+	   the content, so this layer sits over the stage and lets pointer events
+	   through everywhere except the button. */
+	.tbts-end-table {
+		position: absolute;
+		inset: 0;
+		display: block;
+		padding: 0;
+		pointer-events: none;
+		z-index: 1000;
+	}
+	.tbts-end-table .tbts-beat {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		padding: 54px 24px 0;
+	}
+	/* A deep grid buys its rows back out of the header. */
+	.tbts-end-table.is-compact .tbts-beat { padding-top: 30px; }
+	.tbts-end-table.is-compact .tbts-beat-head { font-size: 1.9rem; }
+	.tbts-end-table.is-compact .tbts-beat-line { font-size: 1rem; }
+	.tbts-end-table .tbts-end-actions {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 34px;
+		padding: 0;
+		pointer-events: auto;
+	}
+
+	/* The beat's own palette, now that it sits on a light table. */
+	.tbts-end .tbts-beat-head { color: var(--tbts-blue); }
+	.tbts-beat-line { color: var(--tbts-dark); }
+	.tbts-beat-sub { color: var(--tbts-soft); }
+
+	.tbts-end-actions {
+		display: flex;
+		justify-content: center;
+	}
+	.tbts-again {
+		width: auto;
+		min-width: 240px;
+		background: var(--tbts-blue);
+		color: var(--tbts-white);
+		box-shadow: 0 8px 20px rgba( 8, 86, 201, 0.28 );
+	}
+
+	.tbts-stack-card {
+		position: absolute;
+		inset: 0;
+		border-radius: 18px;
+		box-shadow: 0 10px 26px rgba( 4, 30, 74, 0.18 );
+		background:
+			repeating-linear-gradient(
+				45deg,
+				rgba( 255, 255, 255, 0.1 ) 0 8px,
+				rgba( 255, 255, 255, 0 ) 8px 16px
+			),
+			url( ../img/tbt-logo-white.png ) no-repeat center calc( 50% - 4px ) / 150px auto,
+			linear-gradient( 150deg, #0856C9, #063F94 );
+	}
+}
 
 /* Reduced motion: no 3D flip transition (JS falls back to a plain fade for
    both swipe directions). */

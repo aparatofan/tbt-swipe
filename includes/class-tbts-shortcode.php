@@ -116,26 +116,55 @@ class TBTS_Shortcode {
 		wp_enqueue_style( 'tbts-deck', TBTS_URL . 'assets/css/deck.css', array(), TBTS_VERSION );
 		wp_enqueue_script( 'tbts-deck', TBTS_URL . 'assets/js/deck.js', array(), TBTS_VERSION, true );
 
+		/**
+		 * Filter the strings the deck player renders.
+		 *
+		 * The player is a closed surface — a student never sees wp-admin — so
+		 * every word it shows is exposed here for a site to reword.
+		 *
+		 * The placeholders in 'knewLine', 'allLine' and 'toWorkOn' are
+		 * positional so a translation can reorder them: %1$d / %2$d are
+		 * counts, %s is the already-inflected 'wordOne' or 'wordMany'.
+		 *
+		 * @param array $strings Key => string, as passed to the player.
+		 */
+		$i18n = apply_filters(
+			'tbt_swipe_deck_i18n',
+			array(
+				'noSet'      => __( 'No deck selected. Please scan the QR code from your teacher.', 'tbt-swipe' ),
+				'notFound'   => __( 'This deck is not available. Please check with your teacher.', 'tbt-swipe' ),
+				'loadError'  => __( 'Could not load the deck. Please try again.', 'tbt-swipe' ),
+				'empty'      => __( 'This deck has no cards yet.', 'tbt-swipe' ),
+				'loading'    => __( 'Loading…', 'tbt-swipe' ),
+				'knowIt'     => __( 'Know it', 'tbt-swipe' ),
+				'notYet'     => __( 'Not yet', 'tbt-swipe' ),
+				'tapToFlip'  => __( 'Tap to flip', 'tbt-swipe' ),
+				'stillLearn' => __( 'Words to work on', 'tbt-swipe' ),
+				'goAgain'    => __( 'Go again', 'tbt-swipe' ),
+				'allKnown'   => __( 'All done — you knew every card!', 'tbt-swipe' ),
+				'restart'    => __( 'Start over', 'tbt-swipe' ),
+				// The end-of-round beat.
+				'wellDone'   => __( 'Well done!', 'tbt-swipe' ),
+				/* translators: 1: cards known, 2: cards in the deck, 3: the word "word" or "words" */
+				'knewLine'   => __( 'You knew %1$d of %2$d %3$s.', 'tbt-swipe' ),
+				/* translators: 1: number of cards still to learn, 2: the word "word" or "words" */
+				'toWorkOn'   => __( '%1$d %2$s to work on', 'tbt-swipe' ),
+				'allTitle'   => __( 'All of them.', 'tbt-swipe' ),
+				/* translators: 1: cards in the deck, 2: the word "word" or "words" */
+				'allLine'    => __( 'You knew all %1$d %2$s in this deck.', 'tbt-swipe' ),
+				'allSub'     => __( 'Nothing left to work on', 'tbt-swipe' ),
+				'wordOne'    => __( 'word', 'tbt-swipe' ),
+				'wordMany'   => __( 'words', 'tbt-swipe' ),
+			)
+		);
+
 		wp_localize_script(
 			'tbts-deck',
 			'tbtsDeck',
 			array(
 				'restBase' => esc_url_raw( rest_url( TBTS_Rest::NS . '/set/' ) ),
 				'logo'     => esc_url_raw( TBTS_URL . 'assets/img/tbt-logo.png' ),
-				'i18n'     => array(
-					'noSet'      => __( 'No deck selected. Please scan the QR code from your teacher.', 'tbt-swipe' ),
-					'notFound'   => __( 'This deck is not available. Please check with your teacher.', 'tbt-swipe' ),
-					'loadError'  => __( 'Could not load the deck. Please try again.', 'tbt-swipe' ),
-					'empty'      => __( 'This deck has no cards yet.', 'tbt-swipe' ),
-					'loading'    => __( 'Loading…', 'tbt-swipe' ),
-					'knowIt'     => __( 'Know it', 'tbt-swipe' ),
-					'notYet'     => __( 'Not yet', 'tbt-swipe' ),
-					'tapToFlip'  => __( 'Tap to flip', 'tbt-swipe' ),
-					'stillLearn' => __( 'Words to work on', 'tbt-swipe' ),
-					'goAgain'    => __( 'Go again', 'tbt-swipe' ),
-					'allKnown'   => __( 'All done — you knew every card!', 'tbt-swipe' ),
-					'restart'    => __( 'Start over', 'tbt-swipe' ),
-				),
+				'i18n'     => $i18n,
 			)
 		);
 	}
