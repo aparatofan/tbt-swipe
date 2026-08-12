@@ -16,7 +16,17 @@
 	var FLICK_VELOCITY = 0.5;     // px/ms — a fast flick commits below threshold
 	var SCALE_MIN = 0.94;         // card scale at threshold (recedes)
 
-	var root, stage, progressEl;
+	/* Desktop: the card becomes a fixed 380x500 portrait card on a table, with
+	   a stack of backs beneath it. Deliberately width-only — a Surface or an
+	   iPad in landscape should get the table, so no `pointer: fine`. These two
+	   constants must match the width/height in the min-width:900px block. */
+	var DESKTOP_MQ = window.matchMedia ? window.matchMedia( '( min-width: 900px )' ) : null;
+	var CARD_W = 380;
+	var CARD_H = 500;
+	var STACK_MAX = 4;            // card backs drawn under the live card
+	var ZONE_ARM = 40;            // px of drag before a desktop zone lights up
+
+	var root, stage, progressEl, stackEl;
 	var zones = null;    // { up: {el,label,arrow}, down: {el,label,arrow} }
 	var fullDeck = [];   // original loaded cards
 	var queue = [];      // cards still to review this round
@@ -112,6 +122,12 @@
 		stage = el( 'div', 'tbts-stage' );
 		var down = buildZone( 'down' );
 
+		// The undealt remainder, drawn beneath the live card. Presentational
+		// only; CSS hides it below the desktop breakpoint.
+		stackEl = el( 'div', 'tbts-stack' );
+		stackEl.setAttribute( 'aria-hidden', 'true' );
+		stage.appendChild( stackEl );
+
 		root.appendChild( up.el );
 		root.appendChild( stage );
 		root.appendChild( down.el );
@@ -159,6 +175,7 @@
 		var card = queue.shift();
 		seenCount++;
 		updateProgress();
+		renderStack();
 		renderCard( card );
 	}
 
@@ -168,13 +185,34 @@
 		}
 	}
 
+	/* The stack of backs under the live card: one per undealt card, up to
+	   four, so the deck visibly thins as it is played and vanishes on the
+	   last card. No pointer events, no content. */
+	function renderStack() {
+		if ( ! stackEl ) {
+			return;
+		}
+		stackEl.innerHTML = '';
+		var n = Math.min( STACK_MAX, queue.length );
+		for ( var i = 0; i < n; i++ ) {
+			var back = el( 'div', 'tbts-stack-card' );
+			var depth = i + 1;
+			var rot = ( depth % 2 ? 1 : -1 ) * 0.5 * depth;
+			back.style.transform = 'translate(' + ( depth * 2 ) + 'px,' + ( depth * 3 ) + 'px) rotate(' + rot + 'deg)';
+			back.style.opacity = ( 1 - depth * 0.08 ).toFixed( 2 );
+			// Deeper cards paint behind, so the faded ones never wash over
+			// the card immediately under the live one.
+			back.style.zIndex = String( STACK_MAX - depth );
+			stackEl.appendChild( back );
+		}
+	}
+
 	/* ---- Card rendering ---- */
 	function renderCard( card ) {
 		var cardEl = el( 'div', 'tbts-card' );
 		var inner = el( 'div', 'tbts-card-inner' );
 
 		var front = el( 'div', 'tbts-face tbts-face-front' );
-		addLogo( front );
 		var term = el( 'div', 'tbts-term' );
 		term.textContent = card.term;
 		front.appendChild( term );
@@ -183,7 +221,6 @@
 		front.appendChild( hint );
 
 		var back = el( 'div', 'tbts-face tbts-face-back' );
-		addLogo( back );
 		if ( card.ipa ) {
 			var ipa = el( 'div', 'tbts-ipa' );
 			ipa.textContent = card.ipa;
@@ -208,18 +245,6 @@
 
 		stage.appendChild( cardEl );
 		attachPointer( cardEl );
-	}
-
-	function addLogo( face ) {
-		if ( ! cfg.logo ) {
-			return;
-		}
-		var img = document.createElement( 'img' );
-		img.className = 'tbts-logo';
-		img.src = cfg.logo;
-		img.alt = '';
-		img.setAttribute( 'aria-hidden', 'true' );
-		face.appendChild( img );
 	}
 
 	/* ---- Pointer / drag handling ---- */
@@ -300,16 +325,25 @@
 		current.el.style.transform = 'translateY(' + dy + 'px) scale(' + scale.toFixed( 3 ) + ')';
 
 		if ( dy < 0 ) {
-			zoneFeedback( zones.up, zones.down, progress );
+			zoneFeedback( zones.up, zones.down, progress, dy );
 		} else if ( dy > 0 ) {
-			zoneFeedback( zones.down, zones.up, progress );
+			zoneFeedback( zones.down, zones.up, progress, dy );
 		} else {
 			resetZones();
 		}
 	}
 
 	// Brighten the zone the card is heading toward, dim the opposite one.
-	function zoneFeedback( active, dim, progress ) {
+	// Mobile ramps the opacity with the drag; on the desktop table the label
+	// is a typographic mark that simply arms once the drag passes 40px, so
+	// the state lives in a class and the inline opacity stays out of it.
+	function zoneFeedback( active, dim, progress, dy ) {
+		if ( isDesktop() ) {
+			var armed = Math.abs( dy ) > ZONE_ARM;
+			active.el.classList.toggle( 'is-active', armed );
+			dim.el.classList.toggle( 'is-dim', armed );
+			return;
+		}
 		var a = ( 0.6 + 0.4 * progress ).toFixed( 3 );
 		var d = ( 0.6 - 0.3 * progress ).toFixed( 3 );
 		active.label.style.opacity = a;
@@ -520,6 +554,9 @@
 	}
 
 	/* ---- Helpers ---- */
+	function isDesktop() {
+		return !! ( DESKTOP_MQ && DESKTOP_MQ.matches );
+	}
 	function el( tag, cls ) {
 		var e = document.createElement( tag );
 		if ( cls ) { e.className = cls; }

@@ -53,7 +53,10 @@
 	--tbts-grey: #5F5E5A;        /* IPA */
 	--tbts-soft: #888780;        /* example, hint */
 	--tbts-dark: #2C2C2A;        /* summary translation */
+	--tbts-table: #EEF1F6;       /* desktop table surface */
+	--tbts-rule: #DDE4EE;        /* summary tile hairline */
 	--tbts-slab: 'Roboto Slab', Georgia, serif;
+	--tbts-mono: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
 	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 	/* Fixed full-viewport overlay. This escapes Divi's section/row geometry
@@ -215,13 +218,19 @@ body.tbts-deck-open {
 	overflow: hidden;
 }
 
-/* Logo: a quiet printed-flashcard mark, top-right, both faces. */
-.tbts-logo {
+/* Logo: a quiet printed-flashcard mark, top-right, both faces. Drawn from
+   CSS rather than an <img> so the deck asset URL is a stylesheet concern
+   and the card faces stay free of markup that carries no meaning. */
+.tbts-face-front::after,
+.tbts-face-back::after {
+	content: '';
 	position: absolute;
 	top: 10px;
 	right: 10px;
-	height: 30px;
-	width: auto;
+	width: 30px;
+	height: 26px;   /* the mark is 120x104 */
+	background: url( ../img/tbt-logo-colour.png ) no-repeat center / contain;
+	opacity: 0.85;
 	pointer-events: none;
 }
 
@@ -374,6 +383,131 @@ body.tbts-deck-open {
 	-webkit-tap-highlight-color: transparent;
 }
 .tbts-again:active { transform: scale( 0.98 ); }
+
+/* ---- Deck stack (desktop only) ----
+   The undealt remainder, drawn as card backs beneath the live card. Hidden
+   below the breakpoint: on a phone the card fills the stage, so there is
+   nothing for a stack to peek out from behind. */
+.tbts-stack { display: none; }
+
+/* =====================================================================
+   Desktop table (>= 900px)
+
+   Width-only on purpose: a Surface or an iPad in landscape should get the
+   table. Below this breakpoint every rule above stands unchanged — the
+   phone layout is the baseline, not a special case.
+   ===================================================================== */
+@media ( min-width: 900px ) {
+	.tbts-deck {
+		/* The deck background stops being the brand field and becomes the
+		   table the cards lie on. */
+		background: var(--tbts-table);
+		color: var(--tbts-dark);
+	}
+	/* White-on-blue copy has to come back down to the table. */
+	.tbts-deck-loading,
+	.tbts-message {
+		color: var(--tbts-soft);
+	}
+
+	/* The stage fills the overlay; the zones lift out of the flex flow and
+	   become typographic marks pinned to the top and bottom edges. */
+	.tbts-stage {
+		position: absolute;
+		inset: 0;
+		padding: 0;
+	}
+
+	.tbts-zone {
+		position: absolute;
+		left: 0;
+		right: 0;
+		width: 100%;
+		padding: 6px 12px;
+		gap: 0;
+		z-index: 3;
+	}
+	.tbts-zone-up { top: 26px; }
+	.tbts-zone-down { bottom: 26px; }
+	.tbts-zone:focus-visible { outline-color: var(--tbts-blue); }
+	/* The arrows were wayfinding for a thumb; on a table the label is enough. */
+	.tbts-zone-arrow { display: none; }
+
+	.tbts-zone-label {
+		font-family: var(--tbts-mono);
+		font-size: 13px;
+		font-weight: 700;
+		letter-spacing: 0.18em;
+		text-transform: uppercase;
+		color: var(--tbts-soft);
+		opacity: 0.55;
+		transition: opacity 150ms ease, color 150ms ease;
+	}
+	/* Armed once the drag passes 40px toward the zone (set in JS). */
+	.tbts-zone.is-active .tbts-zone-label {
+		opacity: 1;
+		color: var(--tbts-blue);
+	}
+	.tbts-zone.is-dim .tbts-zone-label { opacity: 0.18; }
+
+	.tbts-progress {
+		/* Pinned to the table, not to the zone band it lives in. The deck is
+		   a fixed full-viewport overlay, so this is the table's bottom edge. */
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 70px;
+		margin: 0 auto;
+		width: max-content;
+		padding: 5px 14px;
+		border-radius: 999px;
+		background: rgba( 255, 255, 255, 0.8 );
+		color: var(--tbts-soft);
+		font-family: var(--tbts-mono);
+		font-size: 12px;
+		letter-spacing: 0.08em;
+	}
+
+	/* A 3:4 portrait card, centred — not the full-bleed slab the mobile
+	   inset rules produce on a wide monitor. The insets are overridden here
+	   rather than deleted so mobile keeps them. */
+	.tbts-card {
+		top: 50%;
+		left: 50%;
+		right: auto;
+		bottom: auto;
+		width: 380px;
+		height: 500px;
+		margin: -250px 0 0 -190px;
+		z-index: 500;
+	}
+
+	.tbts-stack {
+		display: block;
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 380px;
+		height: 500px;
+		margin: -250px 0 0 -190px;
+		pointer-events: none;
+		z-index: 1;
+	}
+	.tbts-stack-card {
+		position: absolute;
+		inset: 0;
+		border-radius: 18px;
+		box-shadow: 0 10px 26px rgba( 4, 30, 74, 0.18 );
+		background:
+			repeating-linear-gradient(
+				45deg,
+				rgba( 255, 255, 255, 0.1 ) 0 8px,
+				rgba( 255, 255, 255, 0 ) 8px 16px
+			),
+			url( ../img/tbt-logo-white.png ) no-repeat center calc( 50% - 4px ) / 150px auto,
+			linear-gradient( 150deg, #0856C9, #063F94 );
+	}
+}
 
 /* Reduced motion: no 3D flip transition (JS falls back to a plain fade for
    both swipe directions). */
