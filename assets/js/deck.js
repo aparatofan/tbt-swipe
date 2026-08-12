@@ -336,7 +336,7 @@
 				return;
 			}
 			moved = true;
-			applyDrag( dy, height );
+			applyDrag( dx, dy, height );
 		} );
 
 		function endDrag( e ) {
@@ -374,12 +374,29 @@
 		cardEl.addEventListener( 'pointercancel', endDrag );
 	}
 
-	function applyDrag( dy, height ) {
+	function applyDrag( dx, dy, height ) {
 		var progress = Math.min( 1, Math.abs( dy ) / ( height * THRESHOLD_RATIO ) );
-		var scale = 1 - ( 1 - SCALE_MIN ) * progress;
 
 		current.el.style.transition = 'none';
-		current.el.style.transform = 'translateY(' + dy + 'px) scale(' + scale.toFixed( 3 ) + ')';
+
+		if ( isDesktop() ) {
+			// The card sits under the cursor: both axes, unattenuated. It is
+			// being placed on a table, not dismissed, so it does not shrink.
+			// Rotation follows X, not Y — a card pulled sideways pivots, a
+			// card pulled straight down does not spin. That is what sells
+			// the weight.
+			var rot = Math.max( -15, Math.min( 15, dx * 0.06 ) );
+			current.el.style.transform =
+				'translate(' + Math.round( dx ) + 'px,' + Math.round( dy ) + 'px) rotate(' + rot.toFixed( 2 ) + 'deg)';
+			// Remembered so the card can settle where it was let go.
+			current.dragX = dx;
+			current.dragRot = rot;
+		} else {
+			// On a phone the gesture is a flick, not a placement, and the
+			// recede reads correctly there. Unchanged.
+			var scale = 1 - ( 1 - SCALE_MIN ) * progress;
+			current.el.style.transform = 'translateY(' + dy + 'px) scale(' + scale.toFixed( 3 ) + ')';
+		}
 
 		if ( dy < 0 ) {
 			zoneFeedback( zones.up, zones.down, progress, dy );
@@ -422,7 +439,12 @@
 
 	function springBack() {
 		current.el.style.transition = 'transform 250ms ease-out';
+		// Clears translation and rotation together, so nothing is left leaning.
 		current.el.style.transform = '';
+		// The card is back on the pile; a later keyboard or zone commit must
+		// fall back to a seeded slot, not to where this drag happened to end.
+		current.dragX = null;
+		current.dragRot = null;
 		resetZones();
 	}
 
@@ -444,6 +466,10 @@
 
 		var card = current.card;
 		var cardEl = current.el;
+		// null on the keyboard and zone-button paths, which is the signal to
+		// fall back to a seeded slot.
+		var dragX = typeof current.dragX === 'number' ? current.dragX : null;
+		var dragRot = typeof current.dragRot === 'number' ? current.dragRot : null;
 
 		if ( dir === 'up' ) {
 			// Known → flick away along the gesture axis.
@@ -459,7 +485,7 @@
 				// On the table the card stays put as a record of the round.
 				// The next card arrives at 300ms, before the flop finishes:
 				// the learner never waits for an animation.
-				toHeap( cardEl, card );
+				toHeap( cardEl, card, dragX, dragRot );
 				setTimeout( afterCommit, reducedMotion ? 0 : 300 );
 			} else if ( reducedMotion ) {
 				fadeOut( cardEl, 150, afterCommit );
@@ -505,14 +531,15 @@
 	/* ---- Down: the heap (desktop) ----
 	   A "not yet" card lands at the bottom edge of the table and stays there
 	   for the rest of the round, so the learner can see the pile growing. */
-	function toHeap( cardEl, card ) {
-		// Position is keyed to the card's index in the full deck, never to
-		// Math.random(): the same card must land in the same place every
-		// time, or a re-render or a resize would reshuffle the heap.
+	function toHeap( cardEl, card, releaseX, releaseRot ) {
 		var idx = fullDeck.indexOf( card );
 		if ( idx < 0 ) {
 			idx = heap.length;
 		}
+		// Resolved once, here, and kept: where a card lands should be a
+		// consequence of what the learner did with it, and storing the
+		// answer is what keeps a resize from reshuffling the heap.
+		var slot = heapSlot( idx, releaseX, releaseRot );
 
 		heapZ++;
 		// Cards lie face up on the table, whichever side was showing.
@@ -522,9 +549,9 @@
 		cardEl.style.opacity = '';
 		// Decelerating, so the card settles rather than snaps.
 		cardEl.style.transition = reducedMotion ? 'none' : 'transform 420ms cubic-bezier(.25,.9,.3,1)';
-		cardEl.style.transform = heapTransform( idx );
+		cardEl.style.transform = heapTransform( idx, slot.x, slot.rot );
 
-		heap.push( { el: cardEl, idx: idx, card: card } );
+		heap.push( { el: cardEl, idx: idx, card: card, x: slot.x, rot: slot.rot } );
 	}
 
 	/* A cheap seeded hash: deterministic per card, cheap enough to call on
@@ -534,10 +561,27 @@
 		return x - Math.floor( x );   // 0..1
 	}
 
-	function heapTransform( idx ) {
+	/* Where the card lands. A drag answers it: the card settles near where it
+	   was let go, with a little seeded variation so the pile stays untidy.
+	   The keyboard, the zone buttons and onResize() have no release position,
+	   and fall back to the seeded scatter. */
+	function heapSlot( idx, releaseX, releaseRot ) {
+		var stageW = ( stage && stage.offsetWidth ) || window.innerWidth;
+		// A card dropped near an edge still has to stay on the table.
+		var limit = Math.max( 0, stageW / 2 - 120 );
+		return {
+			x: typeof releaseX === 'number'
+				? Math.max( -limit, Math.min( limit, releaseX ) )
+				: ( seeded( idx, 1 ) - 0.5 ) * 520,
+			rot: typeof releaseRot === 'number'
+				? releaseRot + ( seeded( idx, 2 ) - 0.5 ) * 16   // ±8deg
+				: ( seeded( idx, 2 ) - 0.5 ) * 38
+		};
+	}
+
+	function heapTransform( idx, x, rot ) {
 		var stageH = ( stage && stage.offsetHeight ) || window.innerHeight;
-		var x = ( seeded( idx, 1 ) - 0.5 ) * 520;
-		var rot = ( seeded( idx, 2 ) - 0.5 ) * 38;
+		// Depth into the edge stays seeded whichever way the card got here.
 		var depth = seeded( idx, 3 ) * 26;
 		// The card rests centred, so translate from there to a position that
 		// leaves ~130px showing above the table edge. Derived from the table
@@ -550,9 +594,17 @@
 	// Keep the heap pinned to the bottom edge, without animating while the
 	// window is being dragged.
 	function onResize() {
+		// Once the heap has been dealt into the summary grid it is no longer
+		// a heap; re-pinning it to the bottom edge would yank the tiles back.
+		if ( heap.length && heap[ 0 ].el.classList.contains( 'tbts-tile' ) ) {
+			return;
+		}
 		for ( var i = 0; i < heap.length; i++ ) {
+			// Only the vertical is recomputed: each card keeps the horizontal
+			// position and angle it was left at, so nothing twitches sideways
+			// while the window is being dragged.
 			heap[ i ].el.style.transition = 'none';
-			heap[ i ].el.style.transform = heapTransform( heap[ i ].idx );
+			heap[ i ].el.style.transform = heapTransform( heap[ i ].idx, heap[ i ].x, heap[ i ].rot );
 		}
 	}
 
