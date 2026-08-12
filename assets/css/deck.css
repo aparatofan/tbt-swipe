@@ -292,16 +292,49 @@ body.tbts-deck-open {
 	   "Go again" button pinned while the words scroll between them. */
 	overflow: hidden;
 }
-.tbts-end h2 {
+
+/* ---- The end-of-round beat ----
+   "Well done! / You knew 12 of 15 words. / 3 WORDS TO WORK ON". Held for
+   900ms before the reading matter arrives; there is no question and no
+   branch, so it needs no controls of its own. */
+.tbts-beat {
 	flex: 0 0 auto;
-	font-size: 1rem;
-	font-weight: 700;
-	letter-spacing: 0.16em;
-	text-transform: uppercase;
-	margin: 4px 0 16px;
 	text-align: center;
+	padding: 8px 4px 18px;
+}
+.tbts-end .tbts-beat-head {
+	font-family: var(--tbts-slab);
+	font-size: 2.4rem;
+	font-weight: 700;
+	line-height: 1.15;
+	letter-spacing: 0;
+	text-transform: none;
+	margin: 0 0 10px;
 	color: var(--tbts-white);
 }
+.tbts-beat-line {
+	font-size: 1.15rem;
+	line-height: 1.4;
+	color: var(--tbts-white);
+}
+.tbts-beat-sub {
+	margin-top: 10px;
+	font-family: var(--tbts-mono);
+	font-size: 12px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.18em;
+	color: rgba( 255, 255, 255, 0.65 );
+}
+
+/* The word list drops in here once the beat has held. */
+.tbts-end-slot {
+	flex: 1 1 auto;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+
 .tbts-end-list {
 	/* The scroll region: a 14-word list won't fit on one screen. */
 	flex: 1 1 auto;
@@ -359,14 +392,6 @@ body.tbts-deck-open {
 	flex: 0 0 auto;
 	padding-top: 12px;
 }
-.tbts-end-success {
-	text-align: center;
-	font-size: 1.3rem;
-	font-weight: 700;
-	margin: auto 0 24px;
-	color: var(--tbts-white);
-}
-
 /* "Go again" / "Start over": white on blue, full width, comfortable tap. */
 .tbts-again {
 	display: block;
@@ -383,6 +408,51 @@ body.tbts-deck-open {
 	-webkit-tap-highlight-color: transparent;
 }
 .tbts-again:active { transform: scale( 0.98 ); }
+
+/* ---- The summary tile: a fourth card face (desktop only) ----
+   Deliberately not the card back. The back has never carried the term — on
+   a physical card you are holding the front — and a screen titled "words to
+   work on" that omits the words leaves the learner reverse-engineering the
+   English out of the Polish.
+
+   Every size on the tile is set from JS as round( px / scale ), because the
+   tile sits inside a scale() transform. Fixed values here would be shrunk
+   along with everything else. */
+.tbts-card.tbts-tile { pointer-events: none; }
+.tbts-card.tbts-tile .tbts-card-inner { display: none; }
+
+.tbts-face-tile {
+	justify-content: center;
+	overflow: hidden;
+}
+.tbts-tile-term {
+	font-family: var(--tbts-slab);
+	font-weight: 700;
+	line-height: 1.15;
+	color: var(--tbts-blue);
+	word-break: break-word;
+}
+.tbts-tile-ipa {
+	font-family: var(--tbts-mono);
+	font-weight: 700;
+	color: var(--tbts-grey);
+}
+.tbts-tile-rule {
+	width: 34%;
+	background: var(--tbts-rule);
+}
+.tbts-tile-tr {
+	font-family: var(--tbts-slab);
+	font-weight: 600;
+	line-height: 1.2;
+	color: var(--tbts-dark);
+}
+.tbts-tile-ex {
+	font-family: var(--tbts-slab);
+	font-style: italic;
+	line-height: 1.35;
+	color: var(--tbts-soft);
+}
 
 /* ---- Deck stack (desktop only) ----
    The undealt remainder, drawn as card backs beneath the live card. Hidden
@@ -512,6 +582,55 @@ body.tbts-deck-open {
 		pointer-events: none;
 		z-index: 1;
 	}
+	/* ---- Summary on the table ----
+	   The beat and the button are the only chrome; the heap itself becomes
+	   the content, so this layer sits over the stage and lets pointer events
+	   through everywhere except the button. */
+	.tbts-end-table {
+		position: absolute;
+		inset: 0;
+		display: block;
+		padding: 0;
+		pointer-events: none;
+		z-index: 1000;
+	}
+	.tbts-end-table .tbts-beat {
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		padding: 54px 24px 0;
+	}
+	/* A deep grid buys its rows back out of the header. */
+	.tbts-end-table.is-compact .tbts-beat { padding-top: 30px; }
+	.tbts-end-table.is-compact .tbts-beat-head { font-size: 1.9rem; }
+	.tbts-end-table.is-compact .tbts-beat-line { font-size: 1rem; }
+	.tbts-end-table .tbts-end-actions {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 34px;
+		padding: 0;
+		pointer-events: auto;
+	}
+
+	/* The beat's own palette, now that it sits on a light table. */
+	.tbts-end .tbts-beat-head { color: var(--tbts-blue); }
+	.tbts-beat-line { color: var(--tbts-dark); }
+	.tbts-beat-sub { color: var(--tbts-soft); }
+
+	.tbts-end-actions {
+		display: flex;
+		justify-content: center;
+	}
+	.tbts-again {
+		width: auto;
+		min-width: 240px;
+		background: var(--tbts-blue);
+		color: var(--tbts-white);
+		box-shadow: 0 8px 20px rgba( 8, 86, 201, 0.28 );
+	}
+
 	.tbts-stack-card {
 		position: absolute;
 		inset: 0;

@@ -544,9 +544,28 @@
 		}
 	}
 
-	/* ---- Summary screen ---- */
+	/* ---- Summary screen ----
+	   Scoring is per deck, not per round: the number of cards known is
+	   fullDeck.length - unknown.length, so there is no counter to keep in
+	   sync. The in-round progress pill stays per round — that one is about
+	   position, not achievement. */
+	var BEAT_HOLD = 900;   // ms the score holds before anything moves
+
 	function endRound() {
-		root.innerHTML = '';
+		// On the table the heap is the material for the deal, so the stage
+		// survives; everywhere else the round is torn down as before.
+		var dealing = isDesktop() && heap.length > 0;
+
+		if ( dealing ) {
+			removeEl( zones.up.el );
+			removeEl( zones.down.el );
+			removeEl( stackEl );
+			stackEl = null;
+		} else {
+			root.innerHTML = '';
+			heap = [];
+			heapZ = 0;
+		}
 		zones = null;
 		progressEl = null;
 
@@ -555,14 +574,65 @@
 			return;
 		}
 
-		var end = el( 'div', 'tbts-end' );
-		var h2 = el( 'h2' );
-		h2.textContent = i18n.stillLearn;
-		end.appendChild( h2 );
+		var known = fullDeck.length - unknown.length;
+		var end = el( 'div', 'tbts-end' + ( dealing ? ' tbts-end-table' : '' ) );
+		end.appendChild( buildBeat(
+			i18n.wellDone,
+			fmt( i18n.knewLine, [ known, fullDeck.length, plural( fullDeck.length ) ] ),
+			fmt( i18n.toWorkOn, [ unknown.length, plural( unknown.length ) ] )
+		) );
 
-		// <div>s, not <ul>/<li>: the list is presentational (each item is a
-		// self-contained card), and divs sidestep the bullet markers Divi and
-		// WP core inject into content lists.
+		// The reading matter arrives after the beat. "Go again" is appended
+		// now and stays put: the choice to skip the reading exists without a
+		// gate in front of it.
+		var slot = el( 'div', 'tbts-end-slot' );
+		end.appendChild( slot );
+
+		var again = el( 'button', 'tbts-again' );
+		again.type = 'button';
+		again.textContent = i18n.goAgain;
+		again.addEventListener( 'click', function () {
+			startRound( shuffle( unknown.slice() ) );
+		} );
+
+		var actions = el( 'div', 'tbts-end-actions' );
+		actions.appendChild( again );
+		end.appendChild( actions );
+
+		root.appendChild( end );
+
+		setTimeout( function () {
+			if ( dealing ) {
+				dealHeap( end );
+			} else {
+				slot.appendChild( buildWordList() );
+			}
+		}, BEAT_HOLD );
+	}
+
+	/* Well done! / You knew 12 of 15 words. / 3 WORDS TO WORK ON */
+	function buildBeat( heading, line, sub ) {
+		var beat = el( 'div', 'tbts-beat' );
+
+		var h = el( 'h2', 'tbts-beat-head' );
+		h.textContent = heading;
+		beat.appendChild( h );
+
+		var l = el( 'div', 'tbts-beat-line' );
+		l.textContent = line;
+		beat.appendChild( l );
+
+		var s = el( 'div', 'tbts-beat-sub' );
+		s.textContent = sub;
+		beat.appendChild( s );
+
+		return beat;
+	}
+
+	// <div>s, not <ul>/<li>: the list is presentational (each item is a
+	// self-contained card), and divs sidestep the bullet markers Divi and
+	// WP core inject into content lists.
+	function buildWordList() {
 		var list = el( 'div', 'tbts-end-list' );
 		unknown.forEach( function ( card ) {
 			var item = el( 'div', 'tbts-end-item' );
@@ -587,27 +657,16 @@
 			}
 			list.appendChild( item );
 		} );
-		end.appendChild( list );
-
-		var again = el( 'button', 'tbts-again' );
-		again.type = 'button';
-		again.textContent = i18n.goAgain;
-		again.addEventListener( 'click', function () {
-			startRound( shuffle( unknown.slice() ) );
-		} );
-
-		var actions = el( 'div', 'tbts-end-actions' );
-		actions.appendChild( again );
-		end.appendChild( actions );
-
-		root.appendChild( end );
+		return list;
 	}
 
 	function renderAllKnown() {
 		var end = el( 'div', 'tbts-end' );
-		var msg = el( 'div', 'tbts-end-success' );
-		msg.textContent = i18n.allKnown;
-		end.appendChild( msg );
+		end.appendChild( buildBeat(
+			i18n.allTitle,
+			fmt( i18n.allLine, [ fullDeck.length, plural( fullDeck.length ) ] ),
+			i18n.allSub
+		) );
 
 		var restart = el( 'button', 'tbts-again' );
 		restart.type = 'button';
@@ -623,7 +682,142 @@
 		root.appendChild( end );
 	}
 
+	/* ---- The deal (desktop) ----
+	   The heap gathers itself and lays out as a grid of word tiles: each card
+	   animates from where it landed to its slot, FLIP-style. */
+	function dealHeap( end ) {
+		var n = heap.length;
+		var perRow = Math.min( n, 5 );
+		var rows = Math.ceil( n / perRow );
+		var gapX = 26, gapY = 22;
+		// The header tightens when the grid is deep, to buy back the room.
+		var headH = rows > 2 ? 150 : 210;
+		var footH = 110;   // room for "Go again"
+
+		var tableW = stage.offsetWidth || window.innerWidth;
+		var tableH = stage.offsetHeight || window.innerHeight;
+		var availW = tableW * 0.92;
+		var availH = tableH - headH - footH;
+
+		var scaleW = ( availW - ( perRow - 1 ) * gapX ) / ( perRow * CARD_W );
+		var scaleH = ( availH - ( rows - 1 ) * gapY ) / ( rows * CARD_H );
+		// The 0.44 floor is deliberate: a large heap runs slightly long
+		// rather than shrinking the type into illegibility.
+		var scale = Math.max( 0.44, Math.min( 0.72, Math.min( scaleW, scaleH ) ) );
+		var blockH = rows * CARD_H * scale + ( rows - 1 ) * gapY;
+
+		// …but running long must never hide a tile behind "Go again". The
+		// floor gives way just enough to clear the button, down to a hard
+		// 0.40: the type on a tile is scale-compensated, so the tile box
+		// tightens without the words getting any smaller.
+		if ( headH + blockH > tableH - footH ) {
+			var fits = ( tableH - footH - headH - ( rows - 1 ) * gapY ) / ( rows * CARD_H );
+			scale = Math.max( 0.4, Math.min( scale, fits ) );
+			blockH = rows * CARD_H * scale + ( rows - 1 ) * gapY;
+		}
+
+		if ( rows > 2 ) {
+			end.classList.add( 'is-compact' );
+		}
+
+		var tileW = CARD_W * scale;
+		var tileH = CARD_H * scale;
+		var top = headH + Math.max( 0, ( availH - blockH ) / 2 );
+
+		heap.forEach( function ( h, i ) {
+			var row = Math.floor( i / perRow );
+			var inRow = i % perRow;
+			// A short final row centres on its own.
+			var rowCount = Math.min( perRow, n - row * perRow );
+			var rowW = rowCount * tileW + ( rowCount - 1 ) * gapX;
+			var x = ( tableW - rowW ) / 2 + inRow * ( tileW + gapX );
+			var y = top + row * ( tileH + gapY );
+
+			h.el.appendChild( buildTileFace( h.card, scale ) );
+			h.el.classList.add( 'tbts-tile' );
+			h.el.style.zIndex = String( 10 + i );
+
+			// The card rests centred on the table, and scales about its own
+			// centre, so the translation is centre-to-centre.
+			var dx = x + tileW / 2 - tableW / 2;
+			var dy = y + tileH / 2 - tableH / 2;
+			var to = 'translate(' + dx.toFixed( 1 ) + 'px,' + dy.toFixed( 1 ) + 'px) scale(' + scale.toFixed( 4 ) + ')';
+
+			if ( reducedMotion ) {
+				h.el.style.transition = 'none';
+				h.el.style.transform = to;
+				return;
+			}
+			h.el.style.transition = 'transform 620ms cubic-bezier(.22,.9,.25,1) ' + ( i * 45 ) + 'ms';
+			h.el.style.transform = to;
+		} );
+	}
+
+	/* A fourth face, shown only in the summary. Not the card back: a screen
+	   titled "words to work on" that omits the words is the wrong screen, and
+	   the card back has never carried the term.
+
+	   Everything here is sized in JS rather than CSS because the tile sits
+	   inside a scale() — dividing by the scale cancels the transform, so the
+	   learner reads the size intended rather than a thinner, greyer one. */
+	function buildTileFace( card, scale ) {
+		var big = scale > 0.55;
+		function px( v ) {
+			return Math.round( v / scale ) + 'px';
+		}
+
+		var face = el( 'div', 'tbts-face tbts-face-tile' );
+		face.style.borderRadius = px( 14 );
+		face.style.padding = px( 18 ) + ' ' + px( 14 );
+		face.style.boxShadow = '0 ' + px( 10 ) + ' ' + px( 26 ) + ' rgba(4,30,74,.16)';
+
+		var term = el( 'div', 'tbts-tile-term' );
+		term.textContent = card.term;
+		term.style.fontSize = px( big ? 22 : 19 );
+		face.appendChild( term );
+
+		if ( card.ipa ) {
+			var ipa = el( 'div', 'tbts-tile-ipa' );
+			ipa.textContent = card.ipa;
+			ipa.style.fontSize = px( big ? 12 : 11 );
+			ipa.style.marginTop = px( 4 );
+			face.appendChild( ipa );
+		}
+
+		var rule = el( 'div', 'tbts-tile-rule' );
+		rule.style.height = px( 1 );
+		rule.style.margin = px( 12 ) + ' 0';
+		face.appendChild( rule );
+
+		if ( card.translation ) {
+			var tr = el( 'div', 'tbts-tile-tr' );
+			tr.textContent = card.translation;
+			tr.style.fontSize = px( big ? 19 : 16 );
+			face.appendChild( tr );
+		}
+
+		if ( card.example ) {
+			var ex = el( 'div', 'tbts-tile-ex' );
+			ex.textContent = card.example;
+			ex.style.fontSize = px( big ? 14 : 12.5 );
+			ex.style.marginTop = px( 8 );
+			face.appendChild( ex );
+		}
+
+		return face;
+	}
+
 	/* ---- Helpers ---- */
+	function plural( n ) {
+		return n === 1 ? i18n.wordOne : i18n.wordMany;
+	}
+	// Positional placeholders, so a translation can reorder the counts and
+	// the inflected noun. Matches the %1$d / %2$s the PHP side ships.
+	function fmt( tpl, vals ) {
+		return String( tpl || '' ).replace( /%(\d+)\$[ds]/g, function ( m, n ) {
+			return vals[ n - 1 ];
+		} );
+	}
 	function isDesktop() {
 		return !! ( DESKTOP_MQ && DESKTOP_MQ.matches );
 	}
