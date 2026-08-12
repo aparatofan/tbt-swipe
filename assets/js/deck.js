@@ -25,6 +25,7 @@
 	var CARD_H = 500;
 	var STACK_MAX = 4;            // card backs drawn under the live card
 	var ZONE_ARM = 40;            // px of drag before a desktop zone lights up
+	var HEAP_SHOW = 130;          // px of a heaped card left showing above the edge
 
 	var root, stage, progressEl, stackEl;
 	var zones = null;    // { up: {el,label,arrow}, down: {el,label,arrow} }
@@ -34,6 +35,8 @@
 	var seenCount = 0;   // cards shown this round (for progress)
 	var roundTotal = 0;
 	var current = null;  // active card DOM state
+	var heap = [];       // desktop only: { el, idx, card } left on the table
+	var heapZ = 0;       // later cards lie on top of earlier ones
 
 	document.addEventListener( 'DOMContentLoaded', init );
 
@@ -50,6 +53,7 @@
 		// One document-level key handler for the whole session; it consults
 		// `current`, so it is inert on the loading and summary screens.
 		document.addEventListener( 'keydown', onKeydown );
+		window.addEventListener( 'resize', onResize );
 
 		var slug = getSlug();
 		if ( ! slug ) {
@@ -115,6 +119,10 @@
 		seenCount = 0;
 		roundTotal = queue.length;
 		current = null;
+		// A heap card from the previous round must never survive into this
+		// one; root.innerHTML below drops the elements, this drops the refs.
+		heap = [];
+		heapZ = 0;
 
 		root.innerHTML = '';
 
@@ -255,7 +263,9 @@
 		var height = cardEl.offsetHeight || 360;
 
 		cardEl.addEventListener( 'pointerdown', function ( e ) {
-			if ( current.locked ) {
+			// `current` is null once a card has been committed; a heaped card
+			// keeps its listeners, so every guard here has to tolerate that.
+			if ( ! current || current.locked ) {
 				return;
 			}
 			dragging = true;
@@ -269,7 +279,7 @@
 		} );
 
 		cardEl.addEventListener( 'pointermove', function ( e ) {
-			if ( ! dragging || current.locked ) {
+			if ( ! dragging || ! current || current.locked ) {
 				return;
 			}
 			var dx = e.clientX - startX;
@@ -290,7 +300,7 @@
 			cardEl.classList.remove( 'tbts-dragging' );
 			try { cardEl.releasePointerCapture( e.pointerId ); } catch ( err ) {}
 
-			if ( current.locked ) {
+			if ( ! current || current.locked ) {
 				return;
 			}
 
@@ -370,7 +380,7 @@
 	}
 
 	function flip() {
-		if ( current.locked ) {
+		if ( ! current || current.locked ) {
 			return;
 		}
 		current.flipped = ! current.flipped;
@@ -396,9 +406,15 @@
 				flickOut( cardEl, afterCommit );
 			}
 		} else {
-			// Not yet → slide down and off, keep for the next round.
+			// Not yet → keep for the next round.
 			unknown.push( card );
-			if ( reducedMotion ) {
+			if ( isDesktop() ) {
+				// On the table the card stays put as a record of the round.
+				// The next card arrives at 300ms, before the flop finishes:
+				// the learner never waits for an animation.
+				toHeap( cardEl, card );
+				setTimeout( afterCommit, reducedMotion ? 0 : 300 );
+			} else if ( reducedMotion ) {
 				fadeOut( cardEl, 150, afterCommit );
 			} else {
 				slideDown( cardEl, afterCommit );
@@ -437,6 +453,60 @@
 			removeEl( cardEl );
 			done();
 		}, 210 );
+	}
+
+	/* ---- Down: the heap (desktop) ----
+	   A "not yet" card lands at the bottom edge of the table and stays there
+	   for the rest of the round, so the learner can see the pile growing. */
+	function toHeap( cardEl, card ) {
+		// Position is keyed to the card's index in the full deck, never to
+		// Math.random(): the same card must land in the same place every
+		// time, or a re-render or a resize would reshuffle the heap.
+		var idx = fullDeck.indexOf( card );
+		if ( idx < 0 ) {
+			idx = heap.length;
+		}
+
+		heapZ++;
+		// Cards lie face up on the table, whichever side was showing.
+		cardEl.classList.remove( 'tbts-flipped' );
+		cardEl.classList.add( 'tbts-heap-card' );
+		cardEl.style.zIndex = String( heapZ );
+		cardEl.style.opacity = '';
+		// Decelerating, so the card settles rather than snaps.
+		cardEl.style.transition = reducedMotion ? 'none' : 'transform 420ms cubic-bezier(.25,.9,.3,1)';
+		cardEl.style.transform = heapTransform( idx );
+
+		heap.push( { el: cardEl, idx: idx, card: card } );
+	}
+
+	/* A cheap seeded hash: deterministic per card, cheap enough to call on
+	   every resize. */
+	function seeded( i, salt ) {
+		var x = Math.sin( ( i + 1 ) * 12.9898 + salt * 78.233 ) * 43758.5453;
+		return x - Math.floor( x );   // 0..1
+	}
+
+	function heapTransform( idx ) {
+		var stageH = ( stage && stage.offsetHeight ) || window.innerHeight;
+		var x = ( seeded( idx, 1 ) - 0.5 ) * 520;
+		var rot = ( seeded( idx, 2 ) - 0.5 ) * 38;
+		var depth = seeded( idx, 3 ) * 26;
+		// The card rests centred, so translate from there to a position that
+		// leaves ~130px showing above the table edge. Derived from the table
+		// height rather than hard-coded, so it survives any viewport.
+		var restTop = ( stageH - CARD_H ) / 2;
+		var y = ( stageH - HEAP_SHOW + depth ) - restTop;
+		return 'translate(' + x.toFixed( 1 ) + 'px,' + y.toFixed( 1 ) + 'px) rotate(' + rot.toFixed( 2 ) + 'deg)';
+	}
+
+	// Keep the heap pinned to the bottom edge, without animating while the
+	// window is being dragged.
+	function onResize() {
+		for ( var i = 0; i < heap.length; i++ ) {
+			heap[ i ].el.style.transition = 'none';
+			heap[ i ].el.style.transform = heapTransform( heap[ i ].idx );
+		}
 	}
 
 	/* ---- Down: plain exit ---- */

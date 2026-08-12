@@ -390,6 +390,12 @@ body.tbts-deck-open {
    nothing for a stack to peek out from behind. */
 .tbts-stack { display: none; }
 
+/* ---- The not-yet heap (desktop only) ----
+   Below the breakpoint a "not yet" card slides off and is discarded, so a
+   heap card can only exist on the table. Hiding it outside the breakpoint
+   keeps a mid-round resize from stranding a full-bleed card on a phone. */
+.tbts-heap-card { display: none; }
+
 /* =====================================================================
    Desktop table (>= 900px)
 
@@ -425,7 +431,10 @@ body.tbts-deck-open {
 		width: 100%;
 		padding: 6px 12px;
 		gap: 0;
-		z-index: 3;
+		/* Above the heap and the live card both: the heap piles up over the
+		   bottom edge, and the label has to stay readable on top of it. The
+		   card never reaches this far, so nothing is obscured. */
+		z-index: 900;
 	}
 	.tbts-zone-up { top: 26px; }
 	.tbts-zone-down { bottom: 26px; }
@@ -457,6 +466,7 @@ body.tbts-deck-open {
 		left: 0;
 		right: 0;
 		bottom: 70px;
+		z-index: 900;
 		margin: 0 auto;
 		width: max-content;
 		padding: 5px 14px;
@@ -480,6 +490,15 @@ body.tbts-deck-open {
 		height: 500px;
 		margin: -250px 0 0 -190px;
 		z-index: 500;
+	}
+
+	/* Cards left on the table. Pointer events off: the element keeps the
+	   drag listeners it was dealt with, and it must never answer them. */
+	.tbts-heap-card {
+		display: block;
+		pointer-events: none;
+		cursor: default;
+		will-change: auto;
 	}
 
 	.tbts-stack {
