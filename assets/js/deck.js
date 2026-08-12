@@ -542,8 +542,25 @@
 		var slot = heapSlot( idx, releaseX, releaseRot );
 
 		heapZ++;
-		// Cards lie face up on the table, whichever side was showing.
-		cardEl.classList.remove( 'tbts-flipped' );
+		// Cards lie face up on the table, whichever side was showing — but
+		// the turn must not animate. .tbts-card-inner carries a 350ms
+		// transition, so simply dropping the class would rotate the card from
+		// 180 back to 0 during the flight, through the 90 where
+		// backface-visibility hides both faces: the card appears to flicker
+		// out mid-air and land wrong-side-up. Suppressing the transition for
+		// one frame makes it front-side before it launches. This bites hardest
+		// from round two on, when every card has been flipped to read it.
+		if ( cardEl.classList.contains( 'tbts-flipped' ) ) {
+			var inner = cardEl.querySelector( '.tbts-card-inner' );
+			if ( inner ) {
+				inner.style.transition = 'none';
+				cardEl.classList.remove( 'tbts-flipped' );
+				void inner.offsetHeight;   // force the reflow before restoring
+				inner.style.transition = '';
+			} else {
+				cardEl.classList.remove( 'tbts-flipped' );
+			}
+		}
 		cardEl.classList.add( 'tbts-heap-card' );
 		cardEl.style.zIndex = String( heapZ );
 		cardEl.style.opacity = '';
