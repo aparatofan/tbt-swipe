@@ -14,6 +14,49 @@ class TBTS_Shortcode {
 		add_shortcode( 'tbt_swipe', array( $this, 'render' ) );
 		// Detect the shortcode early so we can enqueue only when needed.
 		add_action( 'wp_enqueue_scripts', array( $this, 'maybe_enqueue' ) );
+		// Late enough to be on a real page load, early enough to send headers.
+		add_action( 'template_redirect', array( $this, 'maybe_nocache' ) );
+	}
+
+	/**
+	 * Is this request the deck player page?
+	 *
+	 * One definition, used by both the enqueue and the no-cache pass: a
+	 * second, differently worded detection is how the two drift apart.
+	 *
+	 * @return bool
+	 */
+	private function is_deck_page() {
+		if ( ! is_singular() ) {
+			return false;
+		}
+		$post = get_post();
+		if ( ! $post ) {
+			return false;
+		}
+		return has_shortcode( $post->post_content, 'tbt_swipe' );
+	}
+
+	/**
+	 * Keep the deck page out of every cache between the server and the phone.
+	 *
+	 * The assets are versioned, so a stale browser cannot serve stale JS — but
+	 * it can serve a stale *page*, whose HTML still points at the old ?ver=,
+	 * and a student has no way to know or to fix that. "Clear your cache" is
+	 * not an instruction a fourteen-year-old can act on mid-lesson.
+	 *
+	 * Only pages carrying the shortcode are affected; the rest of the site
+	 * keeps whatever caching it has.
+	 */
+	public function maybe_nocache() {
+		if ( headers_sent() || ! $this->is_deck_page() ) {
+			return;
+		}
+		nocache_headers();
+		// LiteSpeed's page cache decides for itself and ignores Cache-Control
+		// on a page it has already claimed; this is its documented opt-out,
+		// and the same one TBTS_Rest uses on the deck endpoint.
+		header( 'X-LiteSpeed-Cache-Control: no-cache' );
 	}
 
 	/**
@@ -22,16 +65,16 @@ class TBTS_Shortcode {
 	 * merely holds the two management shortcodes.
 	 */
 	public function maybe_enqueue() {
+		if ( $this->is_deck_page() ) {
+			$this->enqueue();
+		}
+
 		if ( ! is_singular() ) {
 			return;
 		}
 		$post = get_post();
 		if ( ! $post ) {
 			return;
-		}
-
-		if ( has_shortcode( $post->post_content, 'tbt_swipe' ) ) {
-			$this->enqueue();
 		}
 
 		$has_generator = has_shortcode( $post->post_content, TBTS_Frontend::GENERATOR_SHORTCODE );
@@ -164,6 +207,10 @@ class TBTS_Shortcode {
 			array(
 				'restBase' => esc_url_raw( rest_url( TBTS_Rest::NS . '/set/' ) ),
 				'logo'     => esc_url_raw( TBTS_URL . 'assets/img/tbt-logo.png' ),
+				// Baked into the page HTML, so on a stale page this is the
+				// *old* version — which is what makes the handshake in
+				// deck.js's load() work.
+				'version'  => TBTS_VERSION,
 				'i18n'     => $i18n,
 			)
 		);

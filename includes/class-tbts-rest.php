@@ -63,6 +63,11 @@ class TBTS_Rest {
 			array(
 				'title' => $set->title,
 				'cards' => $cards,
+				// This response is fetched with cache: 'no-store', so it is
+				// the one channel guaranteed to reflect the server's true
+				// state. The player compares it against the version baked
+				// into the page it was served from.
+				'plugin_version' => TBTS_VERSION,
 			)
 		);
 	}

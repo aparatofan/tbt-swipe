@@ -96,12 +96,59 @@
 					renderMessage( i18n.empty );
 					return;
 				}
+				// This response came back with cache: 'no-store', so it knows
+				// the server's true version. If the page around it does not,
+				// the page is stale and there is nothing on it that can say so.
+				if ( reloadIfStale( data.plugin_version ) ) {
+					return;
+				}
 				fullDeck = data.cards.slice();
 				startRound( fullDeck.slice() );
 			} )
 			.catch( function ( err ) {
 				renderMessage( err && err.notFound ? i18n.notFound : i18n.loadError );
 			} );
+	}
+
+	/* Refetch the page when the HTML we are running in predates the plugin on
+	   the server. Returns true when a navigation has been started, in which
+	   case the caller must not carry on.
+
+	   Reloading is always the second choice: a student on a misconfigured
+	   host must end up with a working game, never a reload loop. So every
+	   uncertainty here — no versions to compare, no sessionStorage to record
+	   the attempt with, an unparseable URL — resolves to "play on". */
+	function reloadIfStale( serverVersion ) {
+		if ( ! serverVersion || ! cfg.version || serverVersion === cfg.version ) {
+			return false;
+		}
+
+		// Keyed on the server version so a later release gets its own single
+		// attempt. Private browsing on iOS throws on both read and write.
+		var key = 'tbts-reloaded-' + serverVersion;
+		try {
+			if ( window.sessionStorage.getItem( key ) ) {
+				return false;
+			}
+			window.sessionStorage.setItem( key, '1' );
+		} catch ( e ) {
+			// No way to record the attempt means no way to stop a loop.
+			return false;
+		}
+
+		var url;
+		try {
+			url = new URL( window.location.href );
+		} catch ( e ) {
+			return false;
+		}
+		// A changed URL defeats an HTTP, plugin or CDN cache; a plain reload
+		// can be answered from the very entry we are trying to escape. Every
+		// existing parameter survives — deck=<slug> above all, or the student
+		// lands on an empty player.
+		url.searchParams.set( 'tbtsv', serverVersion );
+		window.location.replace( url.toString() );
+		return true;
 	}
 
 	function renderMessage( msg ) {
