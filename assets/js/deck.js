@@ -23,6 +23,11 @@
 	var DESKTOP_MQ = window.matchMedia ? window.matchMedia( '( min-width: 900px )' ) : null;
 	var CARD_W = 380;
 	var CARD_H = 500;
+	/* The tile type unit, in table pixels: what one em on a tile face is
+	   worth once the scale() has been cancelled out. */
+	var TILE_UNIT_BIG   = 16;
+	var TILE_UNIT_SMALL = 13.5;
+	var TILE_UNIT_FLOOR = 0.7;    // the fit pass will not go below this share
 	var STACK_MAX = 4;            // card backs drawn under the live card
 	var ZONE_ARM = 40;            // px of drag before a desktop zone lights up
 	var HEAP_SHOW = 130;          // px of a heaped card left showing above the edge
@@ -803,8 +808,11 @@
 	   animates from where it landed to its slot, FLIP-style. */
 	function dealHeap( end ) {
 		var n = heap.length;
-		var perRow = Math.min( n, 5 );
-		var rows = Math.ceil( n / perRow );
+		// Five is still the widest row, but the remainder spreads across
+		// the rows instead of stranding one or two tiles on a line of
+		// their own: eight cards deal 4 + 4, not 5 + 3.
+		var rows = Math.ceil( n / 5 );
+		var perRow = Math.ceil( n / rows );
 		var gapX = 26, gapY = 22;
 		// The header tightens when the grid is deep, to buy back the room.
 		var headH = rows > 2 ? 150 : 210;
@@ -819,7 +827,7 @@
 		var scaleH = ( availH - ( rows - 1 ) * gapY ) / ( rows * CARD_H );
 		// The 0.44 floor is deliberate: a large heap runs slightly long
 		// rather than shrinking the type into illegibility.
-		var scale = Math.max( 0.44, Math.min( 0.72, Math.min( scaleW, scaleH ) ) );
+		var scale = Math.max( 0.44, Math.min( 0.80, Math.min( scaleW, scaleH ) ) );
 		var blockH = rows * CARD_H * scale + ( rows - 1 ) * gapY;
 
 		// …but running long must never hide a tile behind "Go again". The
@@ -840,6 +848,7 @@
 		var tileH = CARD_H * scale;
 		var top = headH + Math.max( 0, ( availH - blockH ) / 2 );
 
+		var tiles = [];
 		heap.forEach( function ( h, i ) {
 			var row = Math.floor( i / perRow );
 			var inRow = i % perRow;
@@ -849,9 +858,11 @@
 			var x = ( tableW - rowW ) / 2 + inRow * ( tileW + gapX );
 			var y = top + row * ( tileH + gapY );
 
-			h.el.appendChild( buildTileFace( h.card, scale ) );
+			var face = buildTileFace( h.card, scale );
+			h.el.appendChild( face );
 			h.el.classList.add( 'tbts-tile' );
 			h.el.style.zIndex = String( 10 + i );
+			tiles.push( face );
 
 			// The card rests centred on the table, and scales about its own
 			// centre, so the translation is centre-to-centre.
@@ -867,15 +878,21 @@
 			h.el.style.transition = 'transform 620ms cubic-bezier(.22,.9,.25,1) ' + ( i * 45 ) + 'ms';
 			h.el.style.transform = to;
 		} );
+
+		// One measure-and-adjust pass, after every face is in the DOM, so
+		// the reads happen against a settled layout instead of interleaving
+		// with the writes above.
+		tiles.forEach( fitTileFace );
 	}
 
 	/* A fourth face, shown only in the summary. Not the card back: a screen
-	   titled "words to work on" that omits the words is the wrong screen, and
-	   the card back has never carried the term.
+	   titled "words to work on" that omits the words is the wrong screen,
+	   and the card back has never carried the term.
 
-	   Everything here is sized in JS rather than CSS because the tile sits
-	   inside a scale() — dividing by the scale cancels the transform, so the
-	   learner reads the size intended rather than a thinner, greyer one. */
+	   The tile sits inside a scale(), so the type unit is divided by the
+	   scale to cancel the transform — the learner reads the size intended
+	   rather than a thinner, greyer one. Everything else is an em of that
+	   unit, set in CSS. */
 	function buildTileFace( card, scale ) {
 		var big = scale > 0.55;
 		function px( v ) {
@@ -884,43 +901,63 @@
 
 		var face = el( 'div', 'tbts-face tbts-face-tile' );
 		face.style.borderRadius = px( 14 );
-		face.style.padding = px( 18 ) + ' ' + px( 14 );
 		face.style.boxShadow = '0 ' + px( 10 ) + ' ' + px( 26 ) + ' rgba(4,30,74,.16)';
+		face.style.fontSize = ( ( big ? TILE_UNIT_BIG : TILE_UNIT_SMALL ) / scale ).toFixed( 2 ) + 'px';
+
+		var body = el( 'div', 'tbts-tile-body' );
 
 		var term = el( 'div', 'tbts-tile-term' );
 		term.textContent = card.term;
-		term.style.fontSize = px( big ? 22 : 19 );
-		face.appendChild( term );
+		body.appendChild( term );
 
 		if ( card.ipa ) {
 			var ipa = el( 'div', 'tbts-tile-ipa' );
 			ipa.textContent = card.ipa;
-			ipa.style.fontSize = px( big ? 12 : 11 );
-			ipa.style.marginTop = px( 4 );
-			face.appendChild( ipa );
+			body.appendChild( ipa );
 		}
 
-		var rule = el( 'div', 'tbts-tile-rule' );
-		rule.style.height = px( 1 );
-		rule.style.margin = px( 12 ) + ' 0';
-		face.appendChild( rule );
+		body.appendChild( el( 'div', 'tbts-tile-rule' ) );
 
 		if ( card.translation ) {
 			var tr = el( 'div', 'tbts-tile-tr' );
 			tr.textContent = card.translation;
-			tr.style.fontSize = px( big ? 19 : 16 );
-			face.appendChild( tr );
+			body.appendChild( tr );
 		}
 
 		if ( card.example ) {
 			var ex = el( 'div', 'tbts-tile-ex' );
 			ex.textContent = card.example;
-			ex.style.fontSize = px( big ? 14 : 12.5 );
-			ex.style.marginTop = px( 8 );
-			face.appendChild( ex );
+			body.appendChild( ex );
 		}
 
+		face.appendChild( body );
 		return face;
+	}
+
+	/* A tile is a fixed box holding whatever the teacher wrote. Its type is
+	   scale-compensated, so it does not shrink with the box — which means a
+	   long example can outgrow its card and be clipped. This gives the unit
+	   back a little at a time until the content fits, and stops at a floor:
+	   past that point a slightly clipped tile beats an unreadable one. */
+	function fitTileFace( face ) {
+		var body = face.querySelector( '.tbts-tile-body' );
+		if ( ! body ) {
+			return;
+		}
+		var unit = parseFloat( face.style.fontSize );
+		var min = unit * TILE_UNIT_FLOOR;
+		var guard = 0;
+
+		while ( body.offsetHeight > face.clientHeight && unit > min && guard++ < 12 ) {
+			unit = Math.max( min, unit * 0.94 );
+			face.style.fontSize = unit.toFixed( 2 ) + 'px';
+		}
+
+		if ( body.offsetHeight > face.clientHeight ) {
+			// Bottomed out. Clip from the bottom only: losing the tail of
+			// an example is survivable, losing the term is not.
+			face.style.justifyContent = 'flex-start';
+		}
 	}
 
 	/* ---- Helpers ---- */
