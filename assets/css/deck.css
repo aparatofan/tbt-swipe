@@ -415,18 +415,34 @@ body.tbts-deck-open {
    work on" that omits the words leaves the learner reverse-engineering the
    English out of the Polish.
 
-   Every size on the tile is set from JS as round( px / scale ), because the
-   tile sits inside a scale() transform. Fixed values here would be shrunk
-   along with everything else. */
+   The tile sits inside a scale() transform, so a fixed size here would be
+   shrunk along with everything else. JS sets one scale-compensated
+   font-size on the face — the tile's type unit — and every size below is
+   an em of it. */
 .tbts-card.tbts-tile { pointer-events: none; }
 .tbts-card.tbts-tile .tbts-card-inner { display: none; }
 
+/* The face is a centring frame and nothing else: no padding of its own,
+   one child. Its font-size is the tile's type unit — set once from JS,
+   scale-compensated there — and every size below is an em of it. That is
+   what lets a tile be fitted to its content by changing one number. */
 .tbts-face-tile {
 	justify-content: center;
+	padding: 0;
 	overflow: hidden;
 }
+
+/* The measured element. Its offsetHeight against the face's clientHeight
+   is the entire overflow test, which is why the padding lives here and
+   not on the face: the two heights are then directly comparable. */
+.tbts-tile-body {
+	width: 100%;
+	padding: 1.125em 0.875em;
+}
+
 .tbts-tile-term {
 	font-family: var(--tbts-slab);
+	font-size: 1.375em;
 	font-weight: 700;
 	line-height: 1.15;
 	color: var(--tbts-blue);
@@ -434,23 +450,30 @@ body.tbts-deck-open {
 }
 .tbts-tile-ipa {
 	font-family: var(--tbts-mono);
+	font-size: 0.75em;
 	font-weight: 700;
+	margin-top: 0.333em;
 	color: var(--tbts-grey);
 }
 .tbts-tile-rule {
 	width: 34%;
+	height: 1px;
+	margin: 0.75em auto;
 	background: var(--tbts-rule);
 }
 .tbts-tile-tr {
 	font-family: var(--tbts-slab);
+	font-size: 1.1875em;
 	font-weight: 600;
 	line-height: 1.2;
 	color: var(--tbts-dark);
 }
 .tbts-tile-ex {
 	font-family: var(--tbts-slab);
+	font-size: 0.875em;
 	font-style: italic;
 	line-height: 1.35;
+	margin-top: 0.571em;
 	color: var(--tbts-soft);
 }
 
