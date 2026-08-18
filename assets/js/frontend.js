@@ -155,6 +155,8 @@
 		var lessonSelect = root.querySelector( '#tbts-fe-lesson' );
 		var lessonWrap = role( root, 'lesson-wrap' );
 		var terms = root.querySelector( '#tbts-fe-terms' );
+		var levelInputs = root.querySelectorAll( '.tbt-level-input' );
+		var levelNote = role( root, 'level-note' );
 		var stack = role( root, 'stack' );
 		var stackTerm = role( root, 'stack-term' );
 		var stackCount = role( root, 'stack-count' );
@@ -269,6 +271,82 @@
 			}
 		}
 
+		/* ------------------------------------------------------------ *
+		 * Level picker
+		 *
+		 * Precedence, highest first: a manual choice, a class suggestion, the
+		 * band the teacher last generated with, B1. The last two are already
+		 * settled — the server checked the radio before the page was sent — so
+		 * only the first two are decided here.
+		 * ------------------------------------------------------------ */
+
+		// Set once the teacher touches the picker, and never unset. A class
+		// chosen afterwards must not quietly undo a deliberate choice: the
+		// teacher knows something about this deck that the class average does
+		// not.
+		var levelChosenByHand = false;
+
+		function currentLevel() {
+			var chosen = root.querySelector( '.tbt-level-input:checked' );
+			return chosen ? chosen.value : '';
+		}
+
+		function setLevel( band ) {
+			Array.prototype.forEach.call( levelInputs, function ( input ) {
+				input.checked = input.value === band;
+			} );
+		}
+
+		function showLevelNote( text ) {
+			if ( ! levelNote ) {
+				return;
+			}
+			levelNote.textContent = text || '';
+			levelNote.hidden = ! text;
+		}
+
+		Array.prototype.forEach.call( levelInputs, function ( input ) {
+			input.addEventListener( 'change', function () {
+				levelChosenByHand = true;
+				// The note explains where a suggested value came from, so it
+				// stops being true the moment the teacher overrides it.
+				showLevelNote( '' );
+			} );
+		} );
+
+		/**
+		 * Ask what level this class suggests, and take it unless the teacher
+		 * has already chosen one by hand.
+		 *
+		 * Every "no idea" answer — no TBT Students, no students, no levels —
+		 * comes back as suggested: null and leaves the picker exactly as it is.
+		 * A failed request is treated the same way and stays silent: the
+		 * teacher asked for a class, not for a level, and the picker already
+		 * holds a usable value.
+		 *
+		 * @param {string} classId The class just chosen.
+		 */
+		function suggestLevelFor( classId ) {
+			if ( ! levelInputs.length || levelChosenByHand ) {
+				return;
+			}
+
+			request( 'classes/' + encodeURIComponent( classId ) + '/level' ).then( function ( data ) {
+				if ( levelChosenByHand || ! data || ! data.suggested ) {
+					return;
+				}
+				// The lessons request runs alongside this one and can drop the
+				// class before this answer lands — a class with no lessons is
+				// taken back out of play. A suggestion for a class that is no
+				// longer chosen is not this deck's suggestion.
+				if ( classIdField && classIdField.value !== String( classId ) ) {
+					return;
+				}
+				setLevel( data.suggested );
+				showLevelNote( data.note );
+			} ).catch( function () {} );
+		}
+
 		if ( classInput && lessonSelect && lessonWrap ) {
 			// 'change' rather than 'input': it fires both when a suggestion is
 			// picked and when the field is left, so the lessons load once
@@ -284,6 +362,9 @@
 				if ( classHint ) {
 					classHint.hidden = true;
 				}
+				// The note names a class. With no class resolved there is
+				// nothing for it to name, whatever the picker is showing.
+				showLevelNote( '' );
 
 				if ( ! typed ) {
 					return;
@@ -305,6 +386,7 @@
 				}
 
 				setClass( classId );
+				suggestLevelFor( classId );
 
 				request( 'classes/' + encodeURIComponent( classId ) + '/lessons' ).then( function ( data ) {
 					var lessons = data.lessons || [];
@@ -317,6 +399,9 @@
 						lessonWrap.hidden = true;
 						classInput.value = '';
 						setClass( '' );
+						// The class is out of play, so a note crediting it
+						// would name a class the teacher can no longer see.
+						showLevelNote( '' );
 						showError( root, i18n.classNoLessons );
 						return;
 					}
@@ -335,6 +420,7 @@
 				} ).catch( function ( error ) {
 					lessonWrap.hidden = true;
 					setClass( '' );
+					showLevelNote( '' );
 					showError( root, error.message );
 				} );
 			} );
@@ -381,7 +467,7 @@
 			generateBtn.disabled = true;
 			generateStatus.textContent = i18n.generating;
 
-			request( 'generate', { method: 'POST', body: { terms: terms.value } } ).then( function ( data ) {
+			request( 'generate', { method: 'POST', body: { terms: terms.value, level: currentLevel() } } ).then( function ( data ) {
 				generateBtn.disabled = false;
 				generateStatus.textContent = '';
 				reviewBody.innerHTML = '';
@@ -548,6 +634,7 @@
 					title: title,
 					class_id: classIdField ? classIdField.value : '',
 					lesson_id: lessonSelect ? lessonSelect.value : '',
+					level: currentLevel(),
 					cards: cards
 				}
 			} ).then( function ( data ) {

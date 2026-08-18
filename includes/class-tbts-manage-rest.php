@@ -38,6 +38,24 @@ class TBTS_Manage_Rest {
 			)
 		);
 
+		// The band to pre-select for a class, from the levels its students
+		// carry in TBT Students. A path segment for the same reason as above.
+		register_rest_route(
+			self::NS,
+			'/manage/classes/(?P<class_id>\d+)/level',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'permission_callback' => array( $this, 'can_manage' ),
+				'callback'            => array( $this, 'get_class_level' ),
+				'args'                => array(
+					'class_id' => array(
+						'required'          => true,
+						'sanitize_callback' => 'absint',
+					),
+				),
+			)
+		);
+
 		register_rest_route(
 			self::NS,
 			'/manage/generate',
@@ -48,6 +66,10 @@ class TBTS_Manage_Rest {
 				'args'                => array(
 					'terms' => array(
 						'required' => true,
+						'type'     => 'string',
+					),
+					'level' => array(
+						'required' => false,
 						'type'     => 'string',
 					),
 				),
@@ -129,11 +151,51 @@ class TBTS_Manage_Rest {
 	}
 
 	/**
+	 * The level to suggest for one of the current user's own classes.
+	 *
+	 * Never an error when the answer is "no idea": TBT Students absent, Notes
+	 * absent, an empty class or a class whose students have no levels all come
+	 * back as suggested: null, and the picker keeps whatever it is showing.
+	 */
+	public function get_class_level( WP_REST_Request $request ) {
+		$class_id = absint( $request->get_param( 'class_id' ) );
+		$user_id  = get_current_user_id();
+
+		$none = array(
+			'suggested' => null,
+			'note'      => '',
+		);
+
+		// Without Notes there are no classes to own, so there is nothing to
+		// refuse — and nothing to suggest either.
+		if ( ! TBTS_Classes::available() ) {
+			return rest_ensure_response( $none );
+		}
+
+		// Ownership, not just existence: which students are in someone else's
+		// class, and how good they are, is not this user's to read.
+		if ( ! TBTS_Classes::user_owns_class( $user_id, $class_id ) ) {
+			return new WP_Error(
+				'tbts_invalid_class',
+				__( 'You don\'t have access to that class.', 'tbt-swipe' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		return rest_ensure_response( TBTS_Levels::suggest_for_class( $class_id ) );
+	}
+
+	/**
 	 * Generate cards. Every limit is enforced inside TBTS_Generator, before
-	 * the API call.
+	 * the API call — the level included: an unrecognised band falls back to
+	 * B1 there rather than failing the request.
 	 */
 	public function generate( WP_REST_Request $request ) {
-		$cards = TBTS_Generator::generate( (string) $request->get_param( 'terms' ), get_current_user_id() );
+		$cards = TBTS_Generator::generate(
+			(string) $request->get_param( 'terms' ),
+			get_current_user_id(),
+			(string) $request->get_param( 'level' )
+		);
 
 		if ( is_wp_error( $cards ) ) {
 			return $cards;
@@ -177,7 +239,16 @@ class TBTS_Manage_Rest {
 			return $cards;
 		}
 
-		$set_id = TBTS_DB::save_set( 0, $title, 'published', $cards, $attachment );
+		// The level the cards were generated at, stored on the deck. Nothing
+		// reads it back yet; it is here so a later regenerate or deck listing
+		// does not have to guess.
+		$extra          = $attachment;
+		$extra['level'] = TBTS_Levels::normalise( $request->get_param( 'level' ) );
+		if ( '' === $extra['level'] ) {
+			$extra['level'] = null;
+		}
+
+		$set_id = TBTS_DB::save_set( 0, $title, 'published', $cards, $extra );
 		if ( is_wp_error( $set_id ) ) {
 			return $set_id;
 		}

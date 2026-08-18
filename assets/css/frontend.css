@@ -136,6 +136,73 @@
 }
 .tbt-meter strong { color: var(--tbt-blue-deep); font-weight: 700; font-family: var(--tbt-display); }
 
+/* ---------- Level picker ----------
+   Six tiles in the left compose column, between the meter and the Generate
+   button. The radios themselves are real and merely hidden from sight, so the
+   arrow keys, the roving tab stop and the checked state all come from the
+   browser; every rule below paints the box that sits next to the input.
+
+   Selection is blue, never a domain colour: choosing a level is an
+   interaction, and the domain colours carry identity elsewhere in the suite.
+
+   The four values are private to this plugin — the shared token file has no
+   opinion about a selected-tile surface, and inventing --tbt-* names for one
+   component is how a shared vocabulary stops meaning anything. */
+.tbt .tbt-levels {
+  --tbts-level-line:    #D8E3F0;
+  --tbts-level-on-line: var(--tbt-blue);
+  --tbts-level-on-fill: #EDF4FF;
+  --tbts-level-ring:    0 0 0 3px rgba(8, 86, 201, .18);
+  /* A fieldset carries a border, a legend inset and a min-width the theme is
+     free to restyle; none of it survives, and min-width:0 keeps the tiles
+     inside the grid column instead of pushing it wider. */
+  display: block; min-width: 0;
+  border: 0 !important; padding: 0 !important;
+  margin: 0 0 var(--tbt-s5) !important;
+}
+.tbt .tbt-levels > legend {
+  display: block; float: none; width: auto;
+  padding: 0 !important; margin-bottom: var(--tbt-s2) !important;
+}
+.tbt-levels-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--tbt-s2); }
+.tbt-level { display: block; margin: 0; cursor: pointer; }
+/* Hidden from sight, not from the keyboard: display:none or visibility:hidden
+   would take the radio out of the tab order and the arrow-key group with it. */
+.tbt .tbt-level-input {
+  position: absolute !important; width: 1px !important; height: 1px !important;
+  padding: 0 !important; margin: -1px !important; border: 0 !important;
+  overflow: hidden; white-space: nowrap; clip: rect(0 0 0 0); clip-path: inset(50%);
+}
+.tbt .tbt-level-input:focus-visible { outline: none; }
+.tbt-level-box {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; min-height: 60px; padding: var(--tbt-s3) var(--tbt-s2);
+  background-color: var(--tbt-surface);
+  border: 1.5px solid var(--tbts-level-line);
+  border-radius: var(--tbt-r-md);
+  text-align: center;
+  transition: border-color .16s var(--tbt-ease), background-color .16s var(--tbt-ease),
+              box-shadow .16s var(--tbt-ease), color .16s var(--tbt-ease);
+}
+.tbt-level-code {
+  font-family: var(--tbt-display); font-size: 16px; font-weight: 700;
+  line-height: 1.1; color: var(--tbt-ink);
+}
+.tbt-level-name { font-size: 11px; line-height: 1.25; color: var(--tbt-ink-soft); }
+.tbt-level:hover .tbt-level-box { border-color: var(--tbt-periwinkle); }
+.tbt-level-input:checked + .tbt-level-box {
+  border-color: var(--tbts-level-on-line); background-color: var(--tbts-level-on-fill);
+}
+.tbt-level-input:checked + .tbt-level-box .tbt-level-code { color: var(--tbt-blue-deep); }
+.tbt-level-input:checked + .tbt-level-box .tbt-level-name { color: var(--tbt-ink); }
+/* The ring lands on the box because that is what the teacher can see; the
+   input's own outline is suppressed above, since a 1px focus ring in the
+   corner of the tile is no focus ring at all. */
+.tbt-level-input:focus-visible + .tbt-level-box {
+  border-color: var(--tbts-level-on-line); box-shadow: var(--tbts-level-ring);
+}
+.tbt-level-note { margin-top: var(--tbt-s3) !important; }
+
 /* ---------- Buttons ----------
    The theme styles bare <button> and <a> elements, and those rules reach
    inside .tbt because the reset deliberately carries no specificity. On the
@@ -383,6 +450,9 @@
   .tbt-row-ex { grid-template-columns: 30px minmax(0,1fr) 34px; }
   .tbt-saved { grid-template-columns: 1fr; justify-items: start; }
   .tbt-stage-title { font-size: 24px; }
+  /* The compose grid is one column here, so the six tiles have the full card
+     width and can afford to breathe. */
+  .tbt-levels-grid { gap: var(--tbt-s3); }
 }
 @media (max-width: 580px) {
   .tbt-hero { grid-template-columns: 1fr; gap: 16px; padding: 21px 19px; border-radius: 17px; }
@@ -403,4 +473,7 @@
      number, so it goes when the number does — otherwise it takes the wide
      column and the example lands in the 34px one. */
   .tbt-row-ex > span:first-child { display: none; }
+  /* Two rows of three rather than six squeezed tiles: at this width a sixth
+     of the card is narrower than the word "pre-intermediate". */
+  .tbt-levels-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
