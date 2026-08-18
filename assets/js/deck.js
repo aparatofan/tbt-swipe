@@ -177,6 +177,12 @@
 		heapZ = 0;
 
 		root.innerHTML = '';
+		// A previous deal may have grown the table into a scroll canvas. The
+		// stage element is rebuilt below, so its height goes with it, but the
+		// state class lives on the root and would strand the new stage out of
+		// the flex flow with no height at all.
+		root.classList.remove( 'is-scroll' );
+		root.scrollTop = 0;
 
 		var up = buildZone( 'up' );
 		stage = el( 'div', 'tbts-stage' );
@@ -830,14 +836,27 @@
 		var scale = Math.max( 0.44, Math.min( 0.80, Math.min( scaleW, scaleH ) ) );
 		var blockH = rows * CARD_H * scale + ( rows - 1 ) * gapY;
 
-		// …but running long must never hide a tile behind "Go again". The
-		// floor gives way just enough to clear the button, down to a hard
-		// 0.40: the type on a tile is scale-compensated, so the tile box
-		// tightens without the words getting any smaller.
-		if ( headH + blockH > tableH - footH ) {
-			var fits = ( tableH - footH - headH - ( rows - 1 ) * gapY ) / ( rows * CARD_H );
-			scale = Math.max( 0.4, Math.min( scale, fits ) );
-			blockH = rows * CARD_H * scale + ( rows - 1 ) * gapY;
+		// What the deal actually needs at that scale: header, grid, and the
+		// band the "Go again" button sits in.
+		var neededH = headH + blockH + footH;
+
+		// …and when it runs long, the table grows to meet it rather than the
+		// type shrinking to fit the table. The stage takes the deal's natural
+		// height, the deck becomes a scroll region, and every height that
+		// feeds the positioning below is re-read off the taller canvas — the
+		// per-tile formula, the gaps, the scale and the row assignment are
+		// untouched. footH stays reserved at the foot of the canvas, so the
+		// last row clears the button, which CSS pins to the viewport.
+		if ( neededH > tableH ) {
+			root.classList.add( 'is-scroll' );
+			root.scrollTop = 0;
+			stage.style.height = Math.round( neededH ) + 'px';
+
+			tableH = Math.round( neededH );
+			availH = tableH - headH - footH;
+			// A vertical scrollbar takes width off the stage; re-read it so
+			// the rows centre on what is really left.
+			tableW = stage.offsetWidth || tableW;
 		}
 
 		if ( rows > 2 ) {

@@ -637,6 +637,43 @@ body.tbts-deck-open {
 		pointer-events: auto;
 	}
 
+	/* ---- A deal taller than the table ----
+	   A large heap keeps its legible scale and runs long rather than
+	   cramming its rows into the viewport (see dealHeap): JS gives the
+	   stage the deal's natural height and sets this state on the deck, so
+	   the whole grid can be scrolled to at the size it was dealt. Every
+	   rule here is scoped to the state class — a deal that already fits
+	   never sees any of it. */
+	.tbts-deck.is-scroll {
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
+		overscroll-behavior: contain;
+	}
+	.tbts-deck.is-scroll .tbts-stage {
+		/* Back into the flex flow at the height JS measured. An absolutely
+		   positioned inset:0 stage is always exactly one viewport tall, and
+		   a scroll container whose content is no taller than itself does not
+		   scroll — the tiles are placed by transform, which adds nothing to
+		   the scrollable area. flex-shrink must be 0 or the flex line would
+		   squeeze the height straight back out again. */
+		position: relative;
+		inset: auto;
+		flex: 0 0 auto;
+		width: 100%;
+	}
+	/* The card owns the vertical gesture, which on a touch screen wide
+	   enough to get the table would eat the scroll instead. Tiles are inert
+	   by now, so the gesture is only ever the scroll. */
+	.tbts-deck.is-scroll .tbts-card { touch-action: pan-y; }
+	/* "Go again" leaves the scrolled content and pins to the viewport: a
+	   learner never has to scroll past every tile to restart. The footH band
+	   dealHeap reserves at the foot of the canvas is what keeps the last row
+	   clear of it. */
+	.tbts-deck.is-scroll .tbts-end-table .tbts-end-actions {
+		position: fixed;
+		bottom: 34px;
+	}
+
 	/* The beat's own palette, now that it sits on a light table. */
 	.tbts-end .tbts-beat-head { color: var(--tbts-blue); }
 	.tbts-beat-line { color: var(--tbts-dark); }
