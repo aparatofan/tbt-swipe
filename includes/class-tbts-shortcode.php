@@ -168,6 +168,7 @@ class TBTS_Shortcode {
 		 * The placeholders in 'knewLine', 'allLine' and 'toWorkOn' are
 		 * positional so a translation can reorder them: %1$d / %2$d are
 		 * counts, %s is the already-inflected 'wordOne' or 'wordMany'.
+		 * 'allTitleName' takes one %s, the learner's first name.
 		 *
 		 * @param array $strings Key => string, as passed to the player.
 		 */
@@ -192,20 +193,34 @@ class TBTS_Shortcode {
 				'knewLine'   => __( 'You knew %1$d of %2$d %3$s.', 'tbt-swipe' ),
 				/* translators: 1: number of cards still to learn, 2: the word "word" or "words" */
 				'toWorkOn'   => __( '%1$d %2$s to work on', 'tbt-swipe' ),
-				'allTitle'   => __( 'All of them.', 'tbt-swipe' ),
+				// The celebration, shown when every card in the deck is known.
+				/* translators: %s: the learner's first name */
+				'allTitleName' => __( '%s, well done!', 'tbt-swipe' ),
+				'allTitle'   => __( 'Well done!', 'tbt-swipe' ),
 				/* translators: 1: cards in the deck, 2: the word "word" or "words" */
-				'allLine'    => __( 'You knew all %1$d %2$s in this deck.', 'tbt-swipe' ),
-				'allSub'     => __( 'Nothing left to work on', 'tbt-swipe' ),
+				'allLine'    => __( 'You have just learnt %1$d new %2$s!', 'tbt-swipe' ),
+				'allSub'     => __( 'Keep up the good work!', 'tbt-swipe' ),
 				'wordOne'    => __( 'word', 'tbt-swipe' ),
 				'wordMany'   => __( 'words', 'tbt-swipe' ),
 			)
 		);
+
+		// The learner is always signed in, so the celebration can greet them
+		// by name: their first name, their display name if the account has
+		// no first name, and an empty string if it has neither — the player
+		// keeps a greeting that needs no name.
+		$user = wp_get_current_user();
+		$name = $user ? trim( $user->first_name ) : '';
+		if ( '' === $name && $user ) {
+			$name = trim( $user->display_name );
+		}
 
 		wp_localize_script(
 			'tbts-deck',
 			'tbtsDeck',
 			array(
 				'restBase' => esc_url_raw( rest_url( TBTS_Rest::NS . '/set/' ) ),
+				'learnerName' => $name,
 				'logo'     => esc_url_raw( TBTS_URL . 'assets/img/tbt-logo.png' ),
 				// Baked into the page HTML, so on a stale page this is the
 				// *old* version — which is what makes the handshake in
