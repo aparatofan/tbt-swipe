@@ -74,6 +74,43 @@ If [TBT Notes](https://github.com/aparatofan/tbt_notes) is active, a set can be 
 
 Swipe never queries the Notes tables directly. Everything goes through `TBT_Notes_DB`'s public static methods so ownership logic lives in one place. Deactivating Notes leaves the generator fully functional with the class selector simply absent.
 
+## The level of the examples
+
+Stage 2 carries a six-option picker — A1 to C2 — that decides how the generated
+**example sentences** are pitched. It changes nothing else: the IPA and the Polish
+translation belong to the item itself and never move with the level.
+
+The prompt does not merely name a CEFR band, which produces whatever the model last
+took "B2" to mean. Each band carries a grammar ceiling, a clause count, a length
+guardrail and a topic range, because a level whose topic stays generic is
+indistinguishable from the one below it. One rule holds across every band: **the
+level constrains the language around the target item, never the target item itself.**
+A hard word stays exactly as the teacher typed it, with an easier sentence built
+around it — substituting a simpler synonym would teach the wrong word.
+
+Choosing a class pre-selects the picker from the students in it, if
+[TBT Students](https://github.com/aparatofan/tbt-students) is active:
+
+- Students' 25-step levels are reduced to their base band — `B1.3`, `B1.5` and `B1.7`
+  are all `B1`. There are no decimals anywhere in Swipe.
+- `A0` maps to `A1`: a student below A1 cannot read an example sentence at all.
+- A group takes the **lowest** band present, never the average. A sentence pitched at
+  the weakest student in the room is still understood by the strongest; the reverse
+  is not true. A line under the picker says where the value came from.
+- Every unknown — Students inactive, Notes inactive, an empty class, a class whose
+  students have no level — leaves the picker untouched rather than guessing.
+
+A manual choice always wins: once the teacher touches the picker, a later class
+change will not overwrite it. With no class suggestion the picker opens on the band
+that teacher last generated with (user meta `tbt_swipe_last_level`), and on `B1`
+otherwise — which is exactly what every deck was generated at before the picker
+existed.
+
+The chosen band is stored on the deck (`level`, nullable). Decks generated before
+this version keep `NULL`, meaning "generated before the picker existed" — they are
+deliberately not backfilled to `B1`, which would be inventing history. Nothing reads
+the column back yet.
+
 ## AI usage limits
 
 Configured under **TBT → TBT Swipe Settings → AI usage limits**:
@@ -111,6 +148,7 @@ tbt-swipe/
 │   ├── class-tbts-ajax.php    # admin AJAX (nonce + cap checked)
 │   ├── class-tbts-api.php     # OpenAI proxy, server side only
 │   ├── class-tbts-generator.php     # the one generation path + AI limits
+│   ├── class-tbts-levels.php        # CEFR bands, prompt rules, class suggestion
 │   ├── class-tbts-rest.php    # public read endpoint for the deck
 │   ├── class-tbts-manage-rest.php   # authenticated writes for the teacher page
 │   ├── class-tbts-shortcode.php     # [tbt_swipe] + asset routing

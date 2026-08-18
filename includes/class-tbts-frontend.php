@@ -37,6 +37,12 @@ class TBTS_Frontend {
 		$classes = TBTS_Classes::for_teacher( $user_id );
 		$max     = TBTS_Generator::max_cards_per_generation();
 
+		// The picker opens on the band this teacher last generated with, so a
+		// teacher who always works at one level never touches it. A class
+		// suggestion, when there is one, overrides this in JS.
+		$level_initial = TBTS_Levels::initial_band( $user_id );
+		$level_names   = TBTS_Levels::band_names();
+
 		ob_start();
 		?>
 		<div class="tbt" id="tbts-fe-generator">
@@ -156,6 +162,39 @@ class TBTS_Frontend {
 									</span>
 								</div>
 							</div>
+
+							<?php
+							/*
+							 * Real radios, visually hidden and wrapped in labels: arrow-key
+							 * navigation, the roving tab stop and the reading order come
+							 * from the browser rather than from JS. Divs with click
+							 * handlers would look identical and be unreachable from a
+							 * keyboard.
+							 */
+							?>
+							<fieldset class="tbt-levels" data-role="levels">
+								<legend class="tbt-label"><?php esc_html_e( 'Choose the level of examples.', 'tbt-swipe' ); ?></legend>
+								<div class="tbt-levels-grid">
+									<?php foreach ( $level_names as $band => $name ) : ?>
+										<label class="tbt-level">
+											<input type="radio" class="tbt-level-input" name="tbts-level"
+												value="<?php echo esc_attr( $band ); ?>"
+												<?php checked( $band, $level_initial ); ?>>
+											<span class="tbt-level-box">
+												<span class="tbt-level-code"><?php echo esc_html( $band ); ?></span>
+												<span class="tbt-level-name"><?php echo esc_html( $name ); ?></span>
+											</span>
+										</label>
+									<?php endforeach; ?>
+								</div>
+								<?php
+								// Where the current value came from. Written by the class
+								// suggestion and cleared the moment the teacher chooses by
+								// hand — a note that outlived its choice would be a lie.
+								?>
+								<p class="tbt-help tbt-level-note" data-role="level-note" hidden></p>
+							</fieldset>
+
 							<button type="button" class="tbt-btn tbt-btn--primary" data-role="generate">
 								<?php esc_html_e( 'Generate cards', 'tbt-swipe' ); ?>
 							</button>

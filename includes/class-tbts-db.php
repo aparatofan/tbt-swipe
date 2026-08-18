@@ -40,6 +40,10 @@ class TBTS_DB {
 		// class_id / lesson_id are both nullable on purpose: NULL is an
 		// unattached ("guest") set, which is a first-class supported state.
 		// Existing rows keep NULL — there is deliberately no backfill.
+		//
+		// level is nullable for the same reason and follows the same pattern:
+		// NULL means "generated before the picker existed", which is not the
+		// same claim as "generated at B1". Backfilling it would invent history.
 		dbDelta( "CREATE TABLE {$sets} (
   id        BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   title     VARCHAR(190)    NOT NULL DEFAULT '',
@@ -48,6 +52,7 @@ class TBTS_DB {
   status    VARCHAR(20)     NOT NULL DEFAULT 'draft',
   class_id  BIGINT UNSIGNED NULL DEFAULT NULL,
   lesson_id BIGINT UNSIGNED NULL DEFAULT NULL,
+  level     VARCHAR(2)      NULL DEFAULT NULL,
   created   DATETIME        NOT NULL,
   PRIMARY KEY  (id),
   UNIQUE KEY slug (slug),
@@ -224,10 +229,12 @@ class TBTS_DB {
 	 * @param string $title  Already sanitised.
 	 * @param string $status 'draft' or 'published'.
 	 * @param array  $cards  List of arrays with term/ipa/translation/example (already sanitised).
-	 * @param array  $extra  Optional 'class_id' / 'lesson_id' (int or null, already validated).
+	 * @param array  $extra  Optional 'class_id' / 'lesson_id' (int or null) and
+	 *                       'level' (band string or null), all already validated.
 	 *                       A key that is absent leaves the column untouched on
 	 *                       update, so the admin editor — which knows nothing
-	 *                       about classes — cannot silently detach a set.
+	 *                       about classes or levels — cannot silently detach a
+	 *                       set or erase its level.
 	 * @return int|WP_Error  Set ID.
 	 */
 	public static function save_set( $id, $title, $status, $cards, $extra = array() ) {
@@ -237,11 +244,21 @@ class TBTS_DB {
 
 		$attach        = array();
 		$attach_format = array();
-		foreach ( array( 'class_id', 'lesson_id' ) as $key ) {
-			if ( array_key_exists( $key, $extra ) ) {
-				$attach[ $key ]  = null === $extra[ $key ] ? null : (int) $extra[ $key ];
-				$attach_format[] = '%d';
+		$optional      = array(
+			'class_id'  => '%d',
+			'lesson_id' => '%d',
+			'level'     => '%s',
+		);
+		foreach ( $optional as $key => $format ) {
+			if ( ! array_key_exists( $key, $extra ) ) {
+				continue;
 			}
+			if ( null === $extra[ $key ] ) {
+				$attach[ $key ] = null;
+			} else {
+				$attach[ $key ] = '%d' === $format ? (int) $extra[ $key ] : (string) $extra[ $key ];
+			}
+			$attach_format[] = $format;
 		}
 
 		if ( $id ) {
@@ -318,6 +335,9 @@ class TBTS_DB {
 		$user_id   = get_current_user_id();
 		$class_id  = null;
 		$lesson_id = null;
+		// The level travels with the copy: it describes the cards, which are
+		// copied verbatim, not the class the original was attached to.
+		$level     = isset( $set->level ) && $set->level ? (string) $set->level : null;
 		if ( $set->class_id && TBTS_Classes::user_owns_class( $user_id, (int) $set->class_id ) ) {
 			$class_id  = (int) $set->class_id;
 			$lesson_id = $set->lesson_id ? (int) $set->lesson_id : null;
@@ -332,9 +352,10 @@ class TBTS_DB {
 				'status'    => 'draft',
 				'class_id'  => $class_id,
 				'lesson_id' => $lesson_id,
+				'level'     => $level,
 				'created'   => current_time( 'mysql' ),
 			),
-			array( '%s', '%d', '%s', '%s', '%d', '%d', '%s' )
+			array( '%s', '%d', '%s', '%s', '%d', '%d', '%s', '%s' )
 		);
 		$new_id = (int) $wpdb->insert_id;
 

@@ -132,10 +132,16 @@ class TBTS_Generator {
 	 *
 	 * @param string $raw_terms Raw textarea content.
 	 * @param int    $user_id   User the generation is billed to.
+	 * @param string $level     CEFR band for the example sentences. Anything
+	 *                          outside the six bands falls back to B1 silently:
+	 *                          a bad level is never worth losing a generation
+	 *                          over, and B1 is what every deck was generated at
+	 *                          before the picker existed.
 	 * @return array|WP_Error List of ['term','ipa','translation','example'].
 	 */
-	public static function generate( $raw_terms, $user_id ) {
+	public static function generate( $raw_terms, $user_id, $level = TBTS_Levels::DEFAULT_BAND ) {
 		$user_id = (int) $user_id;
+		$level   = TBTS_Levels::sanitize( $level );
 
 		if ( ! TBTS_Capabilities::user_can_manage( $user_id ) ) {
 			return new WP_Error(
@@ -180,7 +186,7 @@ class TBTS_Generator {
 			);
 		}
 
-		$cards = TBTS_API::generate( $terms );
+		$cards = TBTS_API::generate( $terms, $level );
 
 		if ( is_wp_error( $cards ) ) {
 			// Quota is untouched: nothing usable came back. The many ways the
@@ -197,6 +203,9 @@ class TBTS_Generator {
 		}
 
 		self::increment_count( $user_id );
+
+		// The picker opens on this next time, when no class suggests one.
+		TBTS_Levels::remember( $user_id, $level );
 
 		return $cards;
 	}

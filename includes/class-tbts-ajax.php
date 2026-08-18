@@ -32,7 +32,8 @@ class TBTS_Ajax {
 		$this->guard();
 
 		$raw   = isset( $_POST['terms'] ) ? wp_unslash( $_POST['terms'] ) : '';
-		$cards = TBTS_Generator::generate( $raw, get_current_user_id() );
+		$level = isset( $_POST['level'] ) ? sanitize_text_field( wp_unslash( $_POST['level'] ) ) : '';
+		$cards = TBTS_Generator::generate( $raw, get_current_user_id(), $level );
 
 		if ( is_wp_error( $cards ) ) {
 			wp_send_json_error(

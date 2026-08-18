@@ -77,6 +77,33 @@ class TBTS_Classes {
 	}
 
 	/**
+	 * The user IDs of the students in a class.
+	 *
+	 * Checked with method_exists rather than added to REQUIRED_METHODS: the
+	 * level suggestion is a convenience, and a Notes build without this method
+	 * should cost a teacher the pre-selection, not the class selector.
+	 *
+	 * @param int $class_id Class ID.
+	 * @return int[] Empty when Notes is unavailable or the class has no students.
+	 */
+	public static function student_ids_for_class( $class_id ) {
+		$class_id = (int) $class_id;
+		if ( ! self::available() || $class_id <= 0 ) {
+			return array();
+		}
+		if ( ! method_exists( 'TBT_Notes_DB', 'get_student_ids_for_class' ) ) {
+			return array();
+		}
+
+		$ids = TBT_Notes_DB::get_student_ids_for_class( $class_id );
+		if ( ! is_array( $ids ) ) {
+			return array();
+		}
+
+		return array_values( array_unique( array_filter( array_map( 'intval', $ids ) ) ) );
+	}
+
+	/**
 	 * Does this user own this class?
 	 *
 	 * The guard against a teacher attaching a set to someone else's class by

@@ -17,9 +17,12 @@ class TBTS_API {
 	 * Generate card data for a batch of terms in one API call.
 	 *
 	 * @param string[] $terms Sanitised English terms, one per card.
+	 * @param string   $level CEFR band for the example sentences. Defaults to
+	 *                        B1, the level every card was generated at before
+	 *                        the picker existed.
 	 * @return array|WP_Error List of ['term','ipa','translation','example'] in input order.
 	 */
-	public static function generate( array $terms ) {
+	public static function generate( array $terms, $level = TBTS_Levels::DEFAULT_BAND ) {
 		$api_key = get_option( 'tbts_api_key', '' );
 		if ( '' === $api_key ) {
 			return new WP_Error(
@@ -29,7 +32,7 @@ class TBTS_API {
 		}
 
 		$model  = get_option( 'tbts_model', self::DEFAULT_MODEL );
-		$prompt = self::build_prompt( $terms );
+		$prompt = self::build_prompt( $terms, $level );
 
 		$response = wp_remote_post(
 			self::ENDPOINT,
@@ -84,11 +87,22 @@ class TBTS_API {
 		return self::parse_response( $body, $terms );
 	}
 
-	private static function build_prompt( array $terms ) {
+	/**
+	 * The one prompt. Everything except the level block is fixed: the article
+	 * warning, the British IPA requirements and the JSON-only output contract
+	 * are what keep the cards usable, whatever level they are pitched at.
+	 *
+	 * @param string[] $terms Sanitised English terms.
+	 * @param string   $level Already-sanitised CEFR band.
+	 * @return string
+	 */
+	private static function build_prompt( array $terms, $level ) {
 		return "You are helping a Polish teacher of English prepare vocabulary flashcards. "
 			. "For each item in the list below, return the IPA phonetic transcription (British English, in slashes), "
-			. "the Polish translation, and one natural example sentence in English at B1 level that uses the item in context.\n\n"
-			. "Quality requirements — follow all of them:\n"
+			. "the Polish translation, and one natural example sentence in English that uses the item in context "
+			. "and is written to the level rules below.\n\n"
+			. TBTS_Levels::prompt_block( $level )
+			. "\nQuality requirements — follow all of them:\n"
 			. "1. Example sentences must be grammatically correct, natural British English. "
 			. "Pay particular attention to articles (a / an / the / zero article): Polish has no articles, "
 			. "so article mistakes are easy to miss but must not appear. Use articles exactly as a native speaker would.\n"
@@ -97,6 +111,10 @@ class TBTS_API {
 			. "with a single space between words (e.g. \"to strike a balance\" -> \"/tə straɪk ə ˈbæləns/\").\n"
 			. "3. Before returning, re-read each transcription character by character and correct any doubled "
 			. "or misplaced symbols.\n\n"
+			// The level governs the example sentence only. The transcription
+			// and the translation belong to the item itself and do not move.
+			. "The level rules apply to the example sentence only. The IPA and the Polish translation are "
+			. "properties of the item and never change with the level.\n\n"
 			. "Return ONLY a JSON array, no preamble, no markdown fences. Each element: "
 			. '{"term": "...", "ipa": "...", "translation": "...", "example": "..."}. '
 			. "Preserve the input order exactly and return exactly one element per input item.\n\n"
