@@ -409,6 +409,75 @@ body.tbts-deck-open {
 }
 .tbts-again:active { transform: scale( 0.98 ); }
 
+/* ---- The celebration (every card known) ----
+   The one screen in the deck that exists only to congratulate. Everything
+   here is scoped to .tbts-celebrate, so the end-of-round beat — which has
+   words still to work on behind it — is untouched. */
+.tbts-end.tbts-celebrate {
+	/* Above the confetti canvas, which is a sibling in the same stacking
+	   context: the medal, the words and the button all stay on top of it. */
+	position: relative;
+	z-index: 1;
+	justify-content: center;
+	text-align: center;
+}
+.tbts-celebrate .tbts-beat {
+	padding-bottom: 26px;
+}
+.tbts-medal {
+	width: 76px;
+	height: 76px;
+	margin: 0 auto 18px;
+	border-radius: 50%;
+	background: rgba( 255, 255, 255, 0.16 );
+	color: var(--tbts-white);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.tbts-medal svg {
+	display: block;
+	width: 40px;
+	height: 40px;
+}
+
+/* The burst sits over the whole deck and under the celebration, and is
+   removed the moment it has finished. */
+.tbts-confetti {
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	pointer-events: none;
+}
+
+/* The entrance: the medal arrives, then the words rise under it in the
+   order they are read. JS adds is-entrance only when motion is welcome;
+   the reduced-motion block near the foot of this file is the backstop. */
+@keyframes tbts-medal-pop {
+	from { opacity: 0; transform: scale( 0.4 ); }
+	60%  { opacity: 1; transform: scale( 1.08 ); }
+	to   { opacity: 1; transform: scale( 1 ); }
+}
+@keyframes tbts-rise {
+	from { opacity: 0; transform: translateY( 14px ); }
+	to   { opacity: 1; transform: none; }
+}
+.tbts-celebrate.is-entrance .tbts-medal {
+	animation: tbts-medal-pop 520ms cubic-bezier( .2, .8, .3, 1.2 ) both;
+}
+.tbts-celebrate.is-entrance .tbts-beat-head {
+	animation: tbts-rise 460ms ease-out 140ms both;
+}
+.tbts-celebrate.is-entrance .tbts-beat-line {
+	animation: tbts-rise 460ms ease-out 240ms both;
+}
+.tbts-celebrate.is-entrance .tbts-beat-sub {
+	animation: tbts-rise 460ms ease-out 340ms both;
+}
+.tbts-celebrate.is-entrance .tbts-end-actions {
+	animation: tbts-rise 460ms ease-out 440ms both;
+}
+
 /* ---- The summary tile: a fourth card face (desktop only) ----
    Deliberately not the card back. The back has never carried the term — on
    a physical card you are holding the front — and a screen titled "words to
@@ -674,6 +743,13 @@ body.tbts-deck-open {
 		bottom: 34px;
 	}
 
+	/* The celebration lands on the table too, where a translucent white
+	   disc would simply not be there. */
+	.tbts-medal {
+		background: var(--tbts-blue);
+		color: var(--tbts-white);
+	}
+
 	/* The beat's own palette, now that it sits on a light table. */
 	.tbts-end .tbts-beat-head { color: var(--tbts-blue); }
 	.tbts-beat-line { color: var(--tbts-dark); }
@@ -711,6 +787,15 @@ body.tbts-deck-open {
    both swipe directions). */
 @media ( prefers-reduced-motion: reduce ) {
 	.tbts-card-inner { transition: none; }
+	/* JS already withholds is-entrance (and the confetti) here; this is the
+	   backstop for a preference that changes after the screen is built. */
+	.tbts-celebrate.is-entrance .tbts-medal,
+	.tbts-celebrate.is-entrance .tbts-beat-head,
+	.tbts-celebrate.is-entrance .tbts-beat-line,
+	.tbts-celebrate.is-entrance .tbts-beat-sub,
+	.tbts-celebrate.is-entrance .tbts-end-actions {
+		animation: none;
+	}
 }
 
 /* Guard against horizontal scroll on very small screens. */

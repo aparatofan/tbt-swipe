@@ -787,13 +787,26 @@
 		return list;
 	}
 
+	/* Every card known: the one screen in the deck that is purely a reward.
+	   A medal, the learner's own name, what they have just done, and a
+	   confetti burst over it. The name comes from the WordPress account —
+	   learners are always signed in — and an account with neither a first
+	   nor a display name simply gets the greeting without one. */
 	function renderAllKnown() {
-		var end = el( 'div', 'tbts-end' );
-		end.appendChild( buildBeat(
-			i18n.allTitle,
+		var name = typeof cfg.learnerName === 'string' ? cfg.learnerName : '';
+
+		var end = el( 'div', 'tbts-end tbts-celebrate' );
+		if ( ! reducedMotion ) {
+			end.classList.add( 'is-entrance' );
+		}
+
+		var beat = buildBeat(
+			name ? fmt( i18n.allTitleName, [ name ] ) : i18n.allTitle,
 			fmt( i18n.allLine, [ fullDeck.length, plural( fullDeck.length ) ] ),
 			i18n.allSub
-		) );
+		);
+		beat.insertBefore( buildMedal(), beat.firstChild );
+		end.appendChild( beat );
 
 		var restart = el( 'button', 'tbts-again' );
 		restart.type = 'button';
@@ -807,6 +820,164 @@
 		end.appendChild( actions );
 
 		root.appendChild( end );
+
+		// Reduced motion gets the same celebration, held still.
+		if ( ! reducedMotion ) {
+			fireConfetti();
+		}
+	}
+
+	/* A medal: a disc on a ribbon, with the tick the learner just earned.
+	   Drawn inline rather than fetched — the player self-hosts everything —
+	   and stroked in currentColor so the disc can recolour it for the light
+	   desktop table. */
+	function buildMedal() {
+		var SVG_NS = 'http://www.w3.org/2000/svg';
+		var wrap = el( 'div', 'tbts-medal' );
+		wrap.setAttribute( 'aria-hidden', 'true' );
+
+		var svg = document.createElementNS( SVG_NS, 'svg' );
+		svg.setAttribute( 'viewBox', '0 0 24 24' );
+		svg.setAttribute( 'fill', 'none' );
+		svg.setAttribute( 'stroke', 'currentColor' );
+		svg.setAttribute( 'stroke-width', '1.6' );
+		svg.setAttribute( 'stroke-linecap', 'round' );
+		svg.setAttribute( 'stroke-linejoin', 'round' );
+		svg.setAttribute( 'focusable', 'false' );
+
+		// Painted in order: the ribbon first, then the disc over it, then
+		// the tick on the disc.
+		svg.appendChild( path( SVG_NS, 'M8.4 14.4 7.1 22.2 12 19.3 16.9 22.2 15.6 14.4' ) );
+
+		var disc = document.createElementNS( SVG_NS, 'circle' );
+		disc.setAttribute( 'cx', '12' );
+		disc.setAttribute( 'cy', '9' );
+		disc.setAttribute( 'r', '6.2' );
+		svg.appendChild( disc );
+
+		svg.appendChild( path( SVG_NS, 'M9.1 9 11.1 11 14.9 7.2' ) );
+
+		wrap.appendChild( svg );
+		return wrap;
+	}
+
+	/* ---- Confetti ----
+	   One canvas over the whole deck, ~2.5s, then gone. No library: a burst
+	   this small is a few dozen lines of physics, and the player has no CDN
+	   to fetch one from. The caller gates this on reduced motion. */
+	var CONFETTI_MS = 2500;      // total run
+	var CONFETTI_FADE = 600;     // ms of fade at the tail of each particle
+	var CONFETTI_GRAV = 0.0016;  // px/ms²
+
+	function fireConfetti() {
+		if ( ! root || ! window.requestAnimationFrame ) {
+			return;
+		}
+
+		var canvas = el( 'canvas', 'tbts-confetti' );
+		var ctx = canvas.getContext ? canvas.getContext( '2d' ) : null;
+		if ( ! ctx ) {
+			return;
+		}
+
+		var w = root.clientWidth || window.innerWidth;
+		var h = root.clientHeight || window.innerHeight;
+		// Capped: a 3x buffer on a phone costs more than the sharpness buys.
+		var dpr = Math.min( window.devicePixelRatio || 1, 2 );
+		canvas.width = Math.round( w * dpr );
+		canvas.height = Math.round( h * dpr );
+		canvas.style.width = w + 'px';
+		canvas.style.height = h + 'px';
+		canvas.setAttribute( 'aria-hidden', 'true' );
+		ctx.scale( dpr, dpr );
+		root.appendChild( canvas );
+
+		// White reads on the phone's blue field and disappears on the light
+		// desktop table, where the brand blue takes its place. The rest of
+		// the palette carries both.
+		var colors = [
+			isDesktop() ? '#0856C9' : '#FFFFFF',
+			'#FFD466',
+			'#7FE0A6',
+			'#BFD4FF',
+			'#CC9933'
+		];
+
+		var count = Math.max( 70, Math.min( 150, Math.round( w / 9 ) ) );
+		var parts = [];
+		for ( var i = 0; i < count; i++ ) {
+			// A fan upward and outward from behind the medal, which gravity
+			// then turns over into a fall.
+			var ang = ( -165 + Math.random() * 150 ) * Math.PI / 180;
+			var speed = 0.30 + Math.random() * 0.55;
+			parts.push( {
+				x: w / 2 + ( Math.random() - 0.5 ) * ( w * 0.3 ),
+				y: h * 0.36 + ( Math.random() - 0.5 ) * 40,
+				vx: Math.cos( ang ) * speed,
+				vy: Math.sin( ang ) * speed,
+				rot: Math.random() * Math.PI,
+				vrot: ( Math.random() - 0.5 ) * 0.012,
+				w: 5 + Math.random() * 5,
+				h: 8 + Math.random() * 6,
+				round: Math.random() < 0.32,
+				color: colors[ i % colors.length ],
+				ttl: 1500 + Math.random() * 1000,
+				age: 0
+			} );
+		}
+
+		var last = now();
+		var elapsed = 0;
+
+		function frame() {
+			var t = now();
+			var dt = Math.min( 34, t - last );   // a backgrounded tab must not jump
+			last = t;
+			elapsed += dt;
+
+			// The canvas goes with root.innerHTML when a new round starts;
+			// that is also this loop's stop signal.
+			if ( ! canvas.parentNode ) {
+				return;
+			}
+			if ( elapsed > CONFETTI_MS ) {
+				removeEl( canvas );
+				return;
+			}
+
+			ctx.clearRect( 0, 0, w, h );
+			for ( var i = 0; i < parts.length; i++ ) {
+				var p = parts[ i ];
+				p.age += dt;
+				var left = p.ttl - p.age;
+				if ( left <= 0 || p.y - 30 > h ) {
+					continue;
+				}
+				p.vy += CONFETTI_GRAV * dt;
+				p.vx *= 0.996;
+				p.x += p.vx * dt;
+				p.y += p.vy * dt;
+				p.rot += p.vrot * dt;
+
+				ctx.globalAlpha = left < CONFETTI_FADE ? left / CONFETTI_FADE : 1;
+				ctx.fillStyle = p.color;
+				ctx.save();
+				ctx.translate( p.x, p.y );
+				ctx.rotate( p.rot );
+				if ( p.round ) {
+					ctx.beginPath();
+					ctx.arc( 0, 0, p.w / 2, 0, Math.PI * 2 );
+					ctx.fill();
+				} else {
+					ctx.fillRect( -p.w / 2, -p.h / 2, p.w, p.h );
+				}
+				ctx.restore();
+			}
+
+			window.requestAnimationFrame( frame );
+		}
+
+		window.requestAnimationFrame( frame );
 	}
 
 	/* ---- The deal (desktop) ----
@@ -984,14 +1155,23 @@
 		return n === 1 ? i18n.wordOne : i18n.wordMany;
 	}
 	// Positional placeholders, so a translation can reorder the counts and
-	// the inflected noun. Matches the %1$d / %2$s the PHP side ships.
+	// the inflected noun. Matches the %1$d / %2$s the PHP side ships. A bare
+	// %s / %d is filled in order, for the single-argument strings (the name
+	// in 'allTitleName') where numbering would only be noise — a translator
+	// is still free to number it.
 	function fmt( tpl, vals ) {
-		return String( tpl || '' ).replace( /%(\d+)\$[ds]/g, function ( m, n ) {
-			return vals[ n - 1 ];
+		var next = 0;
+		return String( tpl || '' ).replace( /%(?:(\d+)\$)?[ds]/g, function ( m, n ) {
+			return vals[ n ? n - 1 : next++ ];
 		} );
 	}
 	function isDesktop() {
 		return !! ( DESKTOP_MQ && DESKTOP_MQ.matches );
+	}
+	function path( ns, d ) {
+		var node = document.createElementNS( ns, 'path' );
+		node.setAttribute( 'd', d );
+		return node;
 	}
 	function el( tag, cls ) {
 		var e = document.createElement( tag );
