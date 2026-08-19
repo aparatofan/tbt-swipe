@@ -26,12 +26,36 @@ class TBTS_Frontend {
 	/**
 	 * The generate → review → save flow.
 	 *
+	 * @param array|string $atts Shortcode attributes.
 	 * @return string
 	 */
-	public function render_generator() {
+	public function render_generator( $atts = array() ) {
 		if ( ! TBTS_Capabilities::user_can_manage() ) {
 			return '';
 		}
+
+		/*
+		 * The Tool Hero is now supplied by the global Divi header row on the
+		 * page. hero="no" suppresses the built-in one so the two do not stack.
+		 * The default stays "yes" so a page that has not been migrated is
+		 * never left without a header.
+		 */
+		$atts = shortcode_atts(
+			array( 'hero' => 'yes' ),
+			is_array( $atts ) ? $atts : array(),
+			self::GENERATOR_SHORTCODE
+		);
+
+		$show_hero = 'yes' === strtolower( trim( (string) $atts['hero'] ) );
+
+		/**
+		 * Filter whether the built-in Tool Hero is rendered.
+		 *
+		 * Returning false suppresses it everywhere without editing pages.
+		 *
+		 * @param bool $show_hero Whether to render the hero.
+		 */
+		$show_hero = (bool) apply_filters( 'tbts_show_hero', $show_hero );
 
 		$user_id = get_current_user_id();
 		$classes = TBTS_Classes::for_teacher( $user_id );
@@ -49,6 +73,7 @@ class TBTS_Frontend {
 		<div class="tbt-page">
 		<div class="tbt-wrap">
 
+			<?php if ( $show_hero ) : ?>
 			<?php
 			/*
 			 * The same header the Matching Game renders, down to the logo URL.
@@ -77,6 +102,7 @@ class TBTS_Frontend {
 					alt="<?php esc_attr_e( 'The Blue Tree', 'tbt-swipe' ); ?>"
 					loading="lazy" decoding="async">
 			</header>
+			<?php endif; ?>
 
 			<div class="tbt-notice tbt-notice--error" data-role="error" hidden></div>
 
