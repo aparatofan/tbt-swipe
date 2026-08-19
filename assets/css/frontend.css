@@ -1,7 +1,10 @@
 /* TBT Swipe — frontend components. Requires tbt-tokens.css. */
 
 .tbt-page { padding: var(--tbt-s6) 0 var(--tbt-s8); }
-.tbt-wrap { max-width: 1140px; margin: 0 auto; }
+/* Width is delegated to the surrounding Divi row, as in TBT Notes Page Mode
+   and the Matching Game tool pages. The row's own width/max-width settings
+   are the single place page width is decided. */
+.tbt-wrap { max-width: none; margin: 0 auto; }
 
 /* ---------- Hero ----------
    Replicated from tbt_matching_game `.tbtmg-hero`. The gradient, radius,
