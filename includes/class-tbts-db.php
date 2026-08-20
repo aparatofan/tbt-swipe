@@ -7,6 +7,18 @@ defined( 'ABSPATH' ) || exit;
 
 class TBTS_DB {
 
+	/**
+	 * The two faces a deck can lead with.
+	 *
+	 * 'term' is the historic behaviour and the default, so a deck that says
+	 * nothing about its faces reads exactly as it did before the option
+	 * existed.
+	 */
+	const FRONT_FACES = array( 'term', 'translation' );
+
+	/** A deck either belongs to a class or is deliberately open to anyone. */
+	const DECK_TYPES = array( 'class', 'open' );
+
 	public static function sets_table() {
 		global $wpdb;
 		return $wpdb->prefix . 'tbts_sets';
@@ -15,6 +27,48 @@ class TBTS_DB {
 	public static function cards_table() {
 		global $wpdb;
 		return $wpdb->prefix . 'tbts_cards';
+	}
+
+	/**
+	 * Coerce a submitted front_face to one of the two allowed values.
+	 *
+	 * Anything unrecognised falls back to 'term' rather than failing the save:
+	 * the worst outcome of a bad value is the default reading order, which is
+	 * never wrong, only possibly not what was asked for.
+	 *
+	 * @param mixed $value Submitted value.
+	 * @return string 'term' or 'translation'.
+	 */
+	public static function normalise_front_face( $value ) {
+		$value = is_string( $value ) ? strtolower( trim( $value ) ) : '';
+		return in_array( $value, self::FRONT_FACES, true ) ? $value : 'term';
+	}
+
+	/**
+	 * Coerce a submitted deck_type to one of the two allowed values.
+	 *
+	 * Falls back to 'class', the historic shape: a deck is only open when it
+	 * says so, so a garbled value can never publish a class deck as open.
+	 *
+	 * @param mixed $value Submitted value.
+	 * @return string 'class' or 'open'.
+	 */
+	public static function normalise_deck_type( $value ) {
+		$value = is_string( $value ) ? strtolower( trim( $value ) ) : '';
+		return in_array( $value, self::DECK_TYPES, true ) ? $value : 'class';
+	}
+
+	/**
+	 * Is this deck open to anyone with the link, rather than a class deck?
+	 *
+	 * Reads through the normaliser so a row written before the column existed
+	 * — or by an older version — answers 'class' rather than failing.
+	 *
+	 * @param object $set Set row.
+	 * @return bool
+	 */
+	public static function is_open_deck( $set ) {
+		return 'open' === self::normalise_deck_type( isset( $set->deck_type ) ? $set->deck_type : '' );
 	}
 
 	public static function activate() {
@@ -39,7 +93,13 @@ class TBTS_DB {
 
 		// class_id / lesson_id are both nullable on purpose: NULL is an
 		// unattached ("guest") set, which is a first-class supported state.
-		// Existing rows keep NULL — there is deliberately no backfill.
+		// Existing rows keep NULL — there is deliberately no backfill. An
+		// open deck is the same shape — NULL, never a 0 sentinel — so every
+		// existing query that reads "no class" keeps working unchanged.
+		//
+		// deck_type and front_face are NOT NULL with a default, so dbDelta
+		// gives every existing row 'class' / 'term' as it adds the columns:
+		// the two values that describe how those decks already behave.
 		//
 		// level is nullable for the same reason and follows the same pattern:
 		// NULL means "generated before the picker existed", which is not the
@@ -53,6 +113,8 @@ class TBTS_DB {
   class_id  BIGINT UNSIGNED NULL DEFAULT NULL,
   lesson_id BIGINT UNSIGNED NULL DEFAULT NULL,
   level     VARCHAR(2)      NULL DEFAULT NULL,
+  deck_type VARCHAR(20)     NOT NULL DEFAULT 'class',
+  front_face VARCHAR(20)    NOT NULL DEFAULT 'term',
   created   DATETIME        NOT NULL,
   PRIMARY KEY  (id),
   UNIQUE KEY slug (slug),
@@ -229,12 +291,13 @@ class TBTS_DB {
 	 * @param string $title  Already sanitised.
 	 * @param string $status 'draft' or 'published'.
 	 * @param array  $cards  List of arrays with term/ipa/translation/example (already sanitised).
-	 * @param array  $extra  Optional 'class_id' / 'lesson_id' (int or null) and
-	 *                       'level' (band string or null), all already validated.
+	 * @param array  $extra  Optional 'class_id' / 'lesson_id' (int or null),
+	 *                       'level' (band string or null), 'deck_type' and
+	 *                       'front_face' (strings), all already validated.
 	 *                       A key that is absent leaves the column untouched on
 	 *                       update, so the admin editor — which knows nothing
-	 *                       about classes or levels — cannot silently detach a
-	 *                       set or erase its level.
+	 *                       about classes, levels or faces — cannot silently
+	 *                       detach a set, erase its level or flip its faces.
 	 * @return int|WP_Error  Set ID.
 	 */
 	public static function save_set( $id, $title, $status, $cards, $extra = array() ) {
@@ -245,9 +308,11 @@ class TBTS_DB {
 		$attach        = array();
 		$attach_format = array();
 		$optional      = array(
-			'class_id'  => '%d',
-			'lesson_id' => '%d',
-			'level'     => '%s',
+			'class_id'   => '%d',
+			'lesson_id'  => '%d',
+			'level'      => '%s',
+			'deck_type'  => '%s',
+			'front_face' => '%s',
 		);
 		foreach ( $optional as $key => $format ) {
 			if ( ! array_key_exists( $key, $extra ) ) {
@@ -291,6 +356,12 @@ class TBTS_DB {
 			$id = (int) $wpdb->insert_id;
 		}
 
+		// The card set is replaced wholesale rather than diffed: no table
+		// anywhere references a card ID — not the Notes bridge, which carries
+		// set IDs, and there is no progress or favourites store — so a card
+		// row has no identity worth preserving. Wrapped in a transaction so an
+		// edit that fails halfway cannot leave a deck holding half its cards.
+		$wpdb->query( 'START TRANSACTION' );
 		$wpdb->query( $wpdb->prepare( "DELETE FROM {$cards_table} WHERE set_id = %d", $id ) );
 
 		foreach ( array_values( $cards ) as $i => $card ) {
@@ -307,6 +378,7 @@ class TBTS_DB {
 				array( '%d', '%s', '%s', '%s', '%s', '%d' )
 			);
 		}
+		$wpdb->query( 'COMMIT' );
 
 		return $id;
 	}
@@ -346,16 +418,22 @@ class TBTS_DB {
 		$wpdb->insert(
 			self::sets_table(),
 			array(
-				'title'     => $set->title . ' ' . __( '(copy)', 'tbt-swipe' ),
-				'owner_id'  => $user_id,
-				'slug'      => self::generate_slug(),
-				'status'    => 'draft',
-				'class_id'  => $class_id,
-				'lesson_id' => $lesson_id,
-				'level'     => $level,
-				'created'   => current_time( 'mysql' ),
+				'title'      => $set->title . ' ' . __( '(copy)', 'tbt-swipe' ),
+				'owner_id'   => $user_id,
+				'slug'       => self::generate_slug(),
+				'status'     => 'draft',
+				'class_id'   => $class_id,
+				'lesson_id'  => $lesson_id,
+				'level'      => $level,
+				// The copy is the same deck of cards, so it reads the same way
+				// round. It only stays open if the original was: a class deck
+				// that lost its class just above is unattached, not open — the
+				// two look alike in the columns and mean different things.
+				'deck_type'  => self::is_open_deck( $set ) ? 'open' : 'class',
+				'front_face' => self::normalise_front_face( isset( $set->front_face ) ? $set->front_face : '' ),
+				'created'    => current_time( 'mysql' ),
 			),
-			array( '%s', '%d', '%s', '%s', '%d', '%d', '%s', '%s' )
+			array( '%s', '%d', '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s' )
 		);
 		$new_id = (int) $wpdb->insert_id;
 

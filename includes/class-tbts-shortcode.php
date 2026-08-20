@@ -133,6 +133,7 @@ class TBTS_Shortcode {
 					'needTitle'     => __( 'Give the deck a title.', 'tbt-swipe' ),
 					'generating'    => __( 'Generating cards — this can take up to 30 seconds.', 'tbt-swipe' ),
 					'saving'        => __( 'Saving…', 'tbt-swipe' ),
+					'saveChanges'   => __( 'Save changes', 'tbt-swipe' ),
 					'noCards'       => __( 'Nothing to save yet — generate cards first.', 'tbt-swipe' ),
 					'copied'        => __( 'Copied!', 'tbt-swipe' ),
 					'confirmDelete' => __( 'Delete this deck and all of its cards? This cannot be undone.', 'tbt-swipe' ),
@@ -143,6 +144,10 @@ class TBTS_Shortcode {
 					'noDeckPage'    => __( 'Deck saved, but an administrator has not chosen the deck page yet, so the link is not ready.', 'tbt-swipe' ),
 					'classNoLessons' => __( 'That class has no lessons yet. Add one in Notes, or save the deck with no class.', 'tbt-swipe' ),
 					'noLessonsSuffix' => __( '(no lessons)', 'tbt-swipe' ),
+					// The two chips the deck list can gain when a deck is
+					// edited. Same wording as TBTS_Frontend renders them with.
+					'openDeck'      => __( 'OPEN DECK', 'tbt-swipe' ),
+					'unattached'    => __( 'Unattached', 'tbt-swipe' ),
 					'removeRow'     => __( 'Remove row', 'tbt-swipe' ),
 					'stackEmpty'    => __( 'Your first card lands here', 'tbt-swipe' ),
 				),

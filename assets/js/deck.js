@@ -42,6 +42,7 @@
 	var current = null;  // active card DOM state
 	var heap = [];       // desktop only: { el, idx, card } left on the table
 	var heapZ = 0;       // later cards lie on top of earlier ones
+	var frontFace = 'term'; // which face the deck leads with: 'term' or 'translation'
 
 	document.addEventListener( 'DOMContentLoaded', init );
 
@@ -107,6 +108,9 @@
 				if ( reloadIfStale( data.plugin_version ) ) {
 					return;
 				}
+				// A deck the server saved before this option existed answers
+				// 'term', which is how it has always played.
+				frontFace = 'translation' === data.front_face ? 'translation' : 'term';
 				fullDeck = data.cards.slice();
 				startRound( fullDeck.slice() );
 			} )
@@ -274,34 +278,46 @@
 	}
 
 	/* ---- Card rendering ---- */
+
+	/* One line on a face. The class names what the line holds, never where it
+	   sits, so the stylesheet decides how a term reads on the front and how it
+	   reads on the back. An empty field simply has no line — the same as
+	   before the faces became configurable. */
+	function addLine( face, className, text ) {
+		if ( ! text ) {
+			return;
+		}
+		var line = el( 'div', className );
+		line.textContent = text;
+		face.appendChild( line );
+	}
+
 	function renderCard( card ) {
 		var cardEl = el( 'div', 'tbts-card' );
 		var inner = el( 'div', 'tbts-card-inner' );
 
 		var front = el( 'div', 'tbts-face tbts-face-front' );
-		var term = el( 'div', 'tbts-term' );
-		term.textContent = card.term;
-		front.appendChild( term );
+		var back = el( 'div', 'tbts-face tbts-face-back' );
+
+		/* Pronunciation and the example sentence both travel with the term:
+		   each of them names the term outright, so on the opposite face they
+		   would hand over the answer before the card is flipped. That is why
+		   translation-first decks keep all three on the back. */
+		if ( 'translation' === frontFace ) {
+			addLine( front, 'tbts-translation', card.translation );
+			addLine( back, 'tbts-term', card.term );
+			addLine( back, 'tbts-ipa', card.ipa );
+			addLine( back, 'tbts-example', card.example );
+		} else {
+			addLine( front, 'tbts-term', card.term );
+			addLine( front, 'tbts-ipa', card.ipa );
+			addLine( back, 'tbts-translation', card.translation );
+			addLine( back, 'tbts-example', card.example );
+		}
+
 		var hint = el( 'div', 'tbts-flip-hint' );
 		hint.textContent = i18n.tapToFlip;
 		front.appendChild( hint );
-
-		var back = el( 'div', 'tbts-face tbts-face-back' );
-		if ( card.ipa ) {
-			var ipa = el( 'div', 'tbts-ipa' );
-			ipa.textContent = card.ipa;
-			back.appendChild( ipa );
-		}
-		if ( card.translation ) {
-			var tr = el( 'div', 'tbts-translation' );
-			tr.textContent = card.translation;
-			back.appendChild( tr );
-		}
-		if ( card.example ) {
-			var ex = el( 'div', 'tbts-example' );
-			ex.textContent = card.example;
-			back.appendChild( ex );
-		}
 
 		inner.appendChild( front );
 		inner.appendChild( back );

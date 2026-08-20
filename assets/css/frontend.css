@@ -206,6 +206,47 @@
 }
 .tbt-level-note { margin-top: var(--tbt-s3) !important; }
 
+/* ---------- Plain radio rows (deck type, first face) ----------
+   Two-choice options that need no tile treatment: a native radio next to its
+   label, sharing the level picker's fieldset reset so a theme cannot put a
+   border or a legend inset back. */
+.tbt .tbt-radios {
+  display: block; min-width: 0;
+  border: 0 !important; padding: 0 !important;
+  margin: 0 0 var(--tbt-s5) !important;
+}
+.tbt .tbt-radios > legend {
+  display: block; float: none; width: auto;
+  padding: 0 !important; margin-bottom: var(--tbt-s2) !important;
+}
+.tbt-radio-row { display: flex; flex-wrap: wrap; gap: var(--tbt-s5); }
+.tbt-radio {
+  display: inline-flex; align-items: center; gap: var(--tbt-s2);
+  margin: 0; cursor: pointer; font-size: 16px; color: var(--tbt-ink);
+}
+.tbt .tbt-radio input[type="radio"] {
+  width: 18px !important; height: 18px !important; min-width: 0 !important;
+  margin: 0 !important; accent-color: var(--tbt-blue); cursor: pointer;
+}
+
+/* An option that does not apply is dimmed and inert rather than removed, so
+   switching deck type never makes the form jump. The disabled attribute on the
+   controls themselves is what actually keeps them out of the tab order. */
+.tbt-pair.is-off { opacity: .45; pointer-events: none; }
+
+/* ---------- Edit mode ---------- */
+.tbt-editing {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: var(--tbt-s3);
+  background-color: var(--tbt-blue-wash);
+  border: 1.5px solid var(--tbt-periwinkle);
+  border-radius: var(--tbt-r-md);
+  padding: var(--tbt-s3) var(--tbt-s5);
+  margin-bottom: var(--tbt-s5);
+  font-size: 16px; color: var(--tbt-ink);
+}
+.tbt .tbt-editing-cancel { font-weight: 600; text-decoration: underline; }
+
 /* ---------- Buttons ----------
    The theme styles bare <button> and <a> elements, and those rules reach
    inside .tbt because the reset deliberately carries no specificity. On the
@@ -246,6 +287,17 @@
   font-family: var(--tbt-display); padding: 9px var(--tbt-s5) !important; font-size: 15px !important;
 }
 .tbt .tbt-btn--ghost:hover:not([disabled]) { border-color: var(--tbt-blue) !important; background-color: var(--tbt-blue-wash) !important; }
+/* The one filled pill in a row of white ones: same shape, padding, size and
+   weight as --ghost, so only the colour says "this is the main action". The
+   border stays, in blue, because the pill's geometry is measured with it. */
+.tbt .tbt-btn--ghost.tbt-btn--fill {
+  background-color: var(--tbt-blue) !important; color: #FFFFFF !important;
+  border-color: var(--tbt-blue) !important;
+}
+.tbt .tbt-btn--ghost.tbt-btn--fill:hover:not([disabled]) {
+  background-color: var(--tbt-blue-deep) !important; border-color: var(--tbt-blue-deep) !important;
+  color: #FFFFFF !important;
+}
 .tbt .tbt-btn--danger { color: var(--tbt-maroon) !important; }
 .tbt .tbt-btn--danger:hover:not([disabled]) { border-color: var(--tbt-maroon) !important; background-color: #FAF0F0 !important; color: var(--tbt-maroon) !important; }
 
@@ -407,6 +459,9 @@
   border-radius: var(--tbt-r-sm); padding: 4px 12px;
 }
 .tbt-chip--none { background-color: var(--tbt-violet); }
+/* An open deck is not an orphaned class deck, so it gets the house blue
+   rather than the violet "no lesson" chip. */
+.tbt-chip--open { background-color: var(--tbt-blue); }
 .tbt-deck-actions { display: flex; gap: var(--tbt-s2); flex-wrap: wrap; }
 .tbt-empty {
   text-align: center; padding: var(--tbt-s8) var(--tbt-s5);

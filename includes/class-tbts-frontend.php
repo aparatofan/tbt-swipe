@@ -18,6 +18,12 @@ class TBTS_Frontend {
 	const GENERATOR_SHORTCODE = 'tbt_swipe_generator';
 	const SETS_SHORTCODE      = 'tbt_swipe_sets';
 
+	/**
+	 * Query parameter that puts the builder into edit mode. Mirrored by
+	 * EDIT_PARAM in assets/js/frontend.js, which reads it back.
+	 */
+	const EDIT_PARAM = 'tbts_edit';
+
 	public function __construct() {
 		add_shortcode( self::GENERATOR_SHORTCODE, array( $this, 'render_generator' ) );
 		add_shortcode( self::SETS_SHORTCODE, array( $this, 'render_sets' ) );
@@ -106,6 +112,21 @@ class TBTS_Frontend {
 
 			<div class="tbt-notice tbt-notice--error" data-role="error" hidden></div>
 
+			<?php
+			/*
+			 * Edit mode announces itself: the same three stages, but every
+			 * save lands on an existing deck. Cancel is a link, not a button,
+			 * because it does nothing but leave.
+			 */
+			?>
+			<div class="tbt-editing" data-role="editing" hidden>
+				<span>
+					<?php esc_html_e( 'Editing deck:', 'tbt-swipe' ); ?>
+					<strong data-role="editing-title"></strong>
+				</span>
+				<a class="tbt-editing-cancel" href="<?php echo esc_url( self::builder_url() ); ?>" data-role="cancel-edit"><?php esc_html_e( 'Cancel', 'tbt-swipe' ); ?></a>
+			</div>
+
 			<section class="tbt-stage" data-stage="1" data-state="active">
 				<div class="tbt-stage-card">
 					<div class="tbt-stage-head">
@@ -119,8 +140,33 @@ class TBTS_Frontend {
 							placeholder="<?php esc_attr_e( 'e.g. Unit 4 — travel', 'tbt-swipe' ); ?>">
 					</div>
 
+					<?php
+					/*
+					 * An open deck belongs to no class and no lesson: it is
+					 * shared by its link alone. The radio sits above the class
+					 * field because it decides whether that field applies at
+					 * all, and it is rendered even for a teacher with no
+					 * classes — the deck type is a property of the deck, not
+					 * of what TBT Notes happens to hold.
+					 */
+					?>
+					<fieldset class="tbt-field tbt-radios" data-role="deck-type">
+						<legend class="tbt-label"><?php esc_html_e( 'Deck type', 'tbt-swipe' ); ?></legend>
+						<div class="tbt-radio-row">
+							<label class="tbt-radio">
+								<input type="radio" name="tbts-deck-type" value="class" checked>
+								<span><?php esc_html_e( 'Class deck', 'tbt-swipe' ); ?></span>
+							</label>
+							<label class="tbt-radio">
+								<input type="radio" name="tbts-deck-type" value="open">
+								<span><?php esc_html_e( 'Open deck', 'tbt-swipe' ); ?></span>
+							</label>
+						</div>
+						<p class="tbt-help"><?php esc_html_e( 'An open deck has no class and no lesson. It is shared by its link like any other deck.', 'tbt-swipe' ); ?></p>
+					</fieldset>
+
 					<?php if ( ! empty( $classes ) ) : ?>
-						<div class="tbt-field tbt-pair">
+						<div class="tbt-field tbt-pair" data-role="class-pair">
 							<div>
 								<label class="tbt-label" for="tbts-fe-class"><?php esc_html_e( 'Class', 'tbt-swipe' ); ?></label>
 								<?php
@@ -247,8 +293,29 @@ class TBTS_Frontend {
 					<div class="tbt-review" data-role="review" hidden>
 						<h3 class="tbt-review-title"><?php esc_html_e( 'Check and fix', 'tbt-swipe' ); ?></h3>
 						<p class="tbt-help" style="margin-bottom: var( --tbt-s5 )">
-							<?php esc_html_e( 'Edit any field here. Cards can\'t be changed once the deck is saved.', 'tbt-swipe' ); ?>
+							<?php esc_html_e( 'Edit any field here. You can come back to these cards later with Edit in your deck list.', 'tbt-swipe' ); ?>
 						</p>
+
+						<?php
+						/*
+						 * Which face the students see first. A deck setting, so
+						 * a link or QR code already shared follows whatever is
+						 * chosen here — there is no URL parameter to re-share.
+						 */
+						?>
+						<fieldset class="tbt-field tbt-radios" data-role="front-face">
+							<legend class="tbt-label"><?php esc_html_e( 'Show first', 'tbt-swipe' ); ?></legend>
+							<div class="tbt-radio-row">
+								<label class="tbt-radio">
+									<input type="radio" name="tbts-front-face" value="term" checked>
+									<span><?php esc_html_e( 'Term', 'tbt-swipe' ); ?></span>
+								</label>
+								<label class="tbt-radio">
+									<input type="radio" name="tbts-front-face" value="translation">
+									<span><?php esc_html_e( 'Translation', 'tbt-swipe' ); ?></span>
+								</label>
+							</div>
+						</fieldset>
 
 						<div class="tbt-colheads">
 							<span></span>
@@ -401,30 +468,67 @@ class TBTS_Frontend {
 	 * a violet spine, so the two kinds are told apart at a glance without one
 	 * of them looking broken.
 	 *
+	 * An open deck is a third kind: deliberately class-less rather than merely
+	 * unattached, so it says so in a blue chip and keeps the ordinary blue
+	 * spine. Only a class deck that lost — or never had — its lesson stays
+	 * violet.
+	 *
 	 * @param object $set Deck row with card_count.
 	 */
 	private function render_set_row( $set ) {
 		$deck_url    = TBTS_DB::deck_url( $set );
-		$lesson_name = $set->lesson_id ? TBTS_Classes::lesson_title( (int) $set->lesson_id ) : '';
-		$unattached  = '' === $lesson_name;
+		$open        = TBTS_DB::is_open_deck( $set );
+		$lesson_name = ( ! $open && $set->lesson_id ) ? TBTS_Classes::lesson_title( (int) $set->lesson_id ) : '';
+		$unattached  = ! $open && '' === $lesson_name;
+
+		if ( $open ) {
+			$chip_class = ' tbt-chip--open';
+			$chip_text  = __( 'OPEN DECK', 'tbt-swipe' );
+		} elseif ( $unattached ) {
+			$chip_class = ' tbt-chip--none';
+			$chip_text  = __( 'Unattached', 'tbt-swipe' );
+		} else {
+			$chip_class = '';
+			$chip_text  = $lesson_name;
+		}
 		?>
 		<div class="tbt-deck<?php echo $unattached ? ' tbt-deck--none' : ''; ?>" data-set-id="<?php echo esc_attr( (int) $set->id ); ?>">
 			<div class="tbt-deck-body">
-				<div class="tbt-deck-title"><?php echo esc_html( $set->title ); ?></div>
+				<?php
+				/*
+				 * The three facts an edit can change are addressed by role, not
+				 * by class name: saving an edit rewrites them in place rather
+				 * than leaving the row describing the deck as it used to be.
+				 */
+				?>
+				<div class="tbt-deck-title" data-role="deck-title"><?php echo esc_html( $set->title ); ?></div>
 				<div class="tbt-deck-meta">
-					<span class="tbt-chip<?php echo $unattached ? ' tbt-chip--none' : ''; ?>">
-						<?php echo esc_html( $unattached ? __( 'Unattached', 'tbt-swipe' ) : $lesson_name ); ?>
+					<span class="tbt-chip<?php echo esc_attr( $chip_class ); ?>" data-role="deck-chip">
+						<?php echo esc_html( $chip_text ); ?>
 					</span>
-					<span><?php echo esc_html( self::card_count_label( (int) $set->card_count ) ); ?></span>
+					<span data-role="deck-cards"><?php echo esc_html( self::card_count_label( (int) $set->card_count ) ); ?></span>
 					<span>·</span>
 					<span><?php echo esc_html( mysql2date( get_option( 'date_format' ), $set->created ) ); ?></span>
 				</div>
 			</div>
 			<div class="tbt-deck-actions">
 				<?php if ( '' !== $deck_url ) : ?>
-					<a class="tbt-btn tbt-btn--ghost" href="<?php echo esc_url( $deck_url ); ?>" target="_blank" rel="noopener">
+					<a class="tbt-btn tbt-btn--ghost tbt-btn--fill" href="<?php echo esc_url( $deck_url ); ?>" target="_blank" rel="noopener">
 						<?php esc_html_e( 'Open', 'tbt-swipe' ); ?>
 					</a>
+				<?php endif; ?>
+				<?php
+				/*
+				 * A real link, not a button: edit mode is a state of the page,
+				 * so it survives a reload, a bookmark and a middle click. The
+				 * builder reads the parameter back on load — see frontend.js.
+				 */
+				?>
+				<a class="tbt-btn tbt-btn--ghost" data-role="edit"
+					href="<?php echo esc_url( self::edit_url( (int) $set->id ) ); ?>">
+					<?php esc_html_e( 'Edit', 'tbt-swipe' ); ?>
+				</a>
+				<?php if ( '' !== $deck_url ) : ?>
 					<button type="button" class="tbt-btn tbt-btn--ghost" data-role="copy"
 						data-url="<?php echo esc_url( $deck_url ); ?>"><?php esc_html_e( 'Copy link', 'tbt-swipe' ); ?></button>
 					<button type="button" class="tbt-btn tbt-btn--ghost" data-role="qr"
@@ -437,6 +541,42 @@ class TBTS_Frontend {
 			</div>
 		</div>
 		<?php
+	}
+
+	/**
+	 * This page with nothing marked for editing — where Cancel goes.
+	 *
+	 * A plain link rather than a JS teardown: leaving an edit is a fresh page,
+	 * so there is no half-restored state to get wrong, and nothing is written
+	 * on the way out.
+	 *
+	 * @return string
+	 */
+	public static function builder_url() {
+		$base = get_permalink();
+		return $base ? $base : home_url( '/' );
+	}
+
+	/**
+	 * The current page with a deck marked for editing.
+	 *
+	 * The deck list and the builder live on the same page in V1, so editing
+	 * reloads the page the teacher is already on. A site that splits the two
+	 * shortcodes can filter this to point at the builder's page instead.
+	 *
+	 * @param int $set_id Deck to edit.
+	 * @return string
+	 */
+	public static function edit_url( $set_id ) {
+		$url = add_query_arg( self::EDIT_PARAM, (int) $set_id, self::builder_url() );
+
+		/**
+		 * Filter the URL the Edit button points at.
+		 *
+		 * @param string $url    Edit URL.
+		 * @param int    $set_id Deck being edited.
+		 */
+		return (string) apply_filters( 'tbts_edit_url', $url, (int) $set_id );
 	}
 
 	/**
