@@ -234,7 +234,10 @@ body.tbts-deck-open {
 	pointer-events: none;
 }
 
-.tbts-face-front .tbts-term {
+/* The lead line, whichever field the deck leads with: a term-first deck puts
+   the term here, a translation-first deck puts the translation here. */
+.tbts-face-front .tbts-term,
+.tbts-face-front .tbts-translation {
 	font-family: var(--tbts-slab);
 	font-size: 2.3rem;
 	font-weight: 700;
@@ -242,6 +245,14 @@ body.tbts-deck-open {
 	color: var(--tbts-blue);
 	word-break: break-word;
 	max-width: 100%;
+}
+/* Pronunciation sits under the term it belongs to, on whichever face that is;
+   the gap only shows when there is a second line to separate. */
+.tbts-face-front { gap: 8px; }
+.tbts-face-front .tbts-ipa {
+	font-size: 1.05rem;
+	color: var(--tbts-grey);
+	font-weight: 600;
 }
 
 .tbts-face-back {
@@ -255,11 +266,15 @@ body.tbts-deck-open {
 	color: var(--tbts-grey);
 	font-weight: 600;
 }
-.tbts-face-back .tbts-translation {
+.tbts-face-back .tbts-translation,
+.tbts-face-back .tbts-term {
 	font-size: clamp( 1.7rem, 6vw, 2rem );   /* largest */
 	font-weight: 700;
 	color: var(--tbts-blue);
 }
+/* The answer on a translation-first deck is the term, so it keeps the slab
+   face it has on the front of a term-first deck. */
+.tbts-face-back .tbts-term { font-family: var(--tbts-slab); }
 .tbts-face-back .tbts-example {
 	/* ~0.8x the translation and comfortably larger than the IPA (and than
 	   the previous 1.05rem). */
@@ -800,6 +815,7 @@ body.tbts-deck-open {
 
 /* Guard against horizontal scroll on very small screens. */
 @media ( max-width: 360px ) {
-	.tbts-face-front .tbts-term { font-size: 2rem; }
+	.tbts-face-front .tbts-term,
+	.tbts-face-front .tbts-translation { font-size: 2rem; }
 	.tbts-zone-label { letter-spacing: 0.12em; }
 }

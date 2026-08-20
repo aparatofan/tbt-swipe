@@ -62,6 +62,10 @@ class TBTS_Rest {
 		return rest_ensure_response(
 			array(
 				'title' => $set->title,
+				// Which face the player deals first. A deck setting, not a URL
+				// parameter, so a link or QR code shared last term reflects
+				// whatever the deck says today.
+				'front_face' => TBTS_DB::normalise_front_face( $set->front_face ),
 				'cards' => $cards,
 				// This response is fetched with cache: 'no-store', so it is
 				// the one channel guaranteed to reflect the server's true

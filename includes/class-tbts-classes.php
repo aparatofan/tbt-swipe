@@ -179,6 +179,26 @@ class TBTS_Classes {
 	}
 
 	/**
+	 * Validate the class/lesson pair for a deck of a given type.
+	 *
+	 * An open deck has no class and no lesson by definition, so whatever the
+	 * payload claims is dropped rather than checked: a save that says "open"
+	 * cannot smuggle a class in beside it, not even one the user owns.
+	 *
+	 * @param string   $deck_type 'class' or 'open', already normalised.
+	 * @param int      $user_id   User saving the set.
+	 * @param int|null $class_id  Submitted class ID, or null.
+	 * @param int|null $lesson_id Submitted lesson ID, or null.
+	 * @return array|WP_Error array( 'class_id' => int|null, 'lesson_id' => int|null )
+	 */
+	public static function validate_attachment_for_type( $deck_type, $user_id, $class_id, $lesson_id ) {
+		if ( 'open' === $deck_type ) {
+			return array( 'class_id' => null, 'lesson_id' => null );
+		}
+		return self::validate_attachment( $user_id, $class_id, $lesson_id );
+	}
+
+	/**
 	 * Validate a class/lesson pair submitted with a set.
 	 *
 	 * @param int      $user_id   User saving the set.

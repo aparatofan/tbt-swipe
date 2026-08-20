@@ -86,18 +86,38 @@ class TBTS_Manage_Rest {
 			)
 		);
 
+		// Read, update and delete share one route. The id argument is repeated
+		// per endpoint rather than hoisted: register_rest_route treats a
+		// non-numeric top-level key as a route option, so a shared 'args'
+		// would never reach the handlers.
+		$id_arg = array(
+			'id' => array(
+				'required'          => true,
+				'sanitize_callback' => 'absint',
+			),
+		);
+
 		register_rest_route(
 			self::NS,
 			'/manage/sets/(?P<id>\d+)',
 			array(
-				'methods'             => WP_REST_Server::DELETABLE,
-				'permission_callback' => array( $this, 'can_manage' ),
-				'callback'            => array( $this, 'delete_set' ),
-				'args'                => array(
-					'id' => array(
-						'required'          => true,
-						'sanitize_callback' => 'absint',
-					),
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'permission_callback' => array( $this, 'can_manage' ),
+					'callback'            => array( $this, 'get_set' ),
+					'args'                => $id_arg,
+				),
+				array(
+					'methods'             => WP_REST_Server::EDITABLE,
+					'permission_callback' => array( $this, 'can_manage' ),
+					'callback'            => array( $this, 'update_set' ),
+					'args'                => $id_arg,
+				),
+				array(
+					'methods'             => WP_REST_Server::DELETABLE,
+					'permission_callback' => array( $this, 'can_manage' ),
+					'callback'            => array( $this, 'delete_set' ),
+					'args'                => $id_arg,
 				),
 			)
 		);
@@ -210,10 +230,87 @@ class TBTS_Manage_Rest {
 	}
 
 	/**
+	 * One of the current user's own sets, in the shape the builder loads it
+	 * back in: stage 1 admin fields, the deck options and every card in its
+	 * saved order.
+	 */
+	public function get_set( WP_REST_Request $request ) {
+		$set_id = absint( $request->get_param( 'id' ) );
+
+		// Owner-scoped without exception, as everywhere on this surface: Edit
+		// must not reach a deck the list would never have shown.
+		$set = TBTS_DB::get_set_for_owner( $set_id, get_current_user_id() );
+		if ( ! $set ) {
+			return new WP_Error(
+				'tbts_not_found',
+				__( 'Deck not found.', 'tbt-swipe' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		$cards = array();
+		foreach ( TBTS_DB::get_cards( $set->id ) as $card ) {
+			$cards[] = array(
+				'term'        => $card->term,
+				'ipa'         => $card->ipa,
+				'translation' => $card->translation,
+				'example'     => (string) $card->example,
+			);
+		}
+
+		return rest_ensure_response(
+			array(
+				'id'        => (int) $set->id,
+				'title'     => $set->title,
+				'deckType'  => TBTS_DB::normalise_deck_type( $set->deck_type ),
+				'frontFace' => TBTS_DB::normalise_front_face( $set->front_face ),
+				'classId'   => $set->class_id ? (int) $set->class_id : 0,
+				'lessonId'  => $set->lesson_id ? (int) $set->lesson_id : 0,
+				'level'     => (string) $set->level,
+				'deckUrl'   => TBTS_DB::deck_url( $set ),
+				'cards'     => $cards,
+			)
+		);
+	}
+
+	/**
 	 * Save a reviewed set and its cards. Frontend sets are published straight
 	 * away: the slug URL and QR code shown on save have to work immediately.
 	 */
 	public function create_set( WP_REST_Request $request ) {
+		return $this->save_set( $request, 0 );
+	}
+
+	/**
+	 * Save an edited deck over itself.
+	 *
+	 * The set keeps its id, slug, share link and QR code: a link a student
+	 * saved last week must still open the deck their teacher edited today, so
+	 * this updates the row rather than creating a replacement.
+	 */
+	public function update_set( WP_REST_Request $request ) {
+		$set_id = absint( $request->get_param( 'id' ) );
+
+		if ( ! TBTS_DB::get_set_for_owner( $set_id, get_current_user_id() ) ) {
+			return new WP_Error(
+				'tbts_not_found',
+				__( 'Deck not found.', 'tbt-swipe' ),
+				array( 'status' => 404 )
+			);
+		}
+
+		return $this->save_set( $request, $set_id );
+	}
+
+	/**
+	 * The shared create/update path.
+	 *
+	 * @param WP_REST_Request $request Save payload.
+	 * @param int             $set_id  0 to create, or a set the caller has
+	 *                                 already been proven to own.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	private function save_set( WP_REST_Request $request, $set_id ) {
 		$user_id = get_current_user_id();
 		$title   = sanitize_text_field( (string) $request->get_param( 'title' ) );
 
@@ -225,13 +322,26 @@ class TBTS_Manage_Rest {
 			);
 		}
 
-		$attachment = TBTS_Classes::validate_attachment(
-			$user_id,
-			absint( $request->get_param( 'class_id' ) ),
-			absint( $request->get_param( 'lesson_id' ) )
-		);
-		if ( is_wp_error( $attachment ) ) {
-			return $attachment;
+		$deck_type = TBTS_DB::normalise_deck_type( $request->get_param( 'deck_type' ) );
+
+		/*
+		 * A class deck that says nothing about its class keeps the one it has.
+		 * The builder omits the pair when it could not show the teacher which
+		 * class the deck is on — TBT Notes inactive, say — and a save that read
+		 * that silence as "no class" would detach the deck behind their back.
+		 * An open deck is never in doubt: it has no class, whatever it sends.
+		 */
+		$attachment = array();
+		if ( 'open' === $deck_type || null !== $request->get_param( 'class_id' ) ) {
+			$attachment = TBTS_Classes::validate_attachment_for_type(
+				$deck_type,
+				$user_id,
+				absint( $request->get_param( 'class_id' ) ),
+				absint( $request->get_param( 'lesson_id' ) )
+			);
+			if ( is_wp_error( $attachment ) ) {
+				return $attachment;
+			}
 		}
 
 		$cards = $this->sanitize_cards( $request->get_param( 'cards' ) );
@@ -247,13 +357,15 @@ class TBTS_Manage_Rest {
 		if ( '' === $extra['level'] ) {
 			$extra['level'] = null;
 		}
+		$extra['deck_type']  = $deck_type;
+		$extra['front_face'] = TBTS_DB::normalise_front_face( $request->get_param( 'front_face' ) );
 
-		$set_id = TBTS_DB::save_set( 0, $title, 'published', $cards, $extra );
-		if ( is_wp_error( $set_id ) ) {
-			return $set_id;
+		$saved_id = TBTS_DB::save_set( $set_id, $title, 'published', $cards, $extra );
+		if ( is_wp_error( $saved_id ) ) {
+			return $saved_id;
 		}
 
-		$set = TBTS_DB::get_set_for_owner( $set_id, $user_id );
+		$set = TBTS_DB::get_set_for_owner( $saved_id, $user_id );
 		if ( ! $set ) {
 			return new WP_Error(
 				'tbts_save_failed',
@@ -268,6 +380,7 @@ class TBTS_Manage_Rest {
 				'title'   => $set->title,
 				'deckUrl' => TBTS_DB::deck_url( $set ),
 				'cards'   => count( $cards ),
+				'updated' => (bool) $set_id,
 			)
 		);
 	}

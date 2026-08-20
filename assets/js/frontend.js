@@ -129,6 +129,64 @@
 		return 1 === n ? i18n.cardOne : i18n.cardMany;
 	}
 
+	/**
+	 * Rewrite one row of the deck list after its deck has been edited.
+	 *
+	 * The list is server-rendered, so without this a saved edit leaves the row
+	 * describing the deck as it was until the next page load. Only the three
+	 * facts an edit can change are touched; the row keeps its place and its
+	 * group, which the next page load re-sorts.
+	 *
+	 * @param {number} id   Deck ID.
+	 * @param {Object} info title, cards, open, lesson, and keepChip when the
+	 *                      builder could not show the deck's class and so has
+	 *                      nothing true to say about the chip.
+	 */
+	function refreshDeckRow( id, info ) {
+		var list = document.getElementById( 'tbts-fe-sets' );
+		var row = list ? list.querySelector( '[data-set-id="' + String( id ).replace( /[^0-9]/g, '' ) + '"]' ) : null;
+		if ( ! row ) {
+			return;
+		}
+
+		var title = role( row, 'deck-title' );
+		if ( title ) {
+			title.textContent = info.title;
+		}
+
+		var count = role( row, 'deck-cards' );
+		if ( count ) {
+			count.textContent = info.cards + ' ' + pluralCard( info.cards );
+		}
+
+		// The QR modal takes its heading from the button, so a renamed deck
+		// must not open a code labelled with its old name.
+		var qr = role( row, 'qr' );
+		if ( qr ) {
+			qr.setAttribute( 'data-title', info.title );
+		}
+
+		if ( info.keepChip ) {
+			return;
+		}
+
+		var chip = role( row, 'deck-chip' );
+		if ( chip ) {
+			chip.classList.remove( 'tbt-chip--open', 'tbt-chip--none' );
+			if ( info.open ) {
+				chip.textContent = i18n.openDeck;
+				chip.classList.add( 'tbt-chip--open' );
+			} else if ( info.lesson ) {
+				chip.textContent = info.lesson;
+			} else {
+				chip.textContent = i18n.unattached;
+				chip.classList.add( 'tbt-chip--none' );
+			}
+		}
+
+		row.classList.toggle( 'tbt-deck--none', ! info.open && ! info.lesson );
+	}
+
 	function renderQr( target, url ) {
 		target.innerHTML = '';
 		if ( ! url || typeof window.QRCode === 'undefined' ) {
@@ -148,6 +206,11 @@
 
 	function initGenerator( root ) {
 		var titleInput = root.querySelector( '#tbts-fe-title' );
+		var deckTypeInputs = root.querySelectorAll( '[data-role="deck-type"] input[type="radio"]' );
+		var classPair = role( root, 'class-pair' );
+		var frontFaceInputs = root.querySelectorAll( '[data-role="front-face"] input[type="radio"]' );
+		var editingBanner = role( root, 'editing' );
+		var editingTitle = role( root, 'editing-title' );
 		var classInput = root.querySelector( '#tbts-fe-class' );
 		var classList = root.querySelector( '#tbts-fe-class-list' );
 		var classIdField = role( root, 'class-id' );
@@ -174,8 +237,97 @@
 		var resultQr = role( root, 'result-qr' );
 		var resultOpen = role( root, 'result-open' );
 
+		// The deck being edited, or 0 while building a new one. Everything that
+		// differs between the two modes reads this one value.
+		var editingId = 0;
+		// Set when an edited deck's class could not be shown in the picker —
+		// TBT Notes inactive, or the class gone. The save then leaves the
+		// deck's class alone instead of detaching it from a class the teacher
+		// was never given the chance to see.
+		var classUnavailable = false;
+		// The create label, kept so leaving edit mode can put it back rather
+		// than hardcoding a string the template owns.
+		var saveLabel = saveBtn ? saveBtn.textContent : '';
+
 		terms.addEventListener( 'input', updateCount );
 		updateCount();
+
+		/* ------------------------------------------------------------ *
+		 * Deck type
+		 *
+		 * An open deck has no class and no lesson. The two controls are
+		 * disabled and dimmed rather than hidden, so the stage keeps its
+		 * height and nothing under the teacher's cursor moves.
+		 * ------------------------------------------------------------ */
+
+		function currentDeckType() {
+			var chosen = root.querySelector( '[data-role="deck-type"] input[type="radio"]:checked' );
+			return chosen && 'open' === chosen.value ? 'open' : 'class';
+		}
+
+		function setDeckType( type ) {
+			Array.prototype.forEach.call( deckTypeInputs, function ( input ) {
+				input.checked = input.value === ( 'open' === type ? 'open' : 'class' );
+			} );
+		}
+
+		/**
+		 * Match the class/lesson controls to the chosen deck type.
+		 *
+		 * @param {boolean} keepValues Leave the current class and lesson in
+		 *                             place — only ever true while restoring a
+		 *                             saved class deck for editing.
+		 */
+		function applyDeckType( keepValues ) {
+			var open = 'open' === currentDeckType();
+
+			if ( ! keepValues && open ) {
+				// Nothing half-chosen is left behind to be submitted, or to
+				// reappear if the teacher switches back.
+				if ( classInput ) {
+					classInput.value = '';
+				}
+				setClass( '' );
+				if ( lessonSelect ) {
+					resetLessons();
+				}
+				if ( lessonWrap ) {
+					lessonWrap.hidden = true;
+				}
+				if ( classHint ) {
+					classHint.hidden = true;
+				}
+			}
+
+			if ( classPair ) {
+				classPair.classList.toggle( 'is-off', open );
+			}
+			[ classInput, lessonSelect ].forEach( function ( field ) {
+				if ( field ) {
+					field.disabled = open;
+				}
+			} );
+		}
+
+		Array.prototype.forEach.call( deckTypeInputs, function ( input ) {
+			input.addEventListener( 'change', function () {
+				applyDeckType( false );
+			} );
+		} );
+		applyDeckType( false );
+
+		/* Which face the students see first. Term unless the deck says
+		   otherwise, matching the server's default. */
+		function currentFrontFace() {
+			var chosen = root.querySelector( '[data-role="front-face"] input[type="radio"]:checked' );
+			return chosen && 'translation' === chosen.value ? 'translation' : 'term';
+		}
+
+		function setFrontFace( face ) {
+			Array.prototype.forEach.call( frontFaceInputs, function ( input ) {
+				input.checked = input.value === ( 'translation' === face ? 'translation' : 'term' );
+			} );
+		}
 
 		function lines() {
 			return terms.value.split( /\r?\n/ ).map( function ( line ) {
@@ -265,6 +417,20 @@
 			return found;
 		}
 
+		/**
+		 * The datalist entry for a class ID, for the reverse lookup edit mode
+		 * needs: the deck stores an id, the field shows a name.
+		 *
+		 * @param {number|string} id Class ID.
+		 * @return {HTMLOptionElement|null}
+		 */
+		function classOptionById( id ) {
+			if ( ! classList || ! id ) {
+				return null;
+			}
+			return classList.querySelector( 'option[data-id="' + String( id ).replace( /[^0-9]/g, '' ) + '"]' );
+		}
+
 		function setClass( id ) {
 			if ( classIdField ) {
 				classIdField.value = id || '';
@@ -347,6 +513,88 @@
 			} ).catch( function () {} );
 		}
 
+		/**
+		 * Attach the deck to a class and load that class's lessons.
+		 *
+		 * Shared by the picker and by edit mode, so a deck reopened for editing
+		 * lands in exactly the state the teacher left it in — including a class
+		 * that has since lost its lessons, which is taken out of play here in
+		 * both directions rather than only when typed.
+		 *
+		 * @param {HTMLOptionElement} option   Datalist entry for the class.
+		 * @param {string}            classId  Class ID.
+		 * @param {Object}            settings suggest: ask for a level for this
+		 *                                     class; lessonId: the lesson to
+		 *                                     select instead of the newest.
+		 */
+		function attachClass( option, classId, settings ) {
+			var opts = settings || {};
+
+			setClass( classId );
+			if ( opts.suggest ) {
+				suggestLevelFor( classId );
+			}
+
+			request( 'classes/' + encodeURIComponent( classId ) + '/lessons' ).then( function ( data ) {
+				var lessons = data.lessons || [];
+
+				if ( ! lessons.length ) {
+					// Nothing to attach to. Say so, and take the class back
+					// out of play rather than leaving a selection that
+					// cannot be saved and does not explain itself.
+					markClassLessonless( option );
+					lessonWrap.hidden = true;
+					classInput.value = '';
+					setClass( '' );
+					// The class is out of play, so a note crediting it
+					// would name a class the teacher can no longer see.
+					showLevelNote( '' );
+					showError( root, i18n.classNoLessons );
+					return;
+				}
+
+				// The route returns lessons newest-first; option 0 is the
+				// most recent, so no client-side sorting is involved.
+				lessonSelect.innerHTML = '';
+				lessons.forEach( function ( lesson ) {
+					var entry = document.createElement( 'option' );
+					entry.value = lesson.id;
+					entry.textContent = lesson.title;
+					lessonSelect.appendChild( entry );
+				} );
+				lessonSelect.selectedIndex = 0;
+				if ( opts.lessonId ) {
+					// The deck's own lesson, when it is still one of the
+					// class's. A lesson deleted since falls back to the
+					// newest, which is what a new deck would get.
+					lessonSelect.value = String( opts.lessonId );
+					if ( '' === lessonSelect.value ) {
+						lessonSelect.selectedIndex = 0;
+					}
+				}
+				lessonWrap.hidden = false;
+			} ).catch( function ( error ) {
+				lessonWrap.hidden = true;
+				setClass( '' );
+				showLevelNote( '' );
+				showError( root, error.message );
+			} );
+		}
+
+		/**
+		 * The lesson the deck is on, as the list chip spells it — or '' when
+		 * the deck is on no lesson at all.
+		 *
+		 * @return {string}
+		 */
+		function lessonLabel() {
+			if ( ! lessonSelect || ! classIdField || ! classIdField.value ) {
+				return '';
+			}
+			var chosen = lessonSelect.options[ lessonSelect.selectedIndex ];
+			return chosen && chosen.value ? chosen.textContent : '';
+		}
+
 		if ( classInput && lessonSelect && lessonWrap ) {
 			// 'change' rather than 'input': it fires both when a suggestion is
 			// picked and when the field is left, so the lessons load once
@@ -385,44 +633,7 @@
 					return;
 				}
 
-				setClass( classId );
-				suggestLevelFor( classId );
-
-				request( 'classes/' + encodeURIComponent( classId ) + '/lessons' ).then( function ( data ) {
-					var lessons = data.lessons || [];
-
-					if ( ! lessons.length ) {
-						// Nothing to attach to. Say so, and take the class back
-						// out of play rather than leaving a selection that
-						// cannot be saved and does not explain itself.
-						markClassLessonless( option );
-						lessonWrap.hidden = true;
-						classInput.value = '';
-						setClass( '' );
-						// The class is out of play, so a note crediting it
-						// would name a class the teacher can no longer see.
-						showLevelNote( '' );
-						showError( root, i18n.classNoLessons );
-						return;
-					}
-
-					// The route returns lessons newest-first; option 0 is the
-					// most recent, so no client-side sorting is involved.
-					lessonSelect.innerHTML = '';
-					lessons.forEach( function ( lesson ) {
-						var option = document.createElement( 'option' );
-						option.value = lesson.id;
-						option.textContent = lesson.title;
-						lessonSelect.appendChild( option );
-					} );
-					lessonSelect.selectedIndex = 0;
-					lessonWrap.hidden = false;
-				} ).catch( function ( error ) {
-					lessonWrap.hidden = true;
-					setClass( '' );
-					showLevelNote( '' );
-					showError( root, error.message );
-				} );
+				attachClass( option, classId, { suggest: true } );
 			} );
 		}
 
@@ -470,7 +681,12 @@
 			request( 'generate', { method: 'POST', body: { terms: terms.value, level: currentLevel() } } ).then( function ( data ) {
 				generateBtn.disabled = false;
 				generateStatus.textContent = '';
-				reviewBody.innerHTML = '';
+				// A fresh deck starts from the generated cards. An edit adds to
+				// the deck's existing ones: generating two more words there is
+				// how a teacher extends a deck, not how they throw it away.
+				if ( ! editingId ) {
+					reviewBody.innerHTML = '';
+				}
 				( data.cards || [] ).forEach( addRow );
 				reviewPanel.hidden = false;
 				resultPanel.hidden = true;
@@ -628,20 +844,49 @@
 			saveBtn.disabled = true;
 			saveStatus.textContent = i18n.saving;
 
-			request( 'sets', {
+			var open = 'open' === currentDeckType();
+			var body = {
+				title: title,
+				deck_type: currentDeckType(),
+				level: currentLevel(),
+				front_face: currentFrontFace(),
+				cards: cards
+			};
+
+			// Omitted, not emptied: the server leaves a column it was sent
+			// nothing for exactly as it was. Sending an empty class here would
+			// detach the deck rather than leave it alone.
+			if ( ! classUnavailable ) {
+				// An open deck carries no class or lesson. The server drops
+				// them anyway; sending them empty keeps the two in step.
+				body.class_id = ( ! open && classIdField ) ? classIdField.value : '';
+				body.lesson_id = ( ! open && lessonSelect ) ? lessonSelect.value : '';
+			}
+
+			// An edited deck is saved over itself, so its id, slug, link and QR
+			// code survive the edit — the whole point of the Edit button.
+			request( editingId ? 'sets/' + encodeURIComponent( editingId ) : 'sets', {
 				method: 'POST',
-				body: {
-					title: title,
-					class_id: classIdField ? classIdField.value : '',
-					lesson_id: lessonSelect ? lessonSelect.value : '',
-					level: currentLevel(),
-					cards: cards
-				}
+				body: body
 			} ).then( function ( data ) {
 				saveBtn.disabled = false;
 				saveStatus.textContent = '';
-				// Saved cards are no longer editable here, so the review panel
-				// closes rather than offering edits that would go nowhere.
+
+				if ( data.updated ) {
+					refreshDeckRow( data.id, {
+						title: title,
+						cards: cards.length,
+						open: open,
+						lesson: lessonLabel(),
+						keepChip: classUnavailable
+					} );
+				}
+
+				// The edit is finished: the banner would otherwise keep
+				// offering to cancel a change that has already been saved.
+				leaveEditMode();
+				// The review panel closes on save, as it always has — stage 3
+				// is the answer to "I pressed save", not another edit surface.
 				reviewPanel.hidden = true;
 
 				if ( resultTitle ) {
@@ -702,6 +947,7 @@
 		   or "Create another deck" once a deck is saved. */
 		function reset() {
 			clearError( root );
+			leaveEditMode();
 			titleInput.value = '';
 			terms.value = '';
 			reviewBody.innerHTML = '';
@@ -710,6 +956,11 @@
 			if ( resultWait ) {
 				resultWait.hidden = false;
 			}
+			// A new deck starts from the defaults, not from the last deck's
+			// answers: a class deck showing its term first.
+			setDeckType( 'class' );
+			applyDeckType( false );
+			setFrontFace( 'term' );
 			setStages( 'active', 'active', 'waiting' );
 			updateCount();
 			titleInput.scrollIntoView( { behavior: 'smooth', block: 'center' } );
@@ -721,6 +972,139 @@
 				button.addEventListener( 'click', reset );
 			}
 		} );
+
+		/* ------------------------------------------------------------ *
+		 * Edit mode
+		 *
+		 * Reached by the Edit button in the deck list, which links to this
+		 * page with the deck's id in the query string. Loading the deck rather
+		 * than rendering it server-side keeps the builder one template: the
+		 * same stages, the same controls, one extra banner.
+		 * ------------------------------------------------------------ */
+
+		function enterEditMode( id, title ) {
+			editingId = id;
+			if ( editingTitle ) {
+				editingTitle.textContent = title;
+			}
+			if ( editingBanner ) {
+				editingBanner.hidden = false;
+			}
+			if ( saveBtn ) {
+				saveBtn.textContent = i18n.saveChanges || saveLabel;
+			}
+		}
+
+		function leaveEditMode() {
+			if ( ! editingId ) {
+				return;
+			}
+			editingId = 0;
+			classUnavailable = false;
+			if ( editingBanner ) {
+				editingBanner.hidden = true;
+			}
+			if ( saveBtn ) {
+				saveBtn.textContent = saveLabel;
+			}
+			// Drop the parameter so a reload does not reopen an edit the
+			// teacher has already finished or abandoned.
+			clearEditParam();
+		}
+
+		function clearEditParam() {
+			if ( ! window.history || ! window.history.replaceState ) {
+				return;
+			}
+			try {
+				var url = new URL( window.location.href );
+				if ( ! url.searchParams.has( EDIT_PARAM ) ) {
+					return;
+				}
+				url.searchParams.delete( EDIT_PARAM );
+				window.history.replaceState( null, '', url.toString() );
+			} catch ( e ) {}
+		}
+
+		/**
+		 * Load a deck back into the builder.
+		 *
+		 * Every field is filled from the saved deck: a save that follows must
+		 * be able to leave anything the teacher did not touch exactly as it
+		 * was, so a blank the loader skipped would quietly erase itself.
+		 *
+		 * @param {number} id Deck ID.
+		 */
+		function loadForEdit( id ) {
+			request( 'sets/' + encodeURIComponent( id ) ).then( function ( data ) {
+				enterEditMode( id, data.title || '' );
+
+				titleInput.value = data.title || '';
+				setDeckType( data.deckType );
+				setFrontFace( data.frontFace );
+				// Keep the class and lesson: they are restored below, and a
+				// class deck must not be cleared on the way in.
+				applyDeckType( true );
+
+				if ( data.level ) {
+					// The band the deck was generated at. It is the deck's own
+					// answer, so a class suggestion must not talk over it.
+					setLevel( data.level );
+					levelChosenByHand = true;
+				}
+
+				classUnavailable = false;
+				if ( 'open' !== data.deckType && data.classId ) {
+					var option = classInput && lessonSelect && lessonWrap ? classOptionById( data.classId ) : null;
+					if ( option ) {
+						classInput.value = option.value;
+						attachClass( option, data.classId, { lessonId: data.lessonId } );
+					} else {
+						// The picker cannot show this class, so the teacher
+						// cannot confirm or change it. Leaving it out of the
+						// save is the only reading that does not throw away an
+						// attachment behind their back.
+						classUnavailable = true;
+					}
+				}
+
+				reviewBody.innerHTML = '';
+				( data.cards || [] ).forEach( addRow );
+				reviewPanel.hidden = false;
+				resultPanel.hidden = true;
+				if ( resultWait ) {
+					resultWait.hidden = false;
+				}
+				// Rows built inside a hidden panel all measure zero, so the
+				// example fields only get their true height once it is shown.
+				growAll();
+				setStages( 'active', 'active', 'waiting' );
+			} ).catch( function ( error ) {
+				clearEditParam();
+				showError( root, error.message );
+			} );
+		}
+
+		var editId = editParam();
+		if ( editId ) {
+			loadForEdit( editId );
+		}
+	}
+
+	/** Query parameter the Edit button uses. Mirrors TBTS_Frontend::EDIT_PARAM. */
+	var EDIT_PARAM = 'tbts_edit';
+
+	/**
+	 * The deck the URL asks to edit, or 0.
+	 *
+	 * @return {number}
+	 */
+	function editParam() {
+		try {
+			var id = parseInt( new URLSearchParams( window.location.search ).get( EDIT_PARAM ), 10 );
+			return id > 0 ? id : 0;
+		} catch ( e ) {}
+		return 0;
 	}
 
 	/* ---------------------------------------------------------------- *
