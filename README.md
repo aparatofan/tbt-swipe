@@ -57,14 +57,18 @@ Since 1.8.0 the two shortcodes are expected to live on **separate pages**: a lib
 [tbt_swipe_generator library="/swipe/"]
 ```
 
+The same two pages can be set once in **wp-admin → TBT → TBT Swipe → Settings**, as **Generator page** and **Library page**, alongside the deck page. That is the easier route: set them there and neither shortcode needs an attribute at all. An attribute still wins over the setting when both are present, which is what lets one site run two libraries pointed at different generators.
+
 | Shortcode | Attribute | Default | Meaning |
 | --- | --- | --- | --- |
-| `[tbt_swipe_sets]` | `generator` | current page | The page holding `[tbt_swipe_generator]`. Where **Create new deck** and every **Edit** link land. |
+| `[tbt_swipe_sets]` | `generator` | Generator page setting, then the current page | The page holding `[tbt_swipe_generator]`. Where **Create new deck** and every **Edit** link land. |
 | `[tbt_swipe_sets]` | `hero` | `no` | Whether to render the built-in Tool Hero. The library has never rendered one, so it stays off unless asked for. |
-| `[tbt_swipe_generator]` | `library` | *(none)* | The page holding `[tbt_swipe_sets]`. Empty means there is no library to return to, and the back link, the draft **Discard** button and the edit-mode **Cancel** target are all left out rather than pointed somewhere wrong. |
+| `[tbt_swipe_generator]` | `library` | Library page setting | The page holding `[tbt_swipe_sets]`. Empty means there is no library to return to, and the back link, the draft **Discard** button and the edit-mode **Cancel** target are all left out rather than pointed somewhere wrong. |
 | `[tbt_swipe_generator]` | `hero` | `yes` | Whether to render the built-in Tool Hero. |
 
 Either attribute accepts a full URL or a site-root-relative path (`/swipe/`). Anything that is not a usable URL is treated as unset. The filters `tbts_generator_url` and `tbts_library_url` override the resolved values site-wide.
+
+> **A library page on its own needs one of the two.** With neither the attribute nor the setting, the generator URL falls back to the current page — correct only when both shortcodes share it. On a library-only page that fallback points at the library itself, so **Create new deck** writes the draft and then returns to the library, which reads as a page that merely refreshed.
 
 **Both shortcodes on one page still works, with no attributes at all.** `generator` falls back to the current page, so an unmigrated `/swipe/` behaves exactly as it did in 1.7.0 — the Create button lands back on the same page in edit mode, and there is no back link because there is no second page to go back to.
 
