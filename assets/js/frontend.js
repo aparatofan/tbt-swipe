@@ -211,6 +211,10 @@
 		var frontFaceInputs = root.querySelectorAll( '[data-role="front-face"] input[type="radio"]' );
 		var editingBanner = role( root, 'editing' );
 		var editingTitle = role( root, 'editing-title' );
+		var discardBtn = role( root, 'discard' );
+		// The library page, when the shortcode was given one. Empty means
+		// there is nowhere to go back to, and Discard stays out of the way.
+		var libraryUrl = root.getAttribute( 'data-library-url' ) || '';
 		var classInput = root.querySelector( '#tbts-fe-class' );
 		var classList = root.querySelector( '#tbts-fe-class-list' );
 		var classIdField = role( root, 'class-id' );
@@ -967,6 +971,26 @@
 			titleInput.focus();
 		}
 
+		if ( discardBtn ) {
+			discardBtn.addEventListener( 'click', function () {
+				if ( ! editingId || ! libraryUrl || ! window.confirm( i18n.confirmDiscard ) ) {
+					return;
+				}
+
+				clearError( root );
+				discardBtn.disabled = true;
+
+				request( 'sets/' + encodeURIComponent( editingId ), { method: 'DELETE' } )
+					.then( function () {
+						window.location.href = libraryUrl;
+					} )
+					.catch( function ( error ) {
+						discardBtn.disabled = false;
+						showError( root, error.message );
+					} );
+			} );
+		}
+
 		[ role( root, 'reset' ), role( root, 'start-over' ) ].forEach( function ( button ) {
 			if ( button ) {
 				button.addEventListener( 'click', reset );
@@ -1003,6 +1027,10 @@
 			classUnavailable = false;
 			if ( editingBanner ) {
 				editingBanner.hidden = true;
+			}
+			if ( discardBtn ) {
+				discardBtn.hidden = true;
+				discardBtn.disabled = false;
 			}
 			if ( saveBtn ) {
 				saveBtn.textContent = saveLabel;
@@ -1070,14 +1098,30 @@
 
 				reviewBody.innerHTML = '';
 				( data.cards || [] ).forEach( addRow );
-				reviewPanel.hidden = false;
+
+				// A deck named in the library's create modal arrives with no
+				// cards. An empty "Check and fix" table with a Save button
+				// under it would put the last step first; what the teacher
+				// does next is compose and generate.
+				var hasCards = !! ( data.cards && data.cards.length );
+				reviewPanel.hidden = ! hasCards;
 				resultPanel.hidden = true;
 				if ( resultWait ) {
 					resultWait.hidden = false;
 				}
-				// Rows built inside a hidden panel all measure zero, so the
-				// example fields only get their true height once it is shown.
-				growAll();
+				if ( hasCards ) {
+					// Rows built inside a hidden panel all measure zero, so
+					// the example fields only get their true height once it
+					// is shown.
+					growAll();
+				}
+
+				// Discard is for drafts alone: deleting a published deck lives
+				// in the library, where the row it removes is in view.
+				if ( discardBtn && libraryUrl && 'published' !== data.status ) {
+					discardBtn.hidden = false;
+				}
+
 				setStages( 'active', 'active', 'waiting' );
 			} ).catch( function ( error ) {
 				clearEditParam();
@@ -1093,6 +1137,26 @@
 
 	/** Query parameter the Edit button uses. Mirrors TBTS_Frontend::EDIT_PARAM. */
 	var EDIT_PARAM = 'tbts_edit';
+
+	/**
+	 * The generator page with a deck marked for editing.
+	 *
+	 * Built through URL so a query string the generator page already carries
+	 * survives having the edit parameter added to it.
+	 *
+	 * @param {string} base Generator page URL.
+	 * @param {number} id   Deck to edit.
+	 * @return {string}
+	 */
+	function editHref( base, id ) {
+		try {
+			var url = new URL( base, window.location.href );
+			url.searchParams.set( EDIT_PARAM, String( id ) );
+			return url.toString();
+		} catch ( e ) {
+			return base + ( -1 === base.indexOf( '?' ) ? '?' : '&' ) + EDIT_PARAM + '=' + encodeURIComponent( id );
+		}
+	}
 
 	/**
 	 * The deck the URL asks to edit, or 0.
@@ -1116,6 +1180,21 @@
 		var qrTarget = role( root, 'qr-target' );
 		var qrTitle = role( root, 'qr-title' );
 
+		// The create dialog is rendered by PHP, hidden, like the QR one. All
+		// this does is open it, guard it and post what it collects.
+		var createModal = role( root, 'create-modal' );
+		var createInput = createModal ? createModal.querySelector( '#tbts-create-input' ) : null;
+		var createError = role( root, 'create-error' );
+		var createSubmit = role( root, 'create-submit' );
+		var createCancel = role( root, 'create-cancel' );
+		var createLabel = createSubmit ? createSubmit.textContent : '';
+		// True from the moment the draft is posted. The dialog refuses to
+		// close while it holds: a teacher who dismissed it mid-flight would be
+		// left on the library with a deck appearing behind them.
+		var createPending = false;
+		// The button that opened the dialog, so focus can go back to it.
+		var createOpener = null;
+
 		root.addEventListener( 'click', function ( event ) {
 			var button = event.target.closest( '[data-role]' );
 			if ( ! button || ! root.contains( button ) ) {
@@ -1132,7 +1211,16 @@
 					modal.hidden = false;
 					break;
 				case 'qr-close':
-					modal.hidden = true;
+					closeModal( modal );
+					break;
+				case 'create':
+					openCreate( button );
+					break;
+				case 'create-cancel':
+					closeModal( createModal );
+					break;
+				case 'create-submit':
+					submitCreate();
 					break;
 				case 'delete':
 					deleteSet( button );
@@ -1140,24 +1228,197 @@
 			}
 		} );
 
-		if ( modal ) {
-			modal.addEventListener( 'click', function ( event ) {
-				if ( event.target === modal ) {
-					modal.hidden = true;
+		/* Which modal is open is a question about the DOM, not a flag to keep
+		   in sync, so Escape and the backdrop ask it rather than each growing
+		   a second copy of themselves. */
+		function openModal() {
+			if ( modal && ! modal.hidden ) {
+				return modal;
+			}
+			if ( createModal && ! createModal.hidden ) {
+				return createModal;
+			}
+			return null;
+		}
+
+		function closeModal( which ) {
+			if ( ! which || which.hidden ) {
+				return;
+			}
+			if ( which === createModal ) {
+				if ( createPending ) {
+					return;
+				}
+				which.hidden = true;
+				if ( createOpener ) {
+					createOpener.focus();
+					createOpener = null;
+				}
+				return;
+			}
+			which.hidden = true;
+		}
+
+		[ modal, createModal ].forEach( function ( which ) {
+			if ( ! which ) {
+				return;
+			}
+			which.addEventListener( 'click', function ( event ) {
+				if ( event.target === which ) {
+					closeModal( which );
 				}
 			} );
-			document.addEventListener( 'keydown', function ( event ) {
-				if ( 'Escape' === event.key ) {
-					modal.hidden = true;
+		} );
+
+		document.addEventListener( 'keydown', function ( event ) {
+			var open = openModal();
+			if ( ! open ) {
+				return;
+			}
+			if ( 'Escape' === event.key ) {
+				closeModal( open );
+				return;
+			}
+			if ( 'Tab' === event.key && open === createModal ) {
+				trapFocus( createModal, event );
+			}
+		} );
+
+		/**
+		 * Keep Tab inside the open dialog. Disabled controls are skipped, so
+		 * the cycle follows what the teacher can actually reach.
+		 */
+		function trapFocus( box, event ) {
+			var candidates = box.querySelectorAll( 'input, button' );
+			var focusable = [];
+			var i;
+
+			for ( i = 0; i < candidates.length; i++ ) {
+				if ( ! candidates[ i ].disabled ) {
+					focusable.push( candidates[ i ] );
+				}
+			}
+			if ( ! focusable.length ) {
+				return;
+			}
+
+			var first = focusable[ 0 ];
+			var last = focusable[ focusable.length - 1 ];
+
+			if ( event.shiftKey && document.activeElement === first ) {
+				event.preventDefault();
+				last.focus();
+			} else if ( ! event.shiftKey && document.activeElement === last ) {
+				event.preventDefault();
+				first.focus();
+			}
+		}
+
+		function openCreate( button ) {
+			if ( ! createModal ) {
+				return;
+			}
+
+			createOpener = button;
+			createPending = false;
+			setCreateError( '' );
+			if ( createInput ) {
+				createInput.value = '';
+			}
+			if ( createCancel ) {
+				createCancel.disabled = false;
+			}
+			if ( createSubmit ) {
+				createSubmit.textContent = createLabel;
+			}
+			syncCreateSubmit();
+
+			createModal.hidden = false;
+			if ( createInput ) {
+				createInput.focus();
+			}
+		}
+
+		/* Nothing to create from an empty title, and nothing to create twice
+		   from one already in flight. */
+		function syncCreateSubmit() {
+			if ( ! createSubmit ) {
+				return;
+			}
+			createSubmit.disabled = createPending || ! createInput || '' === createInput.value.trim();
+		}
+
+		function setCreateError( message ) {
+			if ( ! createError ) {
+				return;
+			}
+			createError.textContent = message;
+			createError.hidden = '' === message;
+		}
+
+		if ( createInput ) {
+			createInput.addEventListener( 'input', syncCreateSubmit );
+			createInput.addEventListener( 'keydown', function ( event ) {
+				if ( 'Enter' === event.key ) {
+					// The input is not in a form, but Enter is what a teacher
+					// reaches for after typing a title.
+					event.preventDefault();
+					submitCreate();
 				}
 			} );
+		}
+
+		function submitCreate() {
+			if ( ! createInput || createPending ) {
+				return;
+			}
+
+			var title = createInput.value.trim();
+			var target = root.getAttribute( 'data-generator-url' ) || '';
+			if ( '' === title || '' === target ) {
+				return;
+			}
+
+			createPending = true;
+			syncCreateSubmit();
+			if ( createCancel ) {
+				createCancel.disabled = true;
+			}
+			if ( createSubmit ) {
+				createSubmit.textContent = i18n.creating || createLabel;
+			}
+			setCreateError( '' );
+
+			request( 'sets/draft', { method: 'POST', body: { title: title } } )
+				.then( function ( data ) {
+					window.location.href = editHref( target, data.id );
+				} )
+				.catch( function ( error ) {
+					createPending = false;
+					if ( createCancel ) {
+						createCancel.disabled = false;
+					}
+					if ( createSubmit ) {
+						createSubmit.textContent = createLabel;
+					}
+					syncCreateSubmit();
+					setCreateError( error.message || i18n.createFailed );
+					createInput.focus();
+				} );
 		}
 
 		/* Rows and groups are found by their behavioural attributes, never by
 		   the class names the design owns. */
 		function deleteSet( button ) {
 			var row = button.closest( '[data-set-id]' );
-			if ( ! row || ! window.confirm( i18n.confirmDelete ) ) {
+			if ( ! row ) {
+				return;
+			}
+
+			// A draft usually holds no cards, so the published wording would
+			// overstate what is about to be lost. The row says which it is.
+			var confirmed = '1' === row.getAttribute( 'data-draft' ) ? i18n.confirmDiscard : i18n.confirmDelete;
+			if ( ! window.confirm( confirmed ) ) {
 				return;
 			}
 

@@ -86,6 +86,27 @@ class TBTS_Manage_Rest {
 			)
 		);
 
+		// A title-only draft, for the library's create modal. Its own route
+		// rather than a flag on the one above: that path requires cards and
+		// publishes what it saves, and both guards have to stay that way.
+		// 'draft' cannot collide with the id route below, which matches
+		// digits only.
+		register_rest_route(
+			self::NS,
+			'/manage/sets/draft',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'permission_callback' => array( $this, 'can_manage' ),
+				'callback'            => array( $this, 'create_draft' ),
+				'args'                => array(
+					'title' => array(
+						'required' => true,
+						'type'     => 'string',
+					),
+				),
+			)
+		);
+
 		// Read, update and delete share one route. The id argument is repeated
 		// per endpoint rather than hoisted: register_rest_route treats a
 		// non-numeric top-level key as a route option, so a shared 'args'
@@ -267,8 +288,53 @@ class TBTS_Manage_Rest {
 				'classId'   => $set->class_id ? (int) $set->class_id : 0,
 				'lessonId'  => $set->lesson_id ? (int) $set->lesson_id : 0,
 				'level'     => (string) $set->level,
+				'status'    => (string) $set->status,
 				'deckUrl'   => TBTS_DB::deck_url( $set ),
 				'cards'     => $cards,
+			)
+		);
+	}
+
+	/**
+	 * Create an empty deck from a title alone.
+	 *
+	 * The create modal asks for nothing else: the deck is named here and
+	 * filled in on the generator page, where the first successful Save
+	 * promotes it to published. No deckUrl comes back — TBTS_Rest answers a
+	 * draft's slug with a 404, so returning one would only invite the client
+	 * to show a share link that silently fails for students.
+	 */
+	public function create_draft( WP_REST_Request $request ) {
+		$title = sanitize_text_field( (string) $request->get_param( 'title' ) );
+
+		if ( '' === $title ) {
+			return new WP_Error(
+				'tbts_no_title',
+				__( 'Give the deck a title.', 'tbt-swipe' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$id = TBTS_DB::save_set( 0, $title, 'draft', array() );
+		if ( is_wp_error( $id ) ) {
+			return $id;
+		}
+
+		// A failed insert comes back as 0 rather than an error, and the client
+		// would navigate to ?tbts_edit=0 and land on an empty generator with
+		// nothing to say for itself. Same guard the save path already carries.
+		if ( ! $id ) {
+			return new WP_Error(
+				'tbts_save_failed',
+				__( 'Couldn\'t create the deck. Try again.', 'tbt-swipe' ),
+				array( 'status' => 500 )
+			);
+		}
+
+		return rest_ensure_response(
+			array(
+				'id'    => (int) $id,
+				'title' => $title,
 			)
 		);
 	}

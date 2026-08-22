@@ -3,8 +3,10 @@
  * The public-facing management page: [tbt_swipe_generator] and
  * [tbt_swipe_sets].
  *
- * Two shortcodes rather than one so they can be split across separate pages
- * later without a code change, even though V1 puts both on /swipe/.
+ * Two shortcodes rather than one so they can live on separate pages: since
+ * 1.8.0 [tbt_swipe_sets] is the library and [tbt_swipe_generator] the
+ * workspace, and they find each other through the generator and library
+ * attributes. Both on one page still works, with no attributes at all.
  *
  * Neither renders anything at all for a user without TBTS_CAP — not even a
  * "no access" notice. Students land on this page too, and there is no reason
@@ -45,23 +47,22 @@ class TBTS_Frontend {
 		 * page. hero="no" suppresses the built-in one so the two do not stack.
 		 * The default stays "yes" so a page that has not been migrated is
 		 * never left without a header.
+		 *
+		 * library names the page holding [tbt_swipe_sets]. Empty means there
+		 * is none to go back to, and every link to one is left out rather
+		 * than pointed somewhere wrong.
 		 */
 		$atts = shortcode_atts(
-			array( 'hero' => 'yes' ),
+			array(
+				'hero'    => 'yes',
+				'library' => '',
+			),
 			is_array( $atts ) ? $atts : array(),
 			self::GENERATOR_SHORTCODE
 		);
 
-		$show_hero = 'yes' === strtolower( trim( (string) $atts['hero'] ) );
-
-		/**
-		 * Filter whether the built-in Tool Hero is rendered.
-		 *
-		 * Returning false suppresses it everywhere without editing pages.
-		 *
-		 * @param bool $show_hero Whether to render the hero.
-		 */
-		$show_hero = (bool) apply_filters( 'tbts_show_hero', $show_hero );
+		$show_hero   = self::show_hero( $atts['hero'] );
+		$library_url = self::library_url( (string) $atts['library'] );
 
 		$user_id = get_current_user_id();
 		$classes = TBTS_Classes::for_teacher( $user_id );
@@ -75,39 +76,35 @@ class TBTS_Frontend {
 
 		ob_start();
 		?>
-		<div class="tbt" id="tbts-fe-generator">
+		<div class="tbt" id="tbts-fe-generator" data-library-url="<?php echo esc_url( $library_url ); ?>">
 		<div class="tbt-page">
 		<div class="tbt-wrap">
 
 			<?php if ( $show_hero ) : ?>
-			<?php
-			/*
-			 * The same header the Matching Game renders, down to the logo URL.
-			 * The title is uppercased by CSS, not in the string, so a
-			 * translation is not forced to shout.
-			 */
-			?>
-			<header class="tbt-hero">
-				<div class="tbt-hero-content">
-					<p class="tbt-hero-eyebrow"><?php esc_html_e( 'The Blue Tree Teacher Tools', 'tbt-swipe' ); ?></p>
-					<h1 class="tbt-hero-title"><?php esc_html_e( 'Swipe', 'tbt-swipe' ); ?></h1>
-					<?php
-					/*
-					 * Two sentences, two lines, two strings: the break is
-					 * structural rather than a <br>, so a translation that
-					 * runs longer still gets its own line.
-					 */
-					?>
-					<p class="tbt-hero-sub">
-						<span><?php esc_html_e( 'Your friendly flashcard tool.', 'tbt-swipe' ); ?></span>
-						<span><?php esc_html_e( 'Words from lessons become decks your students can play on their phones.', 'tbt-swipe' ); ?></span>
-					</p>
-				</div>
-				<img class="tbt-hero-logo"
-					src="https://thebluetree.pl/wp-content/uploads/2020/12/TBT-white-logo.png"
-					alt="<?php esc_attr_e( 'The Blue Tree', 'tbt-swipe' ); ?>"
-					loading="lazy" decoding="async">
-			</header>
+				<?php
+				/*
+				 * Two sentences, two lines, two strings: the break is
+				 * structural rather than a <br>, so a translation that runs
+				 * longer still gets its own line.
+				 */
+				$this->render_hero(
+					array(
+						__( 'Your friendly flashcard tool.', 'tbt-swipe' ),
+						__( 'Words from lessons become decks your students can play on their phones.', 'tbt-swipe' ),
+					)
+				);
+				?>
+			<?php endif; ?>
+
+			<?php if ( '' !== $library_url ) : ?>
+				<?php
+				/*
+				 * A link, not a button: it navigates, it does not act. Left
+				 * out entirely when no library page is configured, so it can
+				 * never lead somewhere that is not there.
+				 */
+				?>
+				<a class="tbt-backlink" href="<?php echo esc_url( $library_url ); ?>"><?php esc_html_e( '← Back to your decks', 'tbt-swipe' ); ?></a>
 			<?php endif; ?>
 
 			<div class="tbt-notice tbt-notice--error" data-role="error" hidden></div>
@@ -124,7 +121,28 @@ class TBTS_Frontend {
 					<?php esc_html_e( 'Editing deck:', 'tbt-swipe' ); ?>
 					<strong data-role="editing-title"></strong>
 				</span>
-				<a class="tbt-editing-cancel" href="<?php echo esc_url( self::builder_url() ); ?>" data-role="cancel-edit"><?php esc_html_e( 'Cancel', 'tbt-swipe' ); ?></a>
+				<span class="tbt-editing-actions">
+					<?php
+					/*
+					 * Cancel leaves for the library when there is one: after a
+					 * discard, and on a page that no longer lists decks, the
+					 * generator is not somewhere to be returned to.
+					 */
+					?>
+					<a class="tbt-editing-cancel" href="<?php echo esc_url( '' !== $library_url ? $library_url : self::builder_url() ); ?>" data-role="cancel-edit"><?php esc_html_e( 'Cancel', 'tbt-swipe' ); ?></a>
+					<?php if ( '' !== $library_url ) : ?>
+						<?php
+						/*
+						 * Drafts only, and JS unhides it once the loaded deck
+						 * says which it is. Deleting a published deck stays in
+						 * the library, where the row it removes is in view.
+						 */
+						?>
+						<button type="button" class="tbt-btn tbt-btn--ghost tbt-btn--danger" data-role="discard" hidden>
+							<?php esc_html_e( 'Discard', 'tbt-swipe' ); ?>
+						</button>
+					<?php endif; ?>
+				</span>
 			</div>
 
 			<section class="tbt-stage" data-stage="1" data-state="active">
@@ -399,12 +417,33 @@ class TBTS_Frontend {
 	 * Server-rendered rather than fetched, so it paints in one pass inside
 	 * Divi with no loading flash.
 	 *
+	 * @param array|string $atts Shortcode attributes.
 	 * @return string
 	 */
-	public function render_sets() {
+	public function render_sets( $atts = array() ) {
 		if ( ! TBTS_Capabilities::user_can_manage() ) {
 			return '';
 		}
+
+		/*
+		 * generator names the page holding [tbt_swipe_generator]. Empty falls
+		 * back to this page, so a site that still carries both shortcodes
+		 * together keeps working with no attribute at all.
+		 *
+		 * The hero defaults to no: the library has never rendered one, and
+		 * defaulting to yes would put a header on every page already live.
+		 */
+		$atts = shortcode_atts(
+			array(
+				'generator' => '',
+				'hero'      => 'no',
+			),
+			is_array( $atts ) ? $atts : array(),
+			self::SETS_SHORTCODE
+		);
+
+		$show_hero     = self::show_hero( $atts['hero'] );
+		$generator_url = self::generator_url( (string) $atts['generator'] );
 
 		// Owner-scoped with no exception — administrators included. wp-admin
 		// stays the place to see everyone's sets.
@@ -413,19 +452,53 @@ class TBTS_Frontend {
 
 		ob_start();
 		?>
-		<div class="tbt" id="tbts-fe-sets">
+		<?php
+		/*
+		 * The generator page goes on the markup rather than into tbtsFe:
+		 * the config is localised once per page load and could not describe
+		 * two libraries pointed at different generators.
+		 */
+		?>
+		<div class="tbt" id="tbts-fe-sets" data-generator-url="<?php echo esc_url( $generator_url ); ?>">
 		<div class="tbt-page">
 		<div class="tbt-wrap">
 
+			<?php if ( $show_hero ) : ?>
+				<?php $this->render_hero( array( __( 'Every deck you have made', 'tbt-swipe' ) ) ); ?>
+			<?php endif; ?>
+
 			<div class="tbt-notice tbt-notice--error" data-role="error" hidden></div>
 
-			<div class="tbt-section-head">
-				<span class="tbt-section-title"><?php esc_html_e( 'Your decks', 'tbt-swipe' ); ?></span>
-				<span class="tbt-group-rule"></span>
+			<div class="tbt-library-head">
+				<div class="tbt-section-head">
+					<span class="tbt-section-title"><?php esc_html_e( 'Your decks', 'tbt-swipe' ); ?></span>
+					<span class="tbt-group-rule"></span>
+				</div>
+				<?php if ( '' !== $generator_url ) : ?>
+					<?php
+					/*
+					 * Only when there is a generator to land on. With nowhere
+					 * to go the button would name a step it cannot take.
+					 */
+					?>
+					<button type="button" class="tbt-btn tbt-btn--primary" data-role="create">
+						<?php esc_html_e( 'Create new deck', 'tbt-swipe' ); ?>
+					</button>
+				<?php endif; ?>
 			</div>
 
 			<?php if ( empty( $sets ) ) : ?>
-				<div class="tbt-empty"><?php esc_html_e( 'No decks yet. Generate your first one above.', 'tbt-swipe' ); ?></div>
+				<div class="tbt-empty">
+					<?php
+					// "Generate your first one above" stopped being true the
+					// moment the generator moved to its own page.
+					if ( '' !== $generator_url ) {
+						esc_html_e( 'No decks yet. Create your first one.', 'tbt-swipe' );
+					} else {
+						esc_html_e( 'No decks yet.', 'tbt-swipe' );
+					}
+					?>
+				</div>
 			<?php else : ?>
 				<?php foreach ( $groups as $group ) : ?>
 					<section class="tbt-group" data-role="group">
@@ -435,7 +508,7 @@ class TBTS_Frontend {
 							<span class="tbt-group-rule"></span>
 						</div>
 						<?php foreach ( $group['sets'] as $set ) : ?>
-							<?php $this->render_set_row( $set ); ?>
+							<?php $this->render_set_row( $set, $generator_url ); ?>
 						<?php endforeach; ?>
 					</section>
 				<?php endforeach; ?>
@@ -446,6 +519,31 @@ class TBTS_Frontend {
 					<p class="tbt-modal-title" data-role="qr-title"></p>
 					<figure class="tbt-qr" data-role="qr-target"></figure>
 					<button type="button" class="tbt-btn tbt-btn--ghost" data-role="qr-close"><?php esc_html_e( 'Close', 'tbt-swipe' ); ?></button>
+				</div>
+			</div>
+
+			<?php
+			/*
+			 * Rendered here rather than built in JS, like the QR modal above:
+			 * every string on this surface stays in PHP where it can be
+			 * translated, and inline markup is what already works inside
+			 * Divi's page structure.
+			 */
+			?>
+			<div class="tbt-modal tbt-modal--form" data-role="create-modal" hidden>
+				<div class="tbt-modal-box tbt-modal-box--form" role="dialog" aria-modal="true"
+					aria-labelledby="tbts-create-title">
+					<h2 class="tbt-modal-title" id="tbts-create-title"><?php esc_html_e( 'Name your new deck', 'tbt-swipe' ); ?></h2>
+					<div class="tbt-field">
+						<label class="tbt-label" for="tbts-create-input"><?php esc_html_e( 'Deck title', 'tbt-swipe' ); ?></label>
+						<input type="text" id="tbts-create-input" class="tbt-input" maxlength="80"
+							autocomplete="off" placeholder="<?php esc_attr_e( 'e.g. Unit 4 — travel', 'tbt-swipe' ); ?>">
+					</div>
+					<p class="tbt-notice tbt-notice--error" data-role="create-error" hidden></p>
+					<div class="tbt-modal-actions">
+						<button type="button" class="tbt-btn tbt-btn--ghost" data-role="create-cancel"><?php esc_html_e( 'Cancel', 'tbt-swipe' ); ?></button>
+						<button type="button" class="tbt-btn tbt-btn--primary" data-role="create-submit"><?php esc_html_e( 'Create', 'tbt-swipe' ); ?></button>
+					</div>
 				</div>
 			</div>
 
@@ -473,10 +571,17 @@ class TBTS_Frontend {
 	 * spine. Only a class deck that lost — or never had — its lesson stays
 	 * violet.
 	 *
-	 * @param object $set Deck row with card_count.
+	 * A draft is a fourth kind, and the only one that loses actions: its slug
+	 * resolves to a URL TBTS_Rest answers with a 404, so Open, Copy link and
+	 * QR code would each hand the teacher a link that silently fails for
+	 * students. Edit and Delete are what a draft is for.
+	 *
+	 * @param object $set           Deck row with card_count.
+	 * @param string $generator_url Page the Edit link points at.
 	 */
-	private function render_set_row( $set ) {
-		$deck_url    = TBTS_DB::deck_url( $set );
+	private function render_set_row( $set, $generator_url = '' ) {
+		$draft       = self::is_draft( $set );
+		$deck_url    = $draft ? '' : TBTS_DB::deck_url( $set );
 		$open        = TBTS_DB::is_open_deck( $set );
 		$lesson_name = ( ! $open && $set->lesson_id ) ? TBTS_Classes::lesson_title( (int) $set->lesson_id ) : '';
 		$unattached  = ! $open && '' === $lesson_name;
@@ -492,7 +597,15 @@ class TBTS_Frontend {
 			$chip_text  = $lesson_name;
 		}
 		?>
-		<div class="tbt-deck<?php echo $unattached ? ' tbt-deck--none' : ''; ?>" data-set-id="<?php echo esc_attr( (int) $set->id ); ?>">
+		<?php
+		/*
+		 * data-draft is what tells the delete handler which confirmation to
+		 * put up: a draft usually holds no cards, so the published wording
+		 * overstates what is about to be lost.
+		 */
+		?>
+		<div class="tbt-deck<?php echo $unattached ? ' tbt-deck--none' : ''; ?><?php echo $draft ? ' tbt-deck--draft' : ''; ?>"
+			data-set-id="<?php echo esc_attr( (int) $set->id ); ?>"<?php echo $draft ? ' data-draft="1"' : ''; ?>>
 			<div class="tbt-deck-body">
 				<?php
 				/*
@@ -525,7 +638,7 @@ class TBTS_Frontend {
 				 */
 				?>
 				<a class="tbt-btn tbt-btn--ghost" data-role="edit"
-					href="<?php echo esc_url( self::edit_url( (int) $set->id ) ); ?>">
+					href="<?php echo esc_url( self::edit_url( (int) $set->id, $generator_url ) ); ?>">
 					<?php esc_html_e( 'Edit', 'tbt-swipe' ); ?>
 				</a>
 				<?php if ( '' !== $deck_url ) : ?>
@@ -560,23 +673,159 @@ class TBTS_Frontend {
 	/**
 	 * The current page with a deck marked for editing.
 	 *
-	 * The deck list and the builder live on the same page in V1, so editing
-	 * reloads the page the teacher is already on. A site that splits the two
-	 * shortcodes can filter this to point at the builder's page instead.
+	 * Built on the generator page the library was given, falling back to the
+	 * current page when it was given none — which is a page still carrying
+	 * both shortcodes, where editing reloads where the teacher already is.
 	 *
-	 * @param int $set_id Deck to edit.
+	 * @param int    $set_id        Deck to edit.
+	 * @param string $generator_url Page holding the generator, or '' for the
+	 *                              current page.
 	 * @return string
 	 */
-	public static function edit_url( $set_id ) {
-		$url = add_query_arg( self::EDIT_PARAM, (int) $set_id, self::builder_url() );
+	public static function edit_url( $set_id, $generator_url = '' ) {
+		$base = '' !== (string) $generator_url ? (string) $generator_url : self::builder_url();
+		$url  = add_query_arg( self::EDIT_PARAM, (int) $set_id, $base );
 
 		/**
 		 * Filter the URL the Edit button points at.
 		 *
-		 * @param string $url    Edit URL.
-		 * @param int    $set_id Deck being edited.
+		 * @param string $url           Edit URL.
+		 * @param int    $set_id        Deck being edited.
+		 * @param string $generator_url Generator page the link was built on,
+		 *                              or '' when the shortcode named none.
 		 */
-		return (string) apply_filters( 'tbts_edit_url', $url, (int) $set_id );
+		return (string) apply_filters( 'tbts_edit_url', $url, (int) $set_id, (string) $generator_url );
+	}
+
+	/**
+	 * A page URL from a shortcode attribute, or '' when there is nothing
+	 * usable in it.
+	 *
+	 * A site-root-relative value is resolved through home_url() first: a site
+	 * owner types "/decks/" into Divi, and esc_url_raw() judges absolute URLs.
+	 * Every caller reads '' as "not set" rather than as a URL.
+	 *
+	 * @param string $value Raw attribute value.
+	 * @return string
+	 */
+	private static function clean_url( string $value ): string {
+		$value = trim( $value );
+		if ( '' === $value ) {
+			return '';
+		}
+
+		// A single leading slash only: "//host/path" is protocol-relative and
+		// already absolute enough for esc_url_raw() to judge.
+		if ( '/' === $value[0] && ( ! isset( $value[1] ) || '/' !== $value[1] ) ) {
+			$value = home_url( $value );
+		}
+
+		return (string) esc_url_raw( $value );
+	}
+
+	/**
+	 * The page holding [tbt_swipe_generator].
+	 *
+	 * Falls back to the current page, so a site that still has both shortcodes
+	 * together keeps working with no attribute set.
+	 *
+	 * @param string $attribute Raw generator attribute.
+	 * @return string
+	 */
+	public static function generator_url( string $attribute = '' ): string {
+		$url = self::clean_url( $attribute );
+		if ( '' === $url ) {
+			$url = self::builder_url();
+		}
+
+		/**
+		 * Filter the URL of the page holding [tbt_swipe_generator].
+		 *
+		 * @param string $url Generator page URL.
+		 */
+		return (string) apply_filters( 'tbts_generator_url', $url );
+	}
+
+	/**
+	 * The page holding [tbt_swipe_sets], or '' when none is configured.
+	 *
+	 * No current-page fallback, unlike the generator: on a shared page a link
+	 * back to the page you are on is noise, and after a discard it would
+	 * return the teacher to the deck they just deleted.
+	 *
+	 * @param string $attribute Raw library attribute.
+	 * @return string
+	 */
+	public static function library_url( string $attribute = '' ): string {
+		$url = self::clean_url( $attribute );
+
+		/**
+		 * Filter the URL of the page holding [tbt_swipe_sets].
+		 *
+		 * @param string $url Library page URL, or '' when there is none.
+		 */
+		return (string) apply_filters( 'tbts_library_url', $url );
+	}
+
+	/**
+	 * Whether the built-in Tool Hero is rendered, from a shortcode attribute.
+	 *
+	 * @param string $attribute Raw hero attribute.
+	 * @return bool
+	 */
+	private static function show_hero( $attribute ) {
+		$show_hero = 'yes' === strtolower( trim( (string) $attribute ) );
+
+		/**
+		 * Filter whether the built-in Tool Hero is rendered.
+		 *
+		 * Returning false suppresses it everywhere without editing pages.
+		 *
+		 * @param bool $show_hero Whether to render the hero.
+		 */
+		return (bool) apply_filters( 'tbts_show_hero', $show_hero );
+	}
+
+	/**
+	 * The Tool Hero, shared by both surfaces.
+	 *
+	 * The same header the Matching Game renders, down to the logo URL. The
+	 * title is uppercased by CSS, not in the string, so a translation is not
+	 * forced to shout. Only the support lines differ between the two pages.
+	 *
+	 * @param string[] $lines Support lines, one <span> each.
+	 */
+	private function render_hero( array $lines ) {
+		?>
+		<header class="tbt-hero">
+			<div class="tbt-hero-content">
+				<p class="tbt-hero-eyebrow"><?php esc_html_e( 'The Blue Tree Teacher Tools', 'tbt-swipe' ); ?></p>
+				<h1 class="tbt-hero-title"><?php esc_html_e( 'Swipe', 'tbt-swipe' ); ?></h1>
+				<p class="tbt-hero-sub">
+					<?php foreach ( $lines as $line ) : ?>
+						<span><?php echo esc_html( $line ); ?></span>
+					<?php endforeach; ?>
+				</p>
+			</div>
+			<img class="tbt-hero-logo"
+				src="https://thebluetree.pl/wp-content/uploads/2020/12/TBT-white-logo.png"
+				alt="<?php esc_attr_e( 'The Blue Tree', 'tbt-swipe' ); ?>"
+				loading="lazy" decoding="async">
+		</header>
+		<?php
+	}
+
+	/**
+	 * Whether a deck is still a draft.
+	 *
+	 * One reading of the column, so the library and the row renderer cannot
+	 * disagree about which decks have a working share link.
+	 *
+	 * @param object $set Deck row.
+	 * @return bool
+	 */
+	private static function is_draft( $set ) {
+		return 'published' !== (string) $set->status;
 	}
 
 	/**
@@ -616,14 +865,25 @@ class TBTS_Frontend {
 	 * "No class" is rendered as an ordinary group — same styling as the rest.
 	 * An unattached deck is a supported state, not an orphan to flag.
 	 *
+	 * Drafts come out first, in a group of their own. A deck the teacher has
+	 * only just named has no class yet, so grouping it by class would put the
+	 * newest thing on the page furthest from where they are looking. The
+	 * heading names them, so the rows carry no separate draft chip.
+	 *
 	 * @param object[] $sets Sets with card_count.
 	 * @return array[] Each array( 'title' => string, 'sets' => object[] ).
 	 */
 	private function group_by_class( $sets ) {
+		$drafts     = array();
 		$attached   = array();
 		$unattached = array();
 
 		foreach ( $sets as $set ) {
+			if ( self::is_draft( $set ) ) {
+				$drafts[] = $set;
+				continue;
+			}
+
 			$class_id = (int) $set->class_id;
 			if ( ! $class_id ) {
 				$unattached[] = $set;
@@ -647,6 +907,16 @@ class TBTS_Frontend {
 			$groups[] = array(
 				'title' => __( 'No class', 'tbt-swipe' ),
 				'sets'  => $unattached,
+			);
+		}
+
+		if ( ! empty( $drafts ) ) {
+			array_unshift(
+				$groups,
+				array(
+					'title' => __( 'Drafts', 'tbt-swipe' ),
+					'sets'  => $drafts,
+				)
 			);
 		}
 

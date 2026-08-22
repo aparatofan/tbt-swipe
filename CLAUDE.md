@@ -26,6 +26,7 @@ Keep this file concise. It is loaded at the start of every Claude Code session.
 
 - The student deck and the teacher management UI are separate surfaces; keep their asset loading separate.
 - `[tbt_swipe]` is the student deck. `[tbt_swipe_generator]` and `[tbt_swipe_sets]` are teacher-management shortcodes.
+- Since 1.8.0 those two are expected to live on **separate pages** — `[tbt_swipe_sets]` is the library, `[tbt_swipe_generator]` the workspace — and find each other through the `generator` and `library` shortcode attributes. Both on one page with no attributes must keep working.
 - TBT Notes and TBT Students are optional integrations. Swipe must still work when either is absent.
 - Never query TBT Notes tables directly; use its public API / bridge methods.
 - Frontend set lists and mutations are owner-scoped, including for administrators. wp-admin is the cross-user oversight surface.

@@ -234,6 +234,11 @@
    controls themselves is what actually keeps them out of the tab order. */
 .tbt-pair.is-off { opacity: .45; pointer-events: none; }
 
+/* ---------- Back link ---------- */
+/* A link, not a button: it navigates, it does not act. */
+.tbt .tbt-backlink { display: inline-block; font-size: 15px; color: var(--tbt-ink-soft); text-decoration: none; margin-bottom: var(--tbt-s4); }
+.tbt .tbt-backlink:hover { color: var(--tbt-blue); text-decoration: underline; }
+
 /* ---------- Edit mode ---------- */
 .tbt-editing {
   display: flex; align-items: center; justify-content: space-between;
@@ -245,6 +250,7 @@
   margin-bottom: var(--tbt-s5);
   font-size: 16px; color: var(--tbt-ink);
 }
+.tbt-editing-actions { display: flex; align-items: center; gap: var(--tbt-s4); flex-wrap: wrap; }
 .tbt .tbt-editing-cancel { font-weight: 600; text-decoration: underline; }
 
 /* ---------- Buttons ----------
@@ -431,6 +437,10 @@
 .tbt-saved-actions { display: flex; gap: var(--tbt-s3); flex-wrap: wrap; align-items: center; }
 
 /* ---------- Library ---------- */
+/* The head row owns the spacing so the title block, which keeps working on
+   its own elsewhere, does not add a second margin inside the flex row. */
+.tbt-library-head { display: flex; justify-content: space-between; align-items: center; gap: var(--tbt-s4); flex-wrap: wrap; margin-bottom: var(--tbt-s5); }
+.tbt-library-head .tbt-section-head { flex: 1 1 260px; margin-bottom: 0; }
 .tbt-section-head { display: flex; align-items: baseline; gap: var(--tbt-s4); margin-bottom: var(--tbt-s5); }
 .tbt-section-title { font-family: var(--tbt-display); font-size: 28px; font-weight: 700; color: var(--tbt-blue); letter-spacing: -.01em; }
 .tbt-group { margin-bottom: var(--tbt-s6); }
@@ -449,6 +459,10 @@
 .tbt-deck:hover { transform: translateY(-2px); box-shadow: var(--tbt-shadow-md); border-color: var(--tbt-periwinkle); border-left-color: var(--tbt-blue-deep); }
 .tbt-deck--none { border-left-color: var(--tbt-violet); }
 .tbt-deck--none:hover { border-left-color: var(--tbt-violet); }
+/* Unfinished, which is what it is — not the violet that already means "class
+   deck with no lesson". It keeps the grey on hover rather than flipping blue. */
+.tbt-deck--draft { border-left-color: var(--tbt-ink-faint); }
+.tbt-deck--draft:hover { border-left-color: var(--tbt-ink-faint); }
 .tbt-deck-body { flex: 1 1 260px; min-width: 0; }
 .tbt-deck-title { font-family: var(--tbt-display); font-size: 19px; font-weight: 600; }
 .tbt-deck-meta { display: flex; align-items: center; gap: var(--tbt-s3); flex-wrap: wrap; font-size: 15px; color: var(--tbt-ink-soft); margin-top: var(--tbt-s2); }
@@ -488,6 +502,12 @@
   display: flex; flex-direction: column; align-items: center; gap: var(--tbt-s4);
 }
 .tbt-modal-title { font-family: var(--tbt-display); font-size: 19px; font-weight: 600; }
+/* The QR box centres everything, which is wrong for a labelled field. The
+   form variant reads left to right and fills the overlay's padded width. */
+.tbt-modal-box--form { text-align: left; align-items: stretch; width: 100%; min-width: min(380px, 100%); max-width: 420px; }
+.tbt-modal-box--form .tbt-field { margin-bottom: 0; }
+.tbt-modal-box--form .tbt-notice { margin-bottom: 0; }
+.tbt-modal-actions { display: flex; justify-content: flex-end; gap: var(--tbt-s3); }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 920px) {
@@ -520,6 +540,9 @@
   .tbt-stack { height: 210px; }
   .tbt-deck-actions { width: 100%; }
   .tbt .tbt-btn--primary, .tbt .tbt-btn--soft { width: 100% !important; }
+  /* The rule above stacks the page's own actions full width. A dialog's two
+     buttons are a pair on one line, so they keep their natural width. */
+  .tbt .tbt-modal-actions .tbt-btn--primary { width: auto !important; }
   .tbt-row-top, .tbt-row-ex { grid-template-columns: minmax(0,1fr) 34px; }
   .tbt-row-top .tbt-row-n { display: none; }
   /* With the row number gone the fields stack in the wide column and the

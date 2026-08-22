@@ -41,14 +41,34 @@ TBT Swipe lives under the **TBT** hub menu (**TBT → TBT Swipe** and **TBT → 
 
 The deck is chosen by the `?deck={slug}` query parameter, which the QR code sets automatically. (We deliberately avoid `?s=` because `s` is WordPress's reserved site-search parameter — using it makes WordPress run a search instead of loading the page.) Assets load only on pages that contain the shortcode.
 
-### `[tbt_swipe_generator]` and `[tbt_swipe_sets]` — the teacher page
+### `[tbt_swipe_generator]` and `[tbt_swipe_sets]` — the teacher pages
+
+Since 1.8.0 the two shortcodes are expected to live on **separate pages**: a library of every deck that exists, and a workspace for building one. They find each other through shortcode attributes, so the URLs are edited in Divi rather than in plugin files.
+
+**The library page** (`/swipe/`, say) lists every deck the teacher owns and holds the **Create new deck** button:
 
 ```
-[tbt_swipe_generator]
-[tbt_swipe_sets]
+[tbt_swipe_sets generator="/swipe/create/"]
 ```
 
-Put both on one page (`/swipe/` is the intended home) so a teacher can build decks and manage them without wp-admin access. They are two shortcodes rather than one so they can be split across separate pages later without a code change.
+**The generator page** (`/swipe/create/`) is the three-stage build flow, with a back link to the library:
+
+```
+[tbt_swipe_generator library="/swipe/"]
+```
+
+| Shortcode | Attribute | Default | Meaning |
+| --- | --- | --- | --- |
+| `[tbt_swipe_sets]` | `generator` | current page | The page holding `[tbt_swipe_generator]`. Where **Create new deck** and every **Edit** link land. |
+| `[tbt_swipe_sets]` | `hero` | `no` | Whether to render the built-in Tool Hero. The library has never rendered one, so it stays off unless asked for. |
+| `[tbt_swipe_generator]` | `library` | *(none)* | The page holding `[tbt_swipe_sets]`. Empty means there is no library to return to, and the back link, the draft **Discard** button and the edit-mode **Cancel** target are all left out rather than pointed somewhere wrong. |
+| `[tbt_swipe_generator]` | `hero` | `yes` | Whether to render the built-in Tool Hero. |
+
+Either attribute accepts a full URL or a site-root-relative path (`/swipe/`). Anything that is not a usable URL is treated as unset. The filters `tbts_generator_url` and `tbts_library_url` override the resolved values site-wide.
+
+**Both shortcodes on one page still works, with no attributes at all.** `generator` falls back to the current page, so an unmigrated `/swipe/` behaves exactly as it did in 1.7.0 — the Create button lands back on the same page in edit mode, and there is no back link because there is no second page to go back to.
+
+Creating a deck from the library asks for a title and nothing else: that writes a **draft** and sends the teacher to the generator page editing it. A draft is grouped under `Drafts` at the top of the library and offers **Edit** and **Delete** only — no Open, Copy link or QR code, because the public deck endpoint answers a draft's URL with a 404 and those links would fail silently for students. The first successful **Save** in the generator publishes the deck, and the share links appear with it. The generator's own title field still creates decks directly, so the modal is the normal route in rather than the only one.
 
 Both render **nothing at all** — not even a "no access" notice — for a visitor without the `tbts_manage` capability. Students land on this page too, and there is no reason to advertise a tool they cannot use.
 
@@ -56,7 +76,7 @@ The page opens with the same blue gradient hero the [TBT Matching Game](https://
 
 The generator runs as three visible stages — Admin, Content, Save and share — all present from first load, with the stage the teacher is on lit up and finished stages marked green. Content runs generate → **review and edit** → save. The review step is the point of the whole page: frontend teachers cannot reach wp-admin, so it is their only chance to fix AI output (grammar, doubled IPA characters) before students see it. There is no card editing after save in this version.
 
-`[tbt_swipe_sets]` is server-rendered rather than fetched, so it paints in one pass inside Divi with no loading flash. It is scoped to the current user's own decks **without exception**, administrators included; wp-admin remains the place to see everyone's decks. Decks are grouped by class, with `No class` last — as an ordinary group, because an unattached deck is a supported state, not an orphan.
+`[tbt_swipe_sets]` is server-rendered rather than fetched, so it paints in one pass inside Divi with no loading flash. It is scoped to the current user's own decks **without exception**, administrators included; wp-admin remains the place to see everyone's decks. Decks are grouped by class, with `Drafts` first and `No class` last — both as ordinary groups, because an unattached deck is a supported state, not an orphan, and a deck the teacher has only just named should not be the furthest thing from where they are looking.
 
 The player and the management UI are separate surfaces: `deck.css` / `deck.js` load only where `[tbt_swipe]` itself is, never on a page holding only the two management shortcodes.
 
