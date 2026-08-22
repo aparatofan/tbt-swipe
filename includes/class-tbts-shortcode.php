@@ -137,6 +137,11 @@ class TBTS_Shortcode {
 					'noCards'       => __( 'Nothing to save yet — generate cards first.', 'tbt-swipe' ),
 					'copied'        => __( 'Copied!', 'tbt-swipe' ),
 					'confirmDelete' => __( 'Delete this deck and all of its cards? This cannot be undone.', 'tbt-swipe' ),
+					'creating'      => __( 'Creating…', 'tbt-swipe' ),
+					'createFailed'  => __( 'Couldn\'t create the deck. Try again.', 'tbt-swipe' ),
+					// A draft usually holds no cards, so confirmDelete would
+					// overstate what discarding one costs.
+					'confirmDiscard' => __( 'Discard this draft? This cannot be undone.', 'tbt-swipe' ),
 					'quota'         => __( 'You\'ve used today\'s generation limit.', 'tbt-swipe' ),
 					'apiError'      => __( 'Couldn\'t generate the cards. Try again.', 'tbt-swipe' ),
 					'staleNonce'    => __( 'Your session has expired. Refresh the page.', 'tbt-swipe' ),
