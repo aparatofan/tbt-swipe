@@ -58,6 +58,27 @@ class TBTS_Settings {
 				'default'           => 0,
 			)
 		);
+		// The two teacher pages. Set here rather than only as shortcode
+		// attributes so a site owner who has split the surfaces across pages
+		// configures them once, in the place they already chose the deck page.
+		register_setting(
+			self::GROUP,
+			'tbts_generator_page_id',
+			array(
+				'type'              => 'integer',
+				'sanitize_callback' => 'absint',
+				'default'           => 0,
+			)
+		);
+		register_setting(
+			self::GROUP,
+			'tbts_library_page_id',
+			array(
+				'type'              => 'integer',
+				'sanitize_callback' => 'absint',
+				'default'           => 0,
+			)
+		);
 		register_setting(
 			self::GROUP,
 			'tbt_swipe_manager_roles',
@@ -152,6 +173,8 @@ class TBTS_Settings {
 		$has_key       = '' !== get_option( 'tbts_api_key', '' );
 		$model         = get_option( 'tbts_model', TBTS_API::DEFAULT_MODEL );
 		$page_id       = (int) get_option( 'tbts_deck_page_id', 0 );
+		$generator_id  = (int) get_option( 'tbts_generator_page_id', 0 );
+		$library_id    = (int) get_option( 'tbts_library_page_id', 0 );
 		$manager_roles = TBTS_Capabilities::managing_roles();
 		$all_roles     = wp_roles()->roles;
 		$max_cards     = TBTS_Generator::max_cards_per_generation();
@@ -200,6 +223,40 @@ class TBTS_Settings {
 							);
 							?>
 							<p class="description"><?php esc_html_e( 'The published page that contains the [tbt_swipe] shortcode. Used to build the deck URL and QR code.', 'tbt-swipe' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="tbts_generator_page_id"><?php esc_html_e( 'Generator page', 'tbt-swipe' ); ?></label></th>
+						<td>
+							<?php
+							wp_dropdown_pages(
+								array(
+									'name'              => 'tbts_generator_page_id',
+									'id'                => 'tbts_generator_page_id',
+									'selected'          => $generator_id,
+									'show_option_none'  => __( '— Select a page —', 'tbt-swipe' ),
+									'option_none_value' => 0,
+								)
+							);
+							?>
+							<p class="description"><?php esc_html_e( 'The published page that contains the [tbt_swipe_generator] shortcode. Where Create new deck and every Edit link in the library land. Leave unset only if both teacher shortcodes share one page.', 'tbt-swipe' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="tbts_library_page_id"><?php esc_html_e( 'Library page', 'tbt-swipe' ); ?></label></th>
+						<td>
+							<?php
+							wp_dropdown_pages(
+								array(
+									'name'              => 'tbts_library_page_id',
+									'id'                => 'tbts_library_page_id',
+									'selected'          => $library_id,
+									'show_option_none'  => __( '— Select a page —', 'tbt-swipe' ),
+									'option_none_value' => 0,
+								)
+							);
+							?>
+							<p class="description"><?php esc_html_e( 'The published page that contains the [tbt_swipe_sets] shortcode. Gives the generator its back link and its Discard action. Leave unset if there is no separate library page.', 'tbt-swipe' ); ?></p>
 						</td>
 					</tr>
 				</table>

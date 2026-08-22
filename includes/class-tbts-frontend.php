@@ -710,6 +710,16 @@ class TBTS_Frontend {
 	 */
 	private static function clean_url( string $value ): string {
 		$value = trim( $value );
+
+		/*
+		 * Divi and wptexturize between them can hand the attribute back with
+		 * its quotes still attached — curly ones especially, which the
+		 * shortcode parser does not recognise as quoting and so leaves inside
+		 * the value. Stripping them turns a silent misresolve into a working
+		 * URL, and costs one pass.
+		 */
+		$value = trim( (string) preg_replace( '/^[\'"\x{201C}\x{201D}\x{2018}\x{2019}]+|[\'"\x{201C}\x{201D}\x{2018}\x{2019}]+$/u', '', $value ) );
+
 		if ( '' === $value ) {
 			return '';
 		}
@@ -726,14 +736,22 @@ class TBTS_Frontend {
 	/**
 	 * The page holding [tbt_swipe_generator].
 	 *
-	 * Falls back to the current page, so a site that still has both shortcodes
-	 * together keeps working with no attribute set.
+	 * Three answers, most specific first: the shortcode attribute, the page
+	 * chosen in settings, then the current page.
+	 *
+	 * The settings tier exists because the current-page fallback is only right
+	 * for a page carrying both shortcodes. On a library-only page it resolved
+	 * to the library itself, so Create wrote a draft and then landed the
+	 * teacher back where they started, looking like a page refresh.
 	 *
 	 * @param string $attribute Raw generator attribute.
 	 * @return string
 	 */
 	public static function generator_url( string $attribute = '' ): string {
 		$url = self::clean_url( $attribute );
+		if ( '' === $url ) {
+			$url = self::page_option_url( 'tbts_generator_page_id' );
+		}
 		if ( '' === $url ) {
 			$url = self::builder_url();
 		}
@@ -758,6 +776,9 @@ class TBTS_Frontend {
 	 */
 	public static function library_url( string $attribute = '' ): string {
 		$url = self::clean_url( $attribute );
+		if ( '' === $url ) {
+			$url = self::page_option_url( 'tbts_library_page_id' );
+		}
 
 		/**
 		 * Filter the URL of the page holding [tbt_swipe_sets].
@@ -765,6 +786,27 @@ class TBTS_Frontend {
 		 * @param string $url Library page URL, or '' when there is none.
 		 */
 		return (string) apply_filters( 'tbts_library_url', $url );
+	}
+
+	/**
+	 * The permalink of a page chosen in settings, or '' when there is none.
+	 *
+	 * Published only, and the same check TBTS_DB::deck_url() makes: a page
+	 * unpublished or deleted since it was picked is not a place to send
+	 * anyone.
+	 *
+	 * @param string $option Option name holding the page ID.
+	 * @return string
+	 */
+	private static function page_option_url( $option ) {
+		$page_id = (int) get_option( $option, 0 );
+		if ( ! $page_id || 'publish' !== get_post_status( $page_id ) ) {
+			return '';
+		}
+
+		$url = get_permalink( $page_id );
+
+		return $url ? (string) $url : '';
 	}
 
 	/**
