@@ -450,6 +450,20 @@ class TBTS_Frontend {
 		$sets   = TBTS_DB::get_sets( get_current_user_id() );
 		$groups = $this->group_by_class( $sets );
 
+		/*
+		 * TBT Hub owns tbt-rail.css. With Hub deactivated the handle is not
+		 * registered, and an unstyled rail would be worse than no rail, so the
+		 * library falls back to the stacked list it has always been. A rail
+		 * with a single destination is noise, hence the second guard.
+		 */
+		$has_rail = wp_style_is( 'tbt-rail', 'registered' ) && count( $groups ) >= 2;
+
+		if ( $has_rail ) {
+			// Enqueued here rather than in TBTS_Shortcode so the generator
+			// page, which has no rail, never loads the stylesheet.
+			wp_enqueue_style( 'tbt-rail' );
+		}
+
 		ob_start();
 		?>
 		<?php
@@ -500,8 +514,59 @@ class TBTS_Frontend {
 					?>
 				</div>
 			<?php else : ?>
-				<?php foreach ( $groups as $group ) : ?>
-					<section class="tbt-group" data-role="group">
+				<?php if ( $has_rail ) : ?>
+					<div class="tbts-library-split">
+						<?php
+						/*
+						 * Clicking a rail item filters the list rather than
+						 * scrolling to a section: a later release adds a
+						 * destination holding decks that are not in the DOM at
+						 * all, which scrolling could not reach.
+						 *
+						 * Rail order is $groups order, deliberately unsorted —
+						 * the most recently taught class stays first.
+						 */
+						?>
+						<nav class="tbt-rail tbts-library-rail" aria-label="<?php esc_attr_e( 'Deck groups', 'tbt-swipe' ); ?>">
+							<div class="tbt-rail__head">
+								<h2 class="tbt-rail__title"><?php esc_html_e( 'Classes', 'tbt-swipe' ); ?></h2>
+							</div>
+							<ul class="tbt-rail__list">
+								<li class="tbt-rail__item">
+									<button type="button" class="tbt-rail__link is-active" data-group-target="all">
+										<span class="tbt-rail__label"><?php esc_html_e( 'All decks', 'tbt-swipe' ); ?></span>
+										<span class="tbt-rail__count"><?php echo esc_html( count( $sets ) ); ?></span>
+									</button>
+								</li>
+								<?php foreach ( $groups as $index => $group ) : ?>
+									<li class="tbt-rail__item">
+										<button type="button" class="tbt-rail__link" data-group-target="<?php echo esc_attr( (string) $index ); ?>">
+											<span class="tbt-rail__label"><?php echo esc_html( $group['title'] ); ?></span>
+											<?php
+											// The bare integer, not
+											// deck_count_label(): "2 decks" is
+											// too long for the count pill and
+											// the group head says it already.
+											?>
+											<span class="tbt-rail__count"><?php echo esc_html( count( $group['sets'] ) ); ?></span>
+										</button>
+									</li>
+								<?php endforeach; ?>
+							</ul>
+						</nav>
+						<div class="tbts-library-main">
+				<?php endif; ?>
+
+				<?php foreach ( $groups as $index => $group ) : ?>
+					<?php
+					/*
+					 * Rail items and sections are matched by their position in
+					 * $groups. Both loops read the same array in the same
+					 * request, so the indices cannot drift. With no rail there
+					 * is nothing to match and the section is what it was.
+					 */
+					?>
+					<section class="tbt-group" data-role="group"<?php if ( $has_rail ) : ?> data-group="<?php echo esc_attr( (string) $index ); ?>"<?php endif; ?>>
 						<div class="tbt-group-head">
 							<span class="tbt-group-name"><?php echo esc_html( $group['title'] ); ?></span>
 							<span class="tbt-group-count"><?php echo esc_html( self::deck_count_label( count( $group['sets'] ) ) ); ?></span>
@@ -512,6 +577,11 @@ class TBTS_Frontend {
 						<?php endforeach; ?>
 					</section>
 				<?php endforeach; ?>
+
+				<?php if ( $has_rail ) : ?>
+						</div><!-- .tbts-library-main -->
+					</div><!-- .tbts-library-split -->
+				<?php endif; ?>
 			<?php endif; ?>
 
 			<div class="tbt-modal" data-role="qr-modal" hidden>
