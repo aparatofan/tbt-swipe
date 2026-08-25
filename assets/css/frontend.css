@@ -509,6 +509,22 @@
 .tbt-modal-box--form .tbt-notice { margin-bottom: 0; }
 .tbt-modal-actions { display: flex; justify-content: flex-end; gap: var(--tbt-s3); }
 
+/* ---------- Library rail ---------- */
+/* Hub owns the rail's appearance; Swipe owns only where it sits. Nothing here
+   restyles .tbt-rail__* internals. */
+.tbts-library-split { display: flex; align-items: flex-start; gap: var(--tbt-s5, 24px); }
+/* Sticky here rather than in Hub: TBT Notes mounts its rail inside a
+   fixed-height app shell and must not become sticky. The rail's own overflow-y
+   only engages once a height is constrained, which is what max-height does. */
+.tbts-library-rail {
+  --tbt-rail-width: 260px;
+  position: sticky; top: var(--tbt-s4, 16px); max-height: calc(100vh - 32px);
+}
+.tbts-library-main { flex: 1 1 auto; min-width: 0; }
+/* The first group head sits level with the rail's first item rather than
+   carrying its usual top margin. */
+.tbts-library-main > .tbt-group:first-child .tbt-group-head { margin-top: 0; }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 920px) {
   .tbt-compose { grid-template-columns: 1fr; gap: var(--tbt-s6); }
@@ -531,6 +547,13 @@
   /* The compose grid is one column here, so the six tiles have the full card
      width and can afford to breathe. */
   .tbt-levels-grid { gap: var(--tbt-s3); }
+}
+@media (max-width: 782px) {
+  .tbts-library-split { display: block; }
+  /* Hub flips the rail to a horizontal strip at this same breakpoint. Sticky
+     and the height cap both have to come off or the strip pins itself over
+     the list. */
+  .tbts-library-rail { position: static; max-height: none; margin-bottom: var(--tbt-s4, 16px); }
 }
 @media (max-width: 580px) {
   .tbt-hero { grid-template-columns: 1fr; gap: 16px; padding: 21px 19px; border-radius: 17px; }
