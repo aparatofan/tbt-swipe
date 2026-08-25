@@ -288,7 +288,17 @@
 			return;
 		}
 		var line = el( 'div', className );
-		line.textContent = text;
+		/* A slash-joined pair such as "przewodniczący/przewodnicząca" is a
+		   single unbreakable word to the line breaker, so a long one runs
+		   past the edge of the face. Marking the slash as a break
+		   opportunity lets it wrap there instead of mid-word. */
+		String( text ).split( '/' ).forEach( function ( part, i ) {
+			if ( i > 0 ) {
+				line.appendChild( document.createTextNode( '/' ) );
+				line.appendChild( document.createElement( 'wbr' ) );
+			}
+			line.appendChild( document.createTextNode( part ) );
+		} );
 		face.appendChild( line );
 	}
 

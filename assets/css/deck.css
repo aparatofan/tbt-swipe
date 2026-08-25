@@ -271,6 +271,8 @@ body.tbts-deck-open {
 	font-size: clamp( 1.7rem, 6vw, 2rem );   /* largest */
 	font-weight: 700;
 	color: var(--tbts-blue);
+	overflow-wrap: break-word;
+	max-width: 100%;
 }
 /* The answer on a translation-first deck is the term, so it keeps the slab
    face it has on the front of a term-first deck. */
