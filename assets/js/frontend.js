@@ -1175,59 +1175,7 @@
 	 * Set list
 	 * ---------------------------------------------------------------- */
 
-	/**
-	 * Library rail — filters the group sections in place.
-	 *
-	 * Presentation only: every group is already server-rendered into the page,
-	 * so a rail item hides the others rather than scrolling to one. A later
-	 * release adds a destination whose decks are not in the DOM at all, which
-	 * scrolling could not reach.
-	 *
-	 * The whole block is guarded on the rail existing, so a page rendered with
-	 * TBT Hub deactivated runs no rail code at all.
-	 *
-	 * @param {HTMLElement} root The library container.
-	 */
-	function initRail( root ) {
-		var rail = root.querySelector( '.tbts-library-rail' );
-		if ( ! rail ) {
-			return;
-		}
-
-		var heading = root.querySelector( '.tbt-section-title' );
-		// Read once, on load. Re-deriving it later would return whichever
-		// class was picked last, not "Your decks".
-		var allHeading = heading ? heading.textContent : '';
-
-		rail.addEventListener( 'click', function ( event ) {
-			var link = event.target.closest( '.tbt-rail__link' );
-			if ( ! link || ! rail.contains( link ) ) {
-				return;
-			}
-
-			var target = link.getAttribute( 'data-group-target' );
-			var all = 'all' === target;
-
-			rail.querySelectorAll( '.tbt-rail__link' ).forEach( function ( other ) {
-				other.classList.toggle( 'is-active', other === link );
-			} );
-
-			root.querySelectorAll( '[data-role="group"]' ).forEach( function ( group ) {
-				group.hidden = ! all && group.getAttribute( 'data-group' ) !== target;
-			} );
-
-			// The label rather than a second copy of the title in JS: the
-			// group names live in PHP, where they can be translated.
-			if ( heading ) {
-				var label = link.querySelector( '.tbt-rail__label' );
-				heading.textContent = all || ! label ? allHeading : label.textContent;
-			}
-		} );
-	}
-
 	function initSets( root ) {
-		initRail( root );
-
 		var modal = role( root, 'qr-modal' );
 		var qrTarget = role( root, 'qr-target' );
 		var qrTitle = role( root, 'qr-title' );
