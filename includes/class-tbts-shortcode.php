@@ -178,7 +178,13 @@ class TBTS_Shortcode {
 		 * The placeholders in 'knewLine', 'allLine' and 'toWorkOn' are
 		 * positional so a translation can reorder them: %1$d / %2$d are
 		 * counts, %s is the already-inflected 'wordOne' or 'wordMany'.
-		 * 'allTitleName' takes one %s, the learner's first name.
+		 *
+		 * 'praise' is an array of interchangeable celebration phrases, one of
+		 * which is chosen at random per screen. They carry no terminal
+		 * punctuation: 'praiseName' adds it, taking %1$s the phrase and %2$s
+		 * the learner's first name, and 'praiseNoName' does the same for an
+		 * account with no name to greet. Rewording 'praise' is safe at any
+		 * length; the two templates are what decide how a phrase is finished.
 		 *
 		 * @param array $strings Key => string, as passed to the player.
 		 */
@@ -193,6 +199,9 @@ class TBTS_Shortcode {
 				'knowIt'     => __( 'Know it', 'tbt-swipe' ),
 				'notYet'     => __( 'Not yet', 'tbt-swipe' ),
 				'tapToFlip'  => __( 'Tap to flip', 'tbt-swipe' ),
+				// The desktop wording of the same hint: there Space flips too,
+				// and the key is invisible unless the card names it.
+				'clickToFlip' => __( 'Click or press Space to flip', 'tbt-swipe' ),
 				'stillLearn' => __( 'Words to work on', 'tbt-swipe' ),
 				'goAgain'    => __( 'Go again', 'tbt-swipe' ),
 				'allKnown'   => __( 'All done — you knew every card!', 'tbt-swipe' ),
@@ -204,12 +213,32 @@ class TBTS_Shortcode {
 				/* translators: 1: number of cards still to learn, 2: the word "word" or "words" */
 				'toWorkOn'   => __( '%1$d %2$s to work on', 'tbt-swipe' ),
 				// The celebration, shown when every card in the deck is known.
-				/* translators: %s: the learner's first name */
-				'allTitleName' => __( '%s, well done!', 'tbt-swipe' ),
-				'allTitle'   => __( 'Well done!', 'tbt-swipe' ),
+				// Ten phrases, rotated so a learner who clears several decks
+				// in a lesson is not congratulated in the same words each
+				// time. Stored without terminal punctuation — the two
+				// templates below add it.
+				'praise'     => array(
+					__( 'Well done', 'tbt-swipe' ),
+					__( 'Nice work', 'tbt-swipe' ),
+					__( 'You rock', 'tbt-swipe' ),
+					__( 'Way to go', 'tbt-swipe' ),
+					__( 'Brilliant', 'tbt-swipe' ),
+					__( 'Keep it up', 'tbt-swipe' ),
+					__( 'Outstanding', 'tbt-swipe' ),
+					__( 'Superb', 'tbt-swipe' ),
+					__( 'That\'s the way', 'tbt-swipe' ),
+					__( 'You did it', 'tbt-swipe' ),
+				),
+				/* translators: 1: a praise phrase, 2: the learner's first name */
+				'praiseName' => __( '%1$s, %2$s!', 'tbt-swipe' ),
+				/* translators: %1$s: a praise phrase */
+				'praiseNoName' => __( '%1$s!', 'tbt-swipe' ),
 				/* translators: 1: cards in the deck, 2: the word "word" or "words" */
 				'allLine'    => __( 'You have just learnt %1$d new %2$s!', 'tbt-swipe' ),
-				'allSub'     => __( 'Keep up the good work!', 'tbt-swipe' ),
+				// The factual stamp under the line, matching 'toWorkOn' on the
+				// sibling screen. The heading does the praising now, and
+				// praising twice on one screen is weaker than praising once.
+				'allSub'     => __( 'Deck complete', 'tbt-swipe' ),
 				'wordOne'    => __( 'word', 'tbt-swipe' ),
 				'wordMany'   => __( 'words', 'tbt-swipe' ),
 			)

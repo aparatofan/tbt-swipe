@@ -151,6 +151,11 @@ class TBTS_Levels {
 	 * model last read it to mean. Concrete ceilings, clause counts, lengths and
 	 * topic ranges are what actually make two levels sound different.
 	 *
+	 * Each band carries two topic ranges, general and business; prompt_block()
+	 * picks between them from the type of English. Only the topics differ —
+	 * the grammar ceiling, the clause count and the length belong to the band
+	 * itself and are the same whichever world the sentence is set in.
+	 *
 	 * @param string $band CEFR band. Re-sanitised here rather than trusted:
 	 *                     this text goes verbatim into the prompt, so a stray
 	 *                     value must not reach the model as an instruction.
@@ -160,40 +165,46 @@ class TBTS_Levels {
 		$band  = self::sanitize( $band );
 		$rules = array(
 			'A1' => array(
-				'grammar' => 'present simple, present continuous, "can", "there is / there are"',
-				'clauses' => 'exactly one clause',
-				'length'  => '6-10 words',
-				'topics'  => 'immediate, concrete, personal — home, family, food, school, the room you are in',
+				'grammar'         => 'present simple, present continuous, "can", "there is / there are"',
+				'clauses'         => 'exactly one clause',
+				'length'          => '6-10 words',
+				'topics_general'  => 'home, food, the journey to work, the weather, the room you are in',
+				'topics_business' => 'the office, colleagues, working hours, a desk, a short email',
 			),
 			'A2' => array(
-				'grammar' => 'past simple, "going to", comparatives',
-				'clauses' => 'one or two clauses',
-				'length'  => '8-13 words',
-				'topics'  => 'everyday routine and the recent past — journeys, shopping, weekends, work and school days',
+				'grammar'         => 'past simple, "going to", comparatives',
+				'clauses'         => 'one or two clauses',
+				'length'          => '8-13 words',
+				'topics_general'  => 'routine and recent past — journeys, shopping, weekends, appointments, the working day',
+				'topics_business' => 'routine work — meetings, deadlines, phone calls, orders, a business trip',
 			),
 			'B1' => array(
-				'grammar' => 'present perfect, first conditional, "used to"',
-				'clauses' => 'two clauses',
-				'length'  => '11-16 words',
-				'topics'  => 'experience, plans and opinions',
+				'grammar'         => 'present perfect, first conditional, "used to"',
+				'clauses'         => 'two clauses',
+				'length'          => '11-16 words',
+				'topics_general'  => 'experience, plans and opinions — adult life, work, travel, decisions',
+				'topics_business' => 'work experience and plans — projects, clients, teams, targets',
 			),
 			'B2' => array(
-				'grammar' => 'passives, second and third conditional, relative clauses',
-				'clauses' => 'two or three clauses',
-				'length'  => '14-20 words',
-				'topics'  => 'abstract, social and hypothetical — issues, consequences, comparisons of ideas',
+				'grammar'         => 'passives, second and third conditional, relative clauses',
+				'clauses'         => 'two or three clauses',
+				'length'          => '14-20 words',
+				'topics_general'  => 'abstract, social and hypothetical — issues, consequences, comparisons of ideas',
+				'topics_business' => 'business issues and consequences — strategy, budgets, negotiation, markets',
 			),
 			'C1' => array(
-				'grammar' => 'subordination, hedging, inversion, nominalisation',
-				'clauses' => 'two to four clauses',
-				'length'  => '16-25 words',
-				'topics'  => 'specialised and evaluative — professional, academic and critical subject matter',
+				'grammar'         => 'subordination, hedging, inversion, nominalisation',
+				'clauses'         => 'two to four clauses',
+				'length'          => '16-25 words',
+				'topics_general'  => 'specialised and evaluative — professional, academic and critical subject matter',
+				'topics_business' => 'reporting, risk, governance, stakeholders, evaluation',
 			),
 			'C2' => array(
-				'grammar' => 'the full range, including marked and literary structures',
-				'clauses' => 'two to four clauses',
-				'length'  => '16-28 words',
-				'topics'  => 'nuanced, allusive and register-sensitive',
+				'grammar'         => 'the full range, including marked and literary structures',
+				'clauses'         => 'two to four clauses',
+				'length'          => '16-28 words',
+				'topics_general'  => 'nuanced, allusive and register-sensitive',
+				'topics_business' => 'board-level argument, diplomacy, implication, understatement',
 			),
 		);
 
@@ -206,13 +217,20 @@ class TBTS_Levels {
 	 * Deliberately not translated: it is instruction text for the model, not
 	 * something a teacher reads.
 	 *
-	 * @param string $band CEFR band, re-sanitised for the same reason as in
-	 *                     rules(): the band code is interpolated into the text
-	 *                     the model reads.
+	 * @param string $band  CEFR band, re-sanitised for the same reason as in
+	 *                      rules(): the band code is interpolated into the text
+	 *                      the model reads.
+	 * @param string $type  Type of English, already sanitised by the caller and
+	 *                      re-sanitised here for the same reason as the band.
+	 * @param int    $count How many items this generation covers. Only Mix reads
+	 *                      it, and only to state the split as a number: left to
+	 *                      itself the model returns 8/2 as readily as 5/5.
 	 * @return string
 	 */
-	public static function prompt_block( $band ) {
+	public static function prompt_block( $band, $type = TBTS_Register::DEFAULT_TYPE, $count = 1 ) {
 		$band  = self::sanitize( $band );
+		$type  = TBTS_Register::sanitize( $type );
+		$count = max( 1, (int) $count );
 		$rules = self::rules( $band );
 		$names = array(
 			'A1' => 'elementary',
@@ -224,13 +242,50 @@ class TBTS_Levels {
 		);
 		$name = $names[ $band ];
 
+		// The topic range is the one part of the block the type of English
+		// changes. The sentence after it is the same whichever range is in
+		// play: it is about the level, not about the domain.
+		$moves = 'The topic moves with the level as much as the grammar does: '
+			. 'if only the grammar changes and the topic stays generic, the levels become indistinguishable.';
+
+		if ( 'general' === $type ) {
+			$topic = "- Topic range: {$rules['topics_general']}. {$moves}\n";
+		} elseif ( 'business' === $type ) {
+			$topic = "- Topic range: {$rules['topics_business']}. {$moves}\n"
+				// Without this, the model manufactures a boardroom for every
+				// word it is handed, and a deck of kitchen vocabulary comes
+				// back as nonsense about procurement.
+				. "- If the item has no natural business use, write the most neutral professional-adjacent "
+				. "sentence rather than forcing a business context around it. A sentence that is merely adult "
+				. "and neutral is better than one that invents a boardroom for a word that does not belong in one.\n";
+		} else {
+			// Business rounds down on an odd count, so a one-item Mix comes
+			// back general. That is the right way round: half of one item is
+			// no item, and general is the safer of the two to land on.
+			$business = intdiv( $count, 2 );
+			$general  = $count - $business;
+
+			$topic = "- Topic range, general contexts: {$rules['topics_general']}.\n"
+				. "- Topic range, business contexts: {$rules['topics_business']}.\n"
+				. "- {$moves}\n"
+				// Stated as a count, not as "about half": asked for a balance
+				// the model returns 8/2 as readily as 5/5.
+				. "- Exactly {$business} of the {$count} items must use a business context and the remaining "
+				. "{$general} must use a general context. Choose which items go in which group yourself, "
+				. "putting items that naturally belong to working life in the business group. "
+				. "Do not mix the two contexts inside a single sentence.\n";
+		}
+
 		return "Level of the example sentences — CEFR {$band} ({$name}):\n"
 			. "- Grammar ceiling: {$rules['grammar']}. Do not use structures above this ceiling.\n"
 			. "- Sentence shape: {$rules['clauses']}.\n"
 			. "- Length: {$rules['length']}. Word counts are guardrails, not targets — a natural sentence "
 			. "a word or two outside the range beats a stilted one inside it.\n"
-			. "- Topic range: {$rules['topics']}. The topic moves with the level as much as the grammar does: "
-			. "if only the grammar changes and the topic stays generic, the levels become indistinguishable.\n"
+			. $topic
+			// The learners are adults on every band and in every type. The old
+			// A1 and A2 topic lists said "school", and the model duly wrote for
+			// children; the lists no longer do, and this says so outright.
+			. "- The learners are adults. Do not write sentences pitched at children or about school life.\n"
 			// Verbatim, and load-bearing: without it the model quietly swaps a
 			// hard target item for an easier synonym and the card teaches
 			// nothing.

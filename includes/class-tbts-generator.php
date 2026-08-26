@@ -137,11 +137,16 @@ class TBTS_Generator {
 	 *                          a bad level is never worth losing a generation
 	 *                          over, and B1 is what every deck was generated at
 	 *                          before the picker existed.
+	 * @param string $type      Type of English for the example sentences.
+	 *                          Falls back to Mix on the same reasoning, and for
+	 *                          the extra one that Mix is the only value that is
+	 *                          never simply wrong for a deck nobody chose for.
 	 * @return array|WP_Error List of ['term','ipa','translation','example'].
 	 */
-	public static function generate( $raw_terms, $user_id, $level = TBTS_Levels::DEFAULT_BAND ) {
+	public static function generate( $raw_terms, $user_id, $level = TBTS_Levels::DEFAULT_BAND, $type = TBTS_Register::DEFAULT_TYPE ) {
 		$user_id = (int) $user_id;
 		$level   = TBTS_Levels::sanitize( $level );
+		$type    = TBTS_Register::sanitize( $type );
 
 		if ( ! TBTS_Capabilities::user_can_manage( $user_id ) ) {
 			return new WP_Error(
@@ -186,7 +191,7 @@ class TBTS_Generator {
 			);
 		}
 
-		$cards = TBTS_API::generate( $terms, $level );
+		$cards = TBTS_API::generate( $terms, $level, $type );
 
 		if ( is_wp_error( $cards ) ) {
 			// Quota is untouched: nothing usable came back. The many ways the
@@ -205,6 +210,8 @@ class TBTS_Generator {
 		self::increment_count( $user_id );
 
 		// The picker opens on this next time, when no class suggests one.
+		// The type of English has no such memory on purpose: it always opens
+		// on Mix, so there is nothing to remember.
 		TBTS_Levels::remember( $user_id, $level );
 
 		return $cards;

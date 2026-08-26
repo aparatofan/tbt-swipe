@@ -72,6 +72,10 @@ class TBTS_Manage_Rest {
 						'required' => false,
 						'type'     => 'string',
 					),
+					'english_type' => array(
+						'required' => false,
+						'type'     => 'string',
+					),
 				),
 			)
 		);
@@ -228,14 +232,16 @@ class TBTS_Manage_Rest {
 
 	/**
 	 * Generate cards. Every limit is enforced inside TBTS_Generator, before
-	 * the API call — the level included: an unrecognised band falls back to
-	 * B1 there rather than failing the request.
+	 * the API call — the level and the type of English included: an
+	 * unrecognised band falls back to B1 there, an unrecognised type to Mix,
+	 * rather than failing the request.
 	 */
 	public function generate( WP_REST_Request $request ) {
 		$cards = TBTS_Generator::generate(
 			(string) $request->get_param( 'terms' ),
 			get_current_user_id(),
-			(string) $request->get_param( 'level' )
+			(string) $request->get_param( 'level' ),
+			(string) $request->get_param( 'english_type' )
 		);
 
 		if ( is_wp_error( $cards ) ) {
@@ -281,16 +287,17 @@ class TBTS_Manage_Rest {
 
 		return rest_ensure_response(
 			array(
-				'id'        => (int) $set->id,
-				'title'     => $set->title,
-				'deckType'  => TBTS_DB::normalise_deck_type( $set->deck_type ),
-				'frontFace' => TBTS_DB::normalise_front_face( $set->front_face ),
-				'classId'   => $set->class_id ? (int) $set->class_id : 0,
-				'lessonId'  => $set->lesson_id ? (int) $set->lesson_id : 0,
-				'level'     => (string) $set->level,
-				'status'    => (string) $set->status,
-				'deckUrl'   => TBTS_DB::deck_url( $set ),
-				'cards'     => $cards,
+				'id'          => (int) $set->id,
+				'title'       => $set->title,
+				'deckType'    => TBTS_DB::normalise_deck_type( $set->deck_type ),
+				'frontFace'   => TBTS_DB::normalise_front_face( $set->front_face ),
+				'classId'     => $set->class_id ? (int) $set->class_id : 0,
+				'lessonId'    => $set->lesson_id ? (int) $set->lesson_id : 0,
+				'level'       => (string) $set->level,
+				'englishType' => (string) $set->english_type,
+				'status'      => (string) $set->status,
+				'deckUrl'     => TBTS_DB::deck_url( $set ),
+				'cards'       => $cards,
 			)
 		);
 	}
@@ -417,11 +424,17 @@ class TBTS_Manage_Rest {
 
 		// The level the cards were generated at, stored on the deck. Nothing
 		// reads it back yet; it is here so a later regenerate or deck listing
-		// does not have to guess.
+		// does not have to guess. The type of English rides along for the same
+		// reason, and null the same way: an unrecognised value means the deck
+		// records no type, not that it records Mix.
 		$extra          = $attachment;
 		$extra['level'] = TBTS_Levels::normalise( $request->get_param( 'level' ) );
 		if ( '' === $extra['level'] ) {
 			$extra['level'] = null;
+		}
+		$extra['english_type'] = TBTS_Register::normalise( $request->get_param( 'english_type' ) );
+		if ( '' === $extra['english_type'] ) {
+			$extra['english_type'] = null;
 		}
 		$extra['deck_type']  = $deck_type;
 		$extra['front_face'] = TBTS_DB::normalise_front_face( $request->get_param( 'front_face' ) );

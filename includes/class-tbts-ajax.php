@@ -33,7 +33,12 @@ class TBTS_Ajax {
 
 		$raw   = isset( $_POST['terms'] ) ? wp_unslash( $_POST['terms'] ) : '';
 		$level = isset( $_POST['level'] ) ? sanitize_text_field( wp_unslash( $_POST['level'] ) ) : '';
-		$cards = TBTS_Generator::generate( $raw, get_current_user_id(), $level );
+		// wp-admin has no type picker, so in practice this is always absent and
+		// falls back to Mix. It is read anyway: the two surfaces share one
+		// generation path, and a parameter only one of them can send is how
+		// they start to diverge.
+		$type  = isset( $_POST['english_type'] ) ? sanitize_text_field( wp_unslash( $_POST['english_type'] ) ) : '';
+		$cards = TBTS_Generator::generate( $raw, get_current_user_id(), $level, $type );
 
 		if ( is_wp_error( $cards ) ) {
 			wp_send_json_error(

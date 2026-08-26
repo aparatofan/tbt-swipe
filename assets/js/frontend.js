@@ -222,8 +222,9 @@
 		var lessonSelect = root.querySelector( '#tbts-fe-lesson' );
 		var lessonWrap = role( root, 'lesson-wrap' );
 		var terms = root.querySelector( '#tbts-fe-terms' );
-		var levelInputs = root.querySelectorAll( '.tbt-level-input' );
+		var levelInputs = root.querySelectorAll( '[data-role="levels"] .tbt-level-input' );
 		var levelNote = role( root, 'level-note' );
+		var typeInputs = root.querySelectorAll( '.tbt-type-input' );
 		var stack = role( root, 'stack' );
 		var stackTerm = role( root, 'stack-term' );
 		var stackCount = role( root, 'stack-count' );
@@ -457,13 +458,27 @@
 		var levelChosenByHand = false;
 
 		function currentLevel() {
-			var chosen = root.querySelector( '.tbt-level-input:checked' );
+			var chosen = root.querySelector( '[data-role="levels"] .tbt-level-input:checked' );
 			return chosen ? chosen.value : '';
 		}
 
 		function setLevel( band ) {
 			Array.prototype.forEach.call( levelInputs, function ( input ) {
 				input.checked = input.value === band;
+			} );
+		}
+
+		/* The type of English, alongside the level. No chosenByHand flag and no
+		   note: nothing suggests a type, so there is nothing that could talk
+		   over the teacher's choice and nothing to explain where it came from. */
+		function currentType() {
+			var chosen = root.querySelector( '.tbt-type-input:checked' );
+			return chosen ? chosen.value : '';
+		}
+
+		function setType( type ) {
+			Array.prototype.forEach.call( typeInputs, function ( input ) {
+				input.checked = input.value === type;
 			} );
 		}
 
@@ -682,7 +697,7 @@
 			generateBtn.disabled = true;
 			generateStatus.textContent = i18n.generating;
 
-			request( 'generate', { method: 'POST', body: { terms: terms.value, level: currentLevel() } } ).then( function ( data ) {
+			request( 'generate', { method: 'POST', body: { terms: terms.value, level: currentLevel(), english_type: currentType() } } ).then( function ( data ) {
 				generateBtn.disabled = false;
 				generateStatus.textContent = '';
 				// A fresh deck starts from the generated cards. An edit adds to
@@ -853,6 +868,7 @@
 				title: title,
 				deck_type: currentDeckType(),
 				level: currentLevel(),
+				english_type: currentType(),
 				front_face: currentFrontFace(),
 				cards: cards
 			};
@@ -1079,6 +1095,13 @@
 					// answer, so a class suggestion must not talk over it.
 					setLevel( data.level );
 					levelChosenByHand = true;
+				}
+
+				// A deck saved before the type picker existed records no type,
+				// so the picker keeps the Mix it opened on rather than claiming
+				// the deck was generated at Mix.
+				if ( data.englishType ) {
+					setType( data.englishType );
 				}
 
 				classUnavailable = false;

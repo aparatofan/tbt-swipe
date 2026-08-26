@@ -205,6 +205,11 @@
   border-color: var(--tbts-level-on-line); box-shadow: var(--tbts-level-ring);
 }
 .tbt-level-note { margin-top: var(--tbt-s3) !important; }
+/* The type picker is the level picker with three tiles instead of six. Each
+   tile carries its label in the .tbt-level-code slot and nothing under it —
+   a type has no second line to give, and an empty .tbt-level-name would open
+   a gap the level tiles do not have. */
+.tbt-types-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
 /* ---------- Plain radio rows (deck type, first face) ----------
    Two-choice options that need no tile treatment: a native radio next to its
@@ -557,4 +562,8 @@
   /* Two rows of three rather than six squeezed tiles: at this width a sixth
      of the card is narrower than the word "pre-intermediate". */
   .tbt-levels-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* The type tiles were already three across, so they only need the label to
+     fit: a third of the card here is narrower than "Business" at 16px. The
+     label is not abbreviated — it is the whole tile, so it has to read. */
+  .tbt-types-grid .tbt-level-code { font-size: 14px; }
 }
