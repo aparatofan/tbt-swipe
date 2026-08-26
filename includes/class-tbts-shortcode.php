@@ -193,6 +193,9 @@ class TBTS_Shortcode {
 				'knowIt'     => __( 'Know it', 'tbt-swipe' ),
 				'notYet'     => __( 'Not yet', 'tbt-swipe' ),
 				'tapToFlip'  => __( 'Tap to flip', 'tbt-swipe' ),
+				// The desktop wording of the same hint: there Space flips too,
+				// and the key is invisible unless the card names it.
+				'clickToFlip' => __( 'Click or press Space to flip', 'tbt-swipe' ),
 				'stillLearn' => __( 'Words to work on', 'tbt-swipe' ),
 				'goAgain'    => __( 'Go again', 'tbt-swipe' ),
 				'allKnown'   => __( 'All done — you knew every card!', 'tbt-swipe' ),

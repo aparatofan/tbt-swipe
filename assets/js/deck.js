@@ -232,7 +232,15 @@
 			btn.appendChild( arrow );
 		}
 
-		btn.addEventListener( 'click', function () { commit( dir ); } );
+		btn.addEventListener( 'click', function ( e ) {
+			// e.detail is 0 for keyboard activation and >0 for a real pointer
+			// click. A mouse user never wanted focus here; a keyboard user
+			// needs to keep it.
+			if ( e.detail > 0 ) {
+				btn.blur();
+			}
+			commit( dir );
+		} );
 
 		return { el: btn, label: label, arrow: arrow };
 	}
@@ -326,7 +334,10 @@
 		}
 
 		var hint = el( 'div', 'tbts-flip-hint' );
-		hint.textContent = i18n.tapToFlip;
+		// Written once per card render. A resize across the breakpoint
+		// mid-card leaves this hint stale until the next card, which is
+		// cheaper than keeping a resize hook alive for the whole deck.
+		hint.textContent = isDesktop() ? i18n.clickToFlip : i18n.tapToFlip;
 		front.appendChild( hint );
 
 		inner.appendChild( front );
@@ -694,6 +705,19 @@
 		} else if ( e.key === 'ArrowDown' ) {
 			e.preventDefault();
 			commit( 'down' );
+		} else if ( e.key === ' ' || e.key === 'Spacebar' ) {
+			// Space is the browser's own activator for a focused control, and a
+			// keyboard user who has tabbed to a zone button is entitled to it.
+			// Only the arrows are unconditional — they have never activated a
+			// button, so they need no such deference.
+			var active = document.activeElement;
+			if ( active && /^(BUTTON|A|INPUT|TEXTAREA|SELECT)$/.test( active.tagName ) ) {
+				return;
+			}
+			// The deck is a fixed overlay, but Space still scrolls in some
+			// contexts.
+			e.preventDefault();
+			flip();
 		}
 	}
 
