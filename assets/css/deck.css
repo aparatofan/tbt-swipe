@@ -460,7 +460,7 @@ body.tbts-deck-open {
 
 /* The burst sits over the whole deck and under the celebration, and is
    removed the moment it has finished. */
-.tbts-confetti {
+.tbts-fx {
 	position: absolute;
 	inset: 0;
 	z-index: 0;
@@ -493,6 +493,23 @@ body.tbts-deck-open {
 }
 .tbts-celebrate.is-entrance .tbts-end-actions {
 	animation: tbts-rise 460ms ease-out 440ms both;
+}
+/* The learner's name, one span per character. Each carries its own delay
+   inline, which is why the shorthand's own delay here is irrelevant — an
+   inline style outranks it. JS does not split the name at all under reduced
+   motion, so in that case none of these elements exist. */
+.tbts-name {
+	/* The characters are atomic inline boxes, and a line could otherwise
+	   break between any two of them and split the name mid-word. Spaces are
+	   non-breaking already, so this only restores how the name behaved as a
+	   single text node. */
+	white-space: nowrap;
+}
+.tbts-name-ch {
+	display: inline-block;
+}
+.tbts-celebrate.is-entrance .tbts-name-ch {
+	animation: tbts-rise 460ms ease-out both;
 }
 
 /* ---- The summary tile: a fourth card face (desktop only) ----
@@ -810,6 +827,7 @@ body.tbts-deck-open {
 	.tbts-celebrate.is-entrance .tbts-beat-head,
 	.tbts-celebrate.is-entrance .tbts-beat-line,
 	.tbts-celebrate.is-entrance .tbts-beat-sub,
+	.tbts-celebrate.is-entrance .tbts-name-ch,
 	.tbts-celebrate.is-entrance .tbts-end-actions {
 		animation: none;
 	}

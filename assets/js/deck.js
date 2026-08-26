@@ -791,8 +791,15 @@
 	function buildBeat( heading, line, sub ) {
 		var beat = el( 'div', 'tbts-beat' );
 
-		var h = el( 'h2', 'tbts-beat-head' );
-		h.textContent = heading;
+		// A string for every beat but the celebration, which builds its own
+		// <h2> so the learner's name can be split into per-character spans.
+		var h;
+		if ( heading && heading.nodeType ) {
+			h = heading;
+		} else {
+			h = el( 'h2', 'tbts-beat-head' );
+			h.textContent = heading;
+		}
 		beat.appendChild( h );
 
 		var l = el( 'div', 'tbts-beat-line' );
@@ -838,10 +845,11 @@
 	}
 
 	/* Every card known: the one screen in the deck that is purely a reward.
-	   A medal, the learner's own name, what they have just done, and a
-	   confetti burst over it. The name comes from the WordPress account —
-	   learners are always signed in — and an account with neither a first
-	   nor a display name simply gets the greeting without one. */
+	   A medal, a rotating word of praise, the learner's own name arriving a
+	   letter at a time, what they have just done, and fireworks over it. The
+	   name comes from the WordPress account — learners are always signed in —
+	   and an account with neither a first nor a display name simply gets the
+	   greeting without one. */
 	function renderAllKnown() {
 		var name = typeof cfg.learnerName === 'string' ? cfg.learnerName : '';
 
@@ -851,7 +859,7 @@
 		}
 
 		var beat = buildBeat(
-			name ? fmt( i18n.allTitleName, [ name ] ) : i18n.allTitle,
+			buildPraiseHead( pickPraise(), name ),
 			fmt( i18n.allLine, [ fullDeck.length, plural( fullDeck.length ) ] ),
 			i18n.allSub
 		);
@@ -873,8 +881,109 @@
 
 		// Reduced motion gets the same celebration, held still.
 		if ( ! reducedMotion ) {
-			fireConfetti();
+			fireFireworks();
 		}
+	}
+
+	/* ---- The praise heading ----
+	   The phrase rotates, and the name arrives a character at a time under
+	   it. Only the name is split: the phrase and the punctuation around it
+	   stay ordinary text, so a reworded template needs nothing from here. */
+
+	// The index used last, so the same phrase does not land twice running.
+	// Deliberately not persisted: the player is stateless by design, and a
+	// repeated word of praise is not the thing to break that for.
+	var lastPraise = -1;
+
+	// The name starts arriving just after the heading itself has risen.
+	var NAME_DELAY = 340;      // ms before the first character
+	var NAME_STEP = 55;        // ms between characters
+	var NAME_STEP_LONG = 40;   // ...and for a name that would otherwise run
+	var NAME_LONG = 12;        //    past the fireworks
+
+	function pickPraise() {
+		var list = i18n.praise;
+		if ( ! list || ! list.length ) {
+			// Nothing to rotate through: the heading falls back to the name
+			// alone, and to nothing at all for an account without one.
+			return '';
+		}
+		var i = Math.floor( Math.random() * list.length );
+		// One re-roll, not a loop: it cannot repeat twice in a row, and a
+		// one-entry list would spin forever on anything stricter.
+		if ( i === lastPraise ) {
+			i = Math.floor( Math.random() * list.length );
+		}
+		lastPraise = i;
+		return list[ i ] || list[ 0 ] || '';
+	}
+
+	/* The name as one span per character.
+
+	   The wrapper carries the plain name as its aria-label and every
+	   character is aria-hidden, so the name is still announced as one word
+	   and still selects as one. */
+	function buildName( name ) {
+		var wrap = el( 'span', 'tbts-name' );
+		wrap.setAttribute( 'aria-label', name );
+
+		var chars = name.split( '' );
+		var step = chars.length > NAME_LONG ? NAME_STEP_LONG : NAME_STEP;
+
+		chars.forEach( function ( ch, i ) {
+			var c = el( 'span', 'tbts-name-ch' );
+			c.setAttribute( 'aria-hidden', 'true' );
+			// An ordinary space collapses to nothing between inline-blocks,
+			// so a two-part name needs a non-breaking one to keep its gap.
+			c.textContent = ' ' === ch ? '\u00A0' : ch;
+			c.style.animationDelay = ( NAME_DELAY + i * step ) + 'ms';
+			wrap.appendChild( c );
+		} );
+
+		return wrap;
+	}
+
+	/* fmt(), but a value may be a node: the text around it becomes text
+	   nodes, so the name can carry its own spans inside a template a site
+	   owner is free to reword. */
+	function fillNodes( parent, tpl, vals ) {
+		var text = String( tpl || '' );
+		var re = /%(?:(\d+)\$)?[ds]/g;
+		var next = 0;
+		var last = 0;
+		var m;
+
+		while ( ( m = re.exec( text ) ) !== null ) {
+			if ( m.index > last ) {
+				parent.appendChild( document.createTextNode( text.slice( last, m.index ) ) );
+			}
+			var v = vals[ m[ 1 ] ? m[ 1 ] - 1 : next++ ];
+			parent.appendChild( v && v.nodeType ? v : document.createTextNode( String( v ) ) );
+			last = m.index + m[ 0 ].length;
+		}
+		if ( last < text.length ) {
+			parent.appendChild( document.createTextNode( text.slice( last ) ) );
+		}
+	}
+
+	function buildPraiseHead( phrase, name ) {
+		var head = el( 'h2', 'tbts-beat-head' );
+
+		// Under reduced motion the name is not split at all: one plain text
+		// node, exactly as this worked before. Simpler and safer than
+		// splitting it and then suppressing what the split was for.
+		var nameNode = ( name && ! reducedMotion ) ? buildName( name ) : name;
+
+		if ( phrase && name ) {
+			fillNodes( head, i18n.praiseName, [ phrase, nameNode ] );
+		} else if ( phrase ) {
+			fillNodes( head, i18n.praiseNoName, [ phrase ] );
+		} else if ( name ) {
+			// No phrase to be had, so the name greets on its own.
+			head.appendChild( nameNode && nameNode.nodeType ? nameNode : document.createTextNode( name ) );
+		}
+
+		return head;
 	}
 
 	/* A medal: a disc on a ribbon, with the tick the learner just earned.
@@ -911,20 +1020,25 @@
 		return wrap;
 	}
 
-	/* ---- Confetti ----
-	   One canvas over the whole deck, ~2.5s, then gone. No library: a burst
-	   this small is a few dozen lines of physics, and the player has no CDN
-	   to fetch one from. The caller gates this on reduced motion. */
-	var CONFETTI_MS = 2500;      // total run
-	var CONFETTI_FADE = 600;     // ms of fade at the tail of each particle
-	var CONFETTI_GRAV = 0.0016;  // px/ms²
+	/* ---- Fireworks ----
+	   One canvas over the whole deck, ~4.2s, then gone. No library: shells
+	   that rise and burst are a few dozen lines of physics, and the player
+	   has no CDN to fetch one from. The caller gates this on reduced motion. */
+	var FX_MS = 4200;        // total run, after which the canvas is removed
+	var FX_FADE = 500;       // ms of fade at the tail of each spark
+	var FX_GRAV = 0.00055;   // px/ms²
+	var FX_DRAG = 0.992;     // velocity multiplier per ms
+	// Roughly a shell every half second, jittered so the rhythm is not a
+	// metronome. Six entries; the phone launches the first five.
+	var FX_LAUNCH = [ 0, 450, 900, 1250, 1700, 2200 ];
+	var FX_JITTER = 120;     // ± ms around each launch time
 
-	function fireConfetti() {
+	function fireFireworks() {
 		if ( ! root || ! window.requestAnimationFrame ) {
 			return;
 		}
 
-		var canvas = el( 'canvas', 'tbts-confetti' );
+		var canvas = el( 'canvas', 'tbts-fx' );
 		var ctx = canvas.getContext ? canvas.getContext( '2d' ) : null;
 		if ( ! ctx ) {
 			return;
@@ -940,6 +1054,7 @@
 		canvas.style.height = h + 'px';
 		canvas.setAttribute( 'aria-hidden', 'true' );
 		ctx.scale( dpr, dpr );
+		ctx.lineCap = 'round';
 		root.appendChild( canvas );
 
 		// White reads on the phone's blue field and disappears on the light
@@ -953,27 +1068,58 @@
 			'#CC9933'
 		];
 
-		var count = Math.max( 70, Math.min( 150, Math.round( w / 9 ) ) );
-		var parts = [];
-		for ( var i = 0; i < count; i++ ) {
-			// A fan upward and outward from behind the medal, which gravity
-			// then turns over into a fall.
-			var ang = ( -165 + Math.random() * 150 ) * Math.PI / 180;
-			var speed = 0.30 + Math.random() * 0.55;
-			parts.push( {
-				x: w / 2 + ( Math.random() - 0.5 ) * ( w * 0.3 ),
-				y: h * 0.36 + ( Math.random() - 0.5 ) * 40,
-				vx: Math.cos( ang ) * speed,
-				vy: Math.sin( ang ) * speed,
-				rot: Math.random() * Math.PI,
-				vrot: ( Math.random() - 0.5 ) * 0.012,
-				w: 5 + Math.random() * 5,
-				h: 8 + Math.random() * 6,
-				round: Math.random() < 0.32,
+		// The cap is what keeps a phone smooth: the spark count is the only
+		// number here that scales with the canvas.
+		var perShell = Math.round( Math.min( 46, Math.max( 24, w / 16 ) ) );
+		var below = h + 12;   // just off the bottom edge, where a shell starts
+
+		var shells = [];
+		var sparks = [];
+		var shellCount = isDesktop() ? 6 : 5;
+
+		for ( var i = 0; i < shellCount; i++ ) {
+			var burstY = h * ( 0.18 + Math.random() * 0.27 );
+			// Constant velocity: the shell covers the climb in `rise` ms
+			// however far it has to go, so a high burst simply travels faster.
+			var rise = 550 + Math.random() * 200;
+			shells.push( {
+				x: w * ( 0.15 + Math.random() * 0.70 ),
+				y: below,
+				burstY: burstY,
+				vy: - ( below - burstY ) / rise,
+				at: Math.max( 0, FX_LAUNCH[ i ] + ( Math.random() * 2 - 1 ) * FX_JITTER ),
+				// One colour per shell, shared by all of its sparks: that is
+				// what makes a burst read as a firework rather than as
+				// scattered confetti.
 				color: colors[ i % colors.length ],
-				ttl: 1500 + Math.random() * 1000,
-				age: 0
+				live: false,
+				done: false
 			} );
+		}
+
+		function burst( shell ) {
+			// An even angular spread, jittered per spark so the ring does not
+			// read as a wheel of spokes.
+			var base = Math.random() * Math.PI * 2;
+			var slice = ( Math.PI * 2 ) / perShell;
+			for ( var s = 0; s < perShell; s++ ) {
+				var ang = base + s * slice + ( Math.random() - 0.5 ) * slice;
+				var speed = 0.10 + Math.random() * 0.24;
+				sparks.push( {
+					x: shell.x,
+					y: shell.y,
+					// Seeded at the burst point, so the first segment is a
+					// dot rather than a streak from nowhere.
+					px: shell.x,
+					py: shell.y,
+					vx: Math.cos( ang ) * speed,
+					vy: Math.sin( ang ) * speed,
+					color: shell.color,
+					width: 1.5 + Math.random(),
+					ttl: 900 + Math.random() * 600,
+					age: 0
+				} );
+			}
 		}
 
 		var last = now();
@@ -990,38 +1136,74 @@
 			if ( ! canvas.parentNode ) {
 				return;
 			}
-			if ( elapsed > CONFETTI_MS ) {
+			if ( elapsed > FX_MS ) {
 				removeEl( canvas );
 				return;
 			}
 
+			// A full clear every frame, and the trails come from each spark
+			// drawing its own last segment. A translucent full-canvas fill
+			// would smear them instead, and the one colour it would have to
+			// smear in is wrong on one of the two backdrops: blue on the
+			// phone, near-white on the desktop table.
 			ctx.clearRect( 0, 0, w, h );
-			for ( var i = 0; i < parts.length; i++ ) {
-				var p = parts[ i ];
-				p.age += dt;
-				var left = p.ttl - p.age;
-				if ( left <= 0 || p.y - 30 > h ) {
+			var drag = Math.pow( FX_DRAG, dt );
+			var i, p;
+
+			for ( i = 0; i < shells.length; i++ ) {
+				var sh = shells[ i ];
+				if ( sh.done ) {
 					continue;
 				}
-				p.vy += CONFETTI_GRAV * dt;
-				p.vx *= 0.996;
+				if ( ! sh.live ) {
+					if ( elapsed < sh.at ) {
+						continue;
+					}
+					sh.live = true;
+				}
+
+				sh.y += sh.vy * dt;
+				if ( sh.y <= sh.burstY ) {
+					sh.y = sh.burstY;
+					sh.done = true;
+					burst( sh );
+					continue;
+				}
+
+				// A short bright streak, not a dot: it is what makes the
+				// climb read as a climb.
+				ctx.globalAlpha = 1;
+				ctx.strokeStyle = sh.color;
+				ctx.lineWidth = 2;
+				ctx.beginPath();
+				ctx.moveTo( sh.x, Math.min( sh.y + 14, below ) );
+				ctx.lineTo( sh.x, sh.y );
+				ctx.stroke();
+			}
+
+			for ( i = 0; i < sparks.length; i++ ) {
+				p = sparks[ i ];
+				p.age += dt;
+				var left = p.ttl - p.age;
+				if ( left <= 0 ) {
+					continue;
+				}
+
+				p.px = p.x;
+				p.py = p.y;
+				p.vy += FX_GRAV * dt;
+				p.vx *= drag;
+				p.vy *= drag;
 				p.x += p.vx * dt;
 				p.y += p.vy * dt;
-				p.rot += p.vrot * dt;
 
-				ctx.globalAlpha = left < CONFETTI_FADE ? left / CONFETTI_FADE : 1;
-				ctx.fillStyle = p.color;
-				ctx.save();
-				ctx.translate( p.x, p.y );
-				ctx.rotate( p.rot );
-				if ( p.round ) {
-					ctx.beginPath();
-					ctx.arc( 0, 0, p.w / 2, 0, Math.PI * 2 );
-					ctx.fill();
-				} else {
-					ctx.fillRect( -p.w / 2, -p.h / 2, p.w, p.h );
-				}
-				ctx.restore();
+				ctx.globalAlpha = left < FX_FADE ? left / FX_FADE : 1;
+				ctx.strokeStyle = p.color;
+				ctx.lineWidth = p.width;
+				ctx.beginPath();
+				ctx.moveTo( p.px, p.py );
+				ctx.lineTo( p.x, p.y );
+				ctx.stroke();
 			}
 
 			window.requestAnimationFrame( frame );
@@ -1206,9 +1388,8 @@
 	}
 	// Positional placeholders, so a translation can reorder the counts and
 	// the inflected noun. Matches the %1$d / %2$s the PHP side ships. A bare
-	// %s / %d is filled in order, for the single-argument strings (the name
-	// in 'allTitleName') where numbering would only be noise — a translator
-	// is still free to number it.
+	// %s / %d is filled in order, for a single-argument string where
+	// numbering would only be noise — a translator is still free to number it.
 	function fmt( tpl, vals ) {
 		var next = 0;
 		return String( tpl || '' ).replace( /%(?:(\d+)\$)?[ds]/g, function ( m, n ) {
