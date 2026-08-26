@@ -74,6 +74,10 @@ class TBTS_Frontend {
 		$level_initial = TBTS_Levels::initial_band( $user_id );
 		$level_names   = TBTS_Levels::band_names();
 
+		// The type picker has no memory and no suggestion: it always opens on
+		// Mix. A class implies a level; nothing implies a type of English.
+		$type_labels = TBTS_Register::labels();
+
 		ob_start();
 		?>
 		<div class="tbt" id="tbts-fe-generator" data-library-url="<?php echo esc_url( $library_url ); ?>">
@@ -283,6 +287,28 @@ class TBTS_Frontend {
 								// hand — a note that outlived its choice would be a lie.
 								?>
 								<p class="tbt-help tbt-level-note" data-role="level-note" hidden></p>
+							</fieldset>
+
+							<?php
+							// The same tiles as the level picker, and the same real
+							// radios for the same reason. No note line: .tbt-level-note
+							// exists because a class can suggest a level, and nothing
+							// suggests a type of English.
+							?>
+							<fieldset class="tbt-levels tbt-types" data-role="types">
+								<legend class="tbt-label"><?php esc_html_e( 'Choose the type of English for examples.', 'tbt-swipe' ); ?></legend>
+								<div class="tbt-levels-grid tbt-types-grid">
+									<?php foreach ( $type_labels as $type => $label ) : ?>
+										<label class="tbt-level">
+											<input type="radio" class="tbt-level-input tbt-type-input" name="tbts-english-type"
+												value="<?php echo esc_attr( $type ); ?>"
+												<?php checked( $type, TBTS_Register::DEFAULT_TYPE ); ?>>
+											<span class="tbt-level-box">
+												<span class="tbt-level-code"><?php echo esc_html( $label ); ?></span>
+											</span>
+										</label>
+									<?php endforeach; ?>
+								</div>
 							</fieldset>
 
 							<button type="button" class="tbt-btn tbt-btn--primary" data-role="generate">

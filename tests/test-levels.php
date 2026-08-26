@@ -58,6 +58,7 @@ class TBT_Students {
 	}
 }
 
+require_once dirname( __DIR__ ) . '/includes/class-tbts-register.php';
 require_once dirname( __DIR__ ) . '/includes/class-tbts-levels.php';
 
 echo "Normalising — Swipe has six bands and no decimals:\n";
@@ -95,6 +96,78 @@ $verbatim = 'The level constrains the language around the target item, never the
 ok( false !== strpos( $a1, $verbatim ), 'the target-item rule appears verbatim' );
 ok( false !== strpos( $c1, $verbatim ), 'and in every band, not just the low ones' );
 ok( TBTS_Levels::prompt_block( 'junk' ) === TBTS_Levels::prompt_block( 'B1' ), 'an unknown band still yields the B1 block' );
+
+echo "Prompt — the type of English chooses the topic range:\n";
+$adults = 'The learners are adults. Do not write sentences pitched at children or about school life.';
+
+/**
+ * The topic lines of a block — the only part the type of English chooses.
+ *
+ * Tested apart from the whole block because the adults line names school too,
+ * to forbid it. "school" appearing nowhere at all would mean that line had
+ * gone missing.
+ *
+ * @param string $block A prompt block.
+ * @return string
+ */
+function topic_lines( $block ) {
+	$lines = array();
+	foreach ( explode( "\n", $block ) as $line ) {
+		if ( 0 === strpos( $line, '- Topic range' ) ) {
+			$lines[] = $line;
+		}
+	}
+	return implode( "\n", $lines );
+}
+
+// The fix for the childish sentences: the old A1 and A2 topic lists named
+// school outright, so the model duly wrote for children.
+ok( false === stripos( topic_lines( TBTS_Levels::prompt_block( 'A1', 'general', 5 ) ), 'school' ), 'the A1 general topic range never mentions school' );
+ok( false === stripos( topic_lines( TBTS_Levels::prompt_block( 'A2', 'general', 5 ) ), 'school' ), 'nor does the A2 general one' );
+ok( false === stripos( topic_lines( TBTS_Levels::prompt_block( 'A1', 'mix', 5 ) ), 'school' ), 'and Mix inherits the same clean list' );
+// The one place school may still be named is the line forbidding it.
+ok( 1 === substr_count( strtolower( TBTS_Levels::prompt_block( 'A1', 'general', 5 ) ), 'school' ), 'school survives only where it is ruled out' );
+
+$every_band = true;
+$every_type = true;
+$item_rule  = true;
+foreach ( TBTS_Levels::BANDS as $band ) {
+	foreach ( TBTS_Register::TYPES as $type ) {
+		$block = TBTS_Levels::prompt_block( $band, $type, 6 );
+		if ( false === strpos( $block, $adults ) ) { $every_band = false; }
+		if ( false === strpos( $block, $verbatim ) ) { $item_rule = false; }
+	}
+}
+ok( $every_band, 'the adults line appears in every band and every type' );
+ok( $item_rule, 'and the target-item rule survives all eighteen combinations' );
+
+// The adults line sits immediately before the target-item rule, which stays
+// last: the order is what the prompt reads as a hierarchy.
+$b1_general = TBTS_Levels::prompt_block( 'B1', 'general', 6 );
+ok( strpos( $b1_general, $adults ) < strpos( $b1_general, $verbatim ), 'the adults line comes before the target-item rule' );
+ok( $verbatim . "\n" === substr( $b1_general, - ( strlen( $verbatim ) + 1 ) ), 'and the target-item rule is still last' );
+
+$b2_general  = TBTS_Levels::prompt_block( 'B2', 'general', 6 );
+$b2_business = TBTS_Levels::prompt_block( 'B2', 'business', 6 );
+ok( $b2_general !== $b2_business, 'one band, two types, two different instructions' );
+ok( false !== strpos( $b2_business, 'strategy, budgets, negotiation, markets' ), 'the business block carries the business topics' );
+ok( false !== strpos( $b2_general, 'comparisons of ideas' ), 'and the general block keeps the general ones' );
+ok( false !== strpos( $b2_business, 'invents a boardroom for a word that does not belong in one' ), 'business carries the no-forced-context fallback' );
+ok( false === strpos( $b2_general, 'invents a boardroom' ), 'and general does not — it has nothing to fall back from' );
+
+echo "Prompt — Mix states a count, never \"about half\":\n";
+$mix10 = TBTS_Levels::prompt_block( 'B1', 'mix', 10 );
+$mix7  = TBTS_Levels::prompt_block( 'B1', 'mix', 7 );
+ok( false !== strpos( $mix10, 'Exactly 5 of the 10 items must use a business context and the remaining 5' ), 'ten items split five and five' );
+ok( false !== strpos( $mix7, 'Exactly 3 of the 7 items must use a business context and the remaining 4' ), 'an odd count rounds down on business' );
+ok( false !== strpos( $mix10, 'Do not mix the two contexts inside a single sentence.' ), 'and neither half leaks into the other' );
+// Half of one item is no item, so a single-item Mix comes back general.
+ok( false !== strpos( TBTS_Levels::prompt_block( 'B1', 'mix', 1 ), 'Exactly 0 of the 1 items' ), 'a one-item Mix generation is all general' );
+ok( false !== strpos( $mix10, 'experience, plans and opinions' ) && false !== strpos( $mix10, 'projects, clients, teams, targets' ), 'Mix names both topic ranges' );
+
+echo "Prompt — a bad type costs nothing:\n";
+ok( TBTS_Levels::prompt_block( 'B1', 'junk', 10 ) === $mix10, 'an unknown type still yields the Mix block' );
+ok( TBTS_Levels::prompt_block( 'B1', '', 10 ) === $mix10, 'and so does no type at all' );
 
 echo "Suggesting — the class picks the level, lowest student first:\n";
 TBTS_Classes::$rosters = array(

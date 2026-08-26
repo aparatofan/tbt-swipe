@@ -104,6 +104,8 @@ class TBTS_DB {
 		// level is nullable for the same reason and follows the same pattern:
 		// NULL means "generated before the picker existed", which is not the
 		// same claim as "generated at B1". Backfilling it would invent history.
+		// english_type is the same again: NULL means the deck predates the type
+		// picker, not that it was generated at Mix.
 		dbDelta( "CREATE TABLE {$sets} (
   id        BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   title     VARCHAR(190)    NOT NULL DEFAULT '',
@@ -113,6 +115,7 @@ class TBTS_DB {
   class_id  BIGINT UNSIGNED NULL DEFAULT NULL,
   lesson_id BIGINT UNSIGNED NULL DEFAULT NULL,
   level     VARCHAR(2)      NULL DEFAULT NULL,
+  english_type VARCHAR(20)  NULL DEFAULT NULL,
   deck_type VARCHAR(20)     NOT NULL DEFAULT 'class',
   front_face VARCHAR(20)    NOT NULL DEFAULT 'term',
   created   DATETIME        NOT NULL,
@@ -292,12 +295,14 @@ class TBTS_DB {
 	 * @param string $status 'draft' or 'published'.
 	 * @param array  $cards  List of arrays with term/ipa/translation/example (already sanitised).
 	 * @param array  $extra  Optional 'class_id' / 'lesson_id' (int or null),
-	 *                       'level' (band string or null), 'deck_type' and
-	 *                       'front_face' (strings), all already validated.
+	 *                       'level' (band string or null), 'english_type' (type
+	 *                       string or null), 'deck_type' and 'front_face'
+	 *                       (strings), all already validated.
 	 *                       A key that is absent leaves the column untouched on
 	 *                       update, so the admin editor — which knows nothing
-	 *                       about classes, levels or faces — cannot silently
-	 *                       detach a set, erase its level or flip its faces.
+	 *                       about classes, levels, types or faces — cannot
+	 *                       silently detach a set, erase its level or its type,
+	 *                       or flip its faces.
 	 * @return int|WP_Error  Set ID.
 	 */
 	public static function save_set( $id, $title, $status, $cards, $extra = array() ) {
@@ -308,11 +313,12 @@ class TBTS_DB {
 		$attach        = array();
 		$attach_format = array();
 		$optional      = array(
-			'class_id'   => '%d',
-			'lesson_id'  => '%d',
-			'level'      => '%s',
-			'deck_type'  => '%s',
-			'front_face' => '%s',
+			'class_id'     => '%d',
+			'lesson_id'    => '%d',
+			'level'        => '%s',
+			'english_type' => '%s',
+			'deck_type'    => '%s',
+			'front_face'   => '%s',
 		);
 		foreach ( $optional as $key => $format ) {
 			if ( ! array_key_exists( $key, $extra ) ) {
@@ -408,8 +414,10 @@ class TBTS_DB {
 		$class_id  = null;
 		$lesson_id = null;
 		// The level travels with the copy: it describes the cards, which are
-		// copied verbatim, not the class the original was attached to.
+		// copied verbatim, not the class the original was attached to. The type
+		// of English travels for exactly the same reason.
 		$level     = isset( $set->level ) && $set->level ? (string) $set->level : null;
+		$type      = isset( $set->english_type ) && $set->english_type ? (string) $set->english_type : null;
 		if ( $set->class_id && TBTS_Classes::user_owns_class( $user_id, (int) $set->class_id ) ) {
 			$class_id  = (int) $set->class_id;
 			$lesson_id = $set->lesson_id ? (int) $set->lesson_id : null;
@@ -418,22 +426,23 @@ class TBTS_DB {
 		$wpdb->insert(
 			self::sets_table(),
 			array(
-				'title'      => $set->title . ' ' . __( '(copy)', 'tbt-swipe' ),
-				'owner_id'   => $user_id,
-				'slug'       => self::generate_slug(),
-				'status'     => 'draft',
-				'class_id'   => $class_id,
-				'lesson_id'  => $lesson_id,
-				'level'      => $level,
+				'title'        => $set->title . ' ' . __( '(copy)', 'tbt-swipe' ),
+				'owner_id'     => $user_id,
+				'slug'         => self::generate_slug(),
+				'status'       => 'draft',
+				'class_id'     => $class_id,
+				'lesson_id'    => $lesson_id,
+				'level'        => $level,
+				'english_type' => $type,
 				// The copy is the same deck of cards, so it reads the same way
 				// round. It only stays open if the original was: a class deck
 				// that lost its class just above is unattached, not open — the
 				// two look alike in the columns and mean different things.
-				'deck_type'  => self::is_open_deck( $set ) ? 'open' : 'class',
-				'front_face' => self::normalise_front_face( isset( $set->front_face ) ? $set->front_face : '' ),
-				'created'    => current_time( 'mysql' ),
+				'deck_type'    => self::is_open_deck( $set ) ? 'open' : 'class',
+				'front_face'   => self::normalise_front_face( isset( $set->front_face ) ? $set->front_face : '' ),
+				'created'      => current_time( 'mysql' ),
 			),
-			array( '%s', '%d', '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s' )
+			array( '%s', '%d', '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s', '%s' )
 		);
 		$new_id = (int) $wpdb->insert_id;
 
