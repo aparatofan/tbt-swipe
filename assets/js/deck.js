@@ -1021,17 +1021,32 @@
 	}
 
 	/* ---- Fireworks ----
-	   One canvas over the whole deck, ~4.2s, then gone. No library: shells
+	   One canvas over the whole deck, ~5.8s, then gone. No library: shells
 	   that rise and burst are a few dozen lines of physics, and the player
 	   has no CDN to fetch one from. The caller gates this on reduced motion. */
-	var FX_MS = 4200;        // total run, after which the canvas is removed
-	var FX_FADE = 500;       // ms of fade at the tail of each spark
-	var FX_GRAV = 0.00055;   // px/ms²
-	var FX_DRAG = 0.992;     // velocity multiplier per ms
-	// Roughly a shell every half second, jittered so the rhythm is not a
-	// metronome. Six entries; the phone launches the first five.
-	var FX_LAUNCH = [ 0, 450, 900, 1250, 1700, 2200 ];
-	var FX_JITTER = 120;     // ± ms around each launch time
+	var FX_MS     = 5800;      // total run, after which the canvas is removed
+	var FX_FADE   = 500;       // ms of fade at the tail of each spark
+	var FX_OUT    = 600;       // ms of global fade at the tail of the run
+	var FX_GRAV   = 0.00042;   // px/ms²
+	var FX_DRAG   = 0.9945;    // velocity multiplier per ms
+	var FX_TAIL   = 50;        // ms of streak drawn behind each spark
+	var FX_SHELLS = 15;
+	var FX_SPARKS = 110;
+	var FX_SPREAD = 3.4;       // burst size multiplier on the base speed range
+	var FX_LIFE   = 1.5;       // spark lifetime multiplier
+
+	// A spark travels roughly speed ÷ −ln(drag) px before drag stops it, so
+	// the drag and the speed range set the burst diameter together: these two
+	// give ~55–190px. Gravity is low enough that the sphere opens before it
+	// droops rather than drooping as it opens.
+	var FX_PALETTE_PHONE = [
+		'#FFFFFF', '#FFD466', '#7FE0A6', '#BFD4FF', '#FFAECF', '#CC9933'
+	];
+	// The same hues carried to a weight that reads on the light desktop
+	// table: at this burst size the pale set is close to invisible on #EEF1F6.
+	var FX_PALETTE_DESKTOP = [
+		'#0856C9', '#E8A317', '#2FAE6A', '#5B8DEF', '#D9469B', '#C87A12'
+	];
 
 	function fireFireworks() {
 		if ( ! root || ! window.requestAnimationFrame ) {
@@ -1057,41 +1072,77 @@
 		ctx.lineCap = 'round';
 		root.appendChild( canvas );
 
-		// White reads on the phone's blue field and disappears on the light
-		// desktop table, where the brand blue takes its place. The rest of
-		// the palette carries both.
-		var colors = [
-			isDesktop() ? '#0856C9' : '#FFFFFF',
-			'#FFD466',
-			'#7FE0A6',
-			'#BFD4FF',
-			'#CC9933'
-		];
+		var desktop = isDesktop();
+		var colors = desktop ? FX_PALETTE_DESKTOP : FX_PALETTE_PHONE;
+		// Additive blending is what gives the glow on the phone's blue field.
+		// On the light desktop table it bleaches every spark to white, so it
+		// stays off there — this is a per-device flag, not a constant.
+		var glow = ! desktop;
 
-		// The cap is what keeps a phone smooth: the spark count is the only
-		// number here that scales with the canvas.
-		var perShell = Math.round( Math.min( 46, Math.max( 24, w / 16 ) ) );
+		// 'rgba(r,g,b,' prefixes for the flash gradient stops: parsing hex
+		// inside the draw loop would be string work at frame rate.
+		var rgb = [];
+		for ( var c = 0; c < colors.length; c++ ) {
+			rgb.push(
+				'rgba(' + parseInt( colors[ c ].slice( 1, 3 ), 16 ) + ',' +
+				parseInt( colors[ c ].slice( 3, 5 ), 16 ) + ',' +
+				parseInt( colors[ c ].slice( 5, 7 ), 16 ) + ','
+			);
+		}
+
+		// 15 shells of 110 sparks is 1,650 sparks. One beginPath()/stroke()
+		// each is 1,650 draw calls a frame and drops frames on a mid-range
+		// phone, so sparks are bucketed by colour × alpha × width and each
+		// bucket strokes as a single path. Quantising alpha into eight steps
+		// and width into three is invisible at this speed and takes the frame
+		// under 50 stroke calls.
+		var ALPHA_STEPS = 8;
+		var WIDTH_STEPS = 3;
+		var buckets = [];
+		var bucketCount = colors.length * ALPHA_STEPS * WIDTH_STEPS;
+		for ( var b = 0; b < bucketCount; b++ ) {
+			// Allocated once per run and truncated per frame, never replaced.
+			buckets.push( [] );
+		}
+
 		var below = h + 12;   // just off the bottom edge, where a shell starts
-
 		var shells = [];
 		var sparks = [];
-		var shellCount = isDesktop() ? 6 : 5;
+		var flashes = [];
 
-		for ( var i = 0; i < shellCount; i++ ) {
-			var burstY = h * ( 0.18 + Math.random() * 0.27 );
+		// The finale is a stacked volley rather than a trickle, and the first
+		// two shells go up immediately so the screen is loud from the start.
+		var launchWindow = FX_MS * 0.60;
+		var finaleCount = Math.max( 3, Math.round( FX_SHELLS * 0.22 ) );
+		var mainCount = FX_SHELLS - finaleCount;
+
+		for ( var i = 0; i < FX_SHELLS; i++ ) {
+			var at;
+			if ( i >= mainCount ) {
+				at = launchWindow + Math.random() * 260;
+			} else if ( i === 0 ) {
+				at = 0;
+			} else if ( i === 1 ) {
+				at = 90;
+			} else {
+				at = ( i / ( mainCount - 1 ) ) * launchWindow * 0.86;
+			}
+			at = Math.max( 0, at + ( Math.random() * 2 - 1 ) * 130 );
+
+			var burstY = h * ( 0.16 + Math.random() * 0.30 );
 			// Constant velocity: the shell covers the climb in `rise` ms
 			// however far it has to go, so a high burst simply travels faster.
-			var rise = 550 + Math.random() * 200;
+			var rise = 520 + Math.random() * 220;
 			shells.push( {
-				x: w * ( 0.15 + Math.random() * 0.70 ),
+				x: w * ( 0.12 + Math.random() * 0.76 ),
 				y: below,
 				burstY: burstY,
 				vy: - ( below - burstY ) / rise,
-				at: Math.max( 0, FX_LAUNCH[ i ] + ( Math.random() * 2 - 1 ) * FX_JITTER ),
+				at: at,
 				// One colour per shell, shared by all of its sparks: that is
 				// what makes a burst read as a firework rather than as
 				// scattered confetti.
-				color: colors[ i % colors.length ],
+				ci: i % colors.length,
 				live: false,
 				done: false
 			} );
@@ -1101,25 +1152,41 @@
 			// An even angular spread, jittered per spark so the ring does not
 			// read as a wheel of spokes.
 			var base = Math.random() * Math.PI * 2;
-			var slice = ( Math.PI * 2 ) / perShell;
-			for ( var s = 0; s < perShell; s++ ) {
+			var slice = ( Math.PI * 2 ) / FX_SPARKS;
+			var sMin = 0.10 * FX_SPREAD;
+			var sMax = 0.34 * FX_SPREAD;
+			var wSpan = 0.9 + FX_SPREAD * 0.32;
+			for ( var s = 0; s < FX_SPARKS; s++ ) {
 				var ang = base + s * slice + ( Math.random() - 0.5 ) * slice;
-				var speed = 0.10 + Math.random() * 0.24;
+				// A uniform random radius crowds the sparks at the rim and
+				// leaves the centre hollow; the square root fills the sphere.
+				var speed = sMin + ( sMax - sMin ) * Math.sqrt( Math.random() );
+				var width = 1.5 + Math.random() * wSpan;
 				sparks.push( {
 					x: shell.x,
 					y: shell.y,
-					// Seeded at the burst point, so the first segment is a
-					// dot rather than a streak from nowhere.
-					px: shell.x,
-					py: shell.y,
 					vx: Math.cos( ang ) * speed,
 					vy: Math.sin( ang ) * speed,
-					color: shell.color,
-					width: 1.5 + Math.random(),
-					ttl: 900 + Math.random() * 600,
+					// On the phone a white minority is what makes the burst
+					// sparkle; on the light table every spark keeps the
+					// shell's colour, which it needs to stay legible.
+					ci: ( ! desktop && Math.random() < 0.10 ) ? 0 : shell.ci,
+					// Width never changes, so its bucket is settled here.
+					wb: Math.min( WIDTH_STEPS - 1, ( ( width - 1.5 ) / wSpan * WIDTH_STEPS ) | 0 ),
+					ttl: ( 1000 + Math.random() * 700 ) * FX_LIFE,
+					crackle: Math.random() < 0.45,
 					age: 0
 				} );
 			}
+
+			flashes.push( {
+				x: shell.x,
+				y: shell.y,
+				ci: shell.ci,
+				age: 0,
+				ttl: 260,
+				r: 26 + FX_SPREAD * 26
+			} );
 		}
 
 		var last = now();
@@ -1142,13 +1209,43 @@
 			}
 
 			// A full clear every frame, and the trails come from each spark
-			// drawing its own last segment. A translucent full-canvas fill
-			// would smear them instead, and the one colour it would have to
-			// smear in is wrong on one of the two backdrops: blue on the
-			// phone, near-white on the desktop table.
+			// drawing a streak back along its own velocity. A translucent
+			// full-canvas fill would smear them instead, and the one colour
+			// it would have to smear in is wrong on one of the two backdrops:
+			// blue on the phone, near-white on the desktop table.
 			ctx.clearRect( 0, 0, w, h );
+			ctx.globalCompositeOperation = glow ? 'lighter' : 'source-over';
+
+			// At 1.5x spark life the longest sparks outlive FX_MS, so the run
+			// fades out rather than being switched off mid-flight.
+			var out = elapsed > FX_MS - FX_OUT ? ( FX_MS - elapsed ) / FX_OUT : 1;
 			var drag = Math.pow( FX_DRAG, dt );
 			var i, p;
+
+			// Flashes first: the burst punch sits under its own sparks.
+			for ( i = flashes.length - 1; i >= 0; i-- ) {
+				var fl = flashes[ i ];
+				fl.age += dt;
+				if ( fl.age >= fl.ttl ) {
+					flashes.splice( i, 1 );
+					continue;
+				}
+				var k = fl.age / fl.ttl;
+				var f = ( 1 - k ) * ( 1 - k );
+				var rad = fl.r * ( 0.4 + 1.9 * k );
+				var pre = rgb[ fl.ci ];
+				var grad = ctx.createRadialGradient( fl.x, fl.y, 0, fl.x, fl.y, rad );
+				grad.addColorStop( 0, glow
+					? 'rgba(255,255,255,' + ( 0.85 * f * out ) + ')'
+					: pre + ( 0.85 * f * out ) + ')' );
+				grad.addColorStop( 0.4, pre + ( 0.35 * f * out ) + ')' );
+				grad.addColorStop( 1, pre + '0)' );
+				ctx.globalAlpha = 1;
+				ctx.fillStyle = grad;
+				ctx.beginPath();
+				ctx.arc( fl.x, fl.y, rad, 0, Math.PI * 2 );
+				ctx.fill();
+			}
 
 			for ( i = 0; i < shells.length; i++ ) {
 				var sh = shells[ i ];
@@ -1173,7 +1270,7 @@
 				// A short bright streak, not a dot: it is what makes the
 				// climb read as a climb.
 				ctx.globalAlpha = 1;
-				ctx.strokeStyle = sh.color;
+				ctx.strokeStyle = colors[ sh.ci ];
 				ctx.lineWidth = 2;
 				ctx.beginPath();
 				ctx.moveTo( sh.x, Math.min( sh.y + 14, below ) );
@@ -1181,28 +1278,61 @@
 				ctx.stroke();
 			}
 
+			for ( i = 0; i < bucketCount; i++ ) {
+				buckets[ i ].length = 0;
+			}
+
 			for ( i = 0; i < sparks.length; i++ ) {
 				p = sparks[ i ];
 				p.age += dt;
-				var left = p.ttl - p.age;
-				if ( left <= 0 ) {
+				var leftMs = p.ttl - p.age;
+				if ( leftMs <= 0 ) {
 					continue;
 				}
 
-				p.px = p.x;
-				p.py = p.y;
 				p.vy += FX_GRAV * dt;
 				p.vx *= drag;
 				p.vy *= drag;
 				p.x += p.vx * dt;
 				p.y += p.vy * dt;
 
-				ctx.globalAlpha = left < FX_FADE ? left / FX_FADE : 1;
-				ctx.strokeStyle = p.color;
-				ctx.lineWidth = p.width;
+				var a = leftMs < FX_FADE ? leftMs / FX_FADE : 1;
+				// Past half its life a crackling spark drops out on roughly
+				// half the frames, which is what reads as a twinkle.
+				if ( p.crackle && p.age > p.ttl * 0.5 && Math.random() < 0.45 ) {
+					a *= 0.18;
+				}
+				if ( a < 0.02 ) {
+					continue;
+				}
+
+				// Where the spark would have been FX_TAIL ms ago, derived
+				// from its current velocity: a real streak with no position
+				// history to carry per spark.
+				var ab = Math.min( ALPHA_STEPS - 1, ( a * ALPHA_STEPS ) | 0 );
+				var q = buckets[ ( p.ci * ALPHA_STEPS + ab ) * WIDTH_STEPS + p.wb ];
+				q.push( p.x - p.vx * FX_TAIL, p.y - p.vy * FX_TAIL, p.x, p.y );
+			}
+
+			for ( i = 0; i < bucketCount; i++ ) {
+				var quads = buckets[ i ];
+				if ( ! quads.length ) {
+					continue;
+				}
+				var wb = i % WIDTH_STEPS;
+				var rest = ( i - wb ) / WIDTH_STEPS;
+				var abi = rest % ALPHA_STEPS;
+				// The run's tail fade rides on the stroke alpha rather than
+				// on the bucketed value, so it stays smooth instead of
+				// stepping down the eight quantised levels.
+				ctx.globalAlpha = ( abi + 1 ) / ALPHA_STEPS * out;
+				ctx.strokeStyle = colors[ ( rest - abi ) / ALPHA_STEPS ];
+				ctx.lineWidth = 1.8 + wb * 1.2;
 				ctx.beginPath();
-				ctx.moveTo( p.px, p.py );
-				ctx.lineTo( p.x, p.y );
+				for ( var v = 0; v < quads.length; v += 4 ) {
+					ctx.moveTo( quads[ v ], quads[ v + 1 ] );
+					ctx.lineTo( quads[ v + 2 ], quads[ v + 3 ] );
+				}
 				ctx.stroke();
 			}
 
