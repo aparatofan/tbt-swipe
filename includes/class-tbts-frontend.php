@@ -403,9 +403,6 @@ class TBTS_Frontend {
 					<div class="tbt-saved" data-role="result" hidden>
 						<div class="tbt-saved-qr">
 							<figure class="tbt-qr" data-role="result-qr"></figure>
-							<button type="button" class="tbt-btn tbt-btn--primary" data-role="reset">
-								<?php esc_html_e( 'Create another deck', 'tbt-swipe' ); ?>
-							</button>
 						</div>
 						<div>
 							<div class="tbt-deck-title" data-role="result-title"></div>
@@ -423,6 +420,17 @@ class TBTS_Frontend {
 					</div>
 				</div>
 			</section>
+
+			<?php
+			// Starting the next deck ends the whole flow rather than Stage 3,
+			// so the button sits centred under the stage instead of inside
+			// its card. It follows the saved panel's visibility.
+			?>
+			<div class="tbt-reset-row" data-role="reset-row" hidden>
+				<button type="button" class="tbt-btn tbt-btn--primary" data-role="reset">
+					<?php esc_html_e( 'Create another deck', 'tbt-swipe' ); ?>
+				</button>
+			</div>
 
 		</div>
 		</div>
