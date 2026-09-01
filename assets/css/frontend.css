@@ -427,10 +427,9 @@
 /* ---------- Save and share ---------- */
 .tbt-saved { display: grid; grid-template-columns: minmax(216px, max-content) minmax(0,1fr); gap: var(--tbt-s6); align-items: center; }
 .tbt-saved-qr { display: flex; flex-direction: column; align-items: center; gap: var(--tbt-s4); }
-.tbt .tbt-saved-qr .tbt-btn { width: 100% !important; }
 .tbt-qr {
   /* margin pinned: it is a <figure>, and a theme figure margin would open an
-     unexplained gap between the code and the button under it. */
+     unexplained gap beside the deck details. */
   margin: 0 !important;
   width: 216px; height: 216px; border-radius: var(--tbt-r-lg);
   background-color: var(--tbt-surface); border: 3px solid var(--tbt-blue);
@@ -440,6 +439,7 @@
 .tbt-linkrow { display: flex; gap: var(--tbt-s3); margin: var(--tbt-s4) 0 var(--tbt-s5); flex-wrap: wrap; align-items: center; }
 .tbt-linkrow .tbt-input { flex: 1 1 260px; font-family: var(--tbt-mono); font-size: 14px; background-color: var(--tbt-surface); }
 .tbt-saved-actions { display: flex; gap: var(--tbt-s3); flex-wrap: wrap; align-items: center; }
+.tbt-reset-row { display: flex; justify-content: center; margin-bottom: var(--tbt-s7); }
 
 /* ---------- Library ---------- */
 /* The head row owns the spacing so the title block, which keeps working on

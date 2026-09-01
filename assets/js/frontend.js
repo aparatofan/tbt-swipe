@@ -236,6 +236,7 @@
 		var saveStatus = role( root, 'save-status' );
 		var resultWait = role( root, 'result-wait' );
 		var resultPanel = role( root, 'result' );
+		var resetRow = role( root, 'reset-row' );
 		var resultTitle = role( root, 'result-title' );
 		var resultMeta = role( root, 'result-meta' );
 		var resultUrl = role( root, 'result-url' );
@@ -264,6 +265,15 @@
 		 * disabled and dimmed rather than hidden, so the stage keeps its
 		 * height and nothing under the teacher's cursor moves.
 		 * ------------------------------------------------------------ */
+
+		/* "Create another deck" sits under Stage 3 rather than inside the saved
+		   panel, so its row has to follow that panel's visibility by hand. */
+		function showResult( on ) {
+			resultPanel.hidden = ! on;
+			if ( resetRow ) {
+				resetRow.hidden = ! on;
+			}
+		}
 
 		function currentDeckType() {
 			var chosen = root.querySelector( '[data-role="deck-type"] input[type="radio"]:checked' );
@@ -708,7 +718,7 @@
 				}
 				( data.cards || [] ).forEach( addRow );
 				reviewPanel.hidden = false;
-				resultPanel.hidden = true;
+				showResult( false );
 				// Rows built inside a hidden panel all measure zero, so the
 				// example fields only get their true height once it is shown.
 				growAll();
@@ -935,7 +945,7 @@
 				if ( resultWait ) {
 					resultWait.hidden = true;
 				}
-				resultPanel.hidden = false;
+				showResult( true );
 				setStages( 'done', 'done', 'active' );
 				resultPanel.scrollIntoView( { behavior: 'smooth', block: 'start' } );
 			} ).catch( function ( error ) {
@@ -972,7 +982,7 @@
 			terms.value = '';
 			reviewBody.innerHTML = '';
 			reviewPanel.hidden = true;
-			resultPanel.hidden = true;
+			showResult( false );
 			if ( resultWait ) {
 				resultWait.hidden = false;
 			}
@@ -1128,7 +1138,7 @@
 				// does next is compose and generate.
 				var hasCards = !! ( data.cards && data.cards.length );
 				reviewPanel.hidden = ! hasCards;
-				resultPanel.hidden = true;
+				showResult( false );
 				if ( resultWait ) {
 					resultWait.hidden = false;
 				}
