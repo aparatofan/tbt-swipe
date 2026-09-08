@@ -254,10 +254,30 @@ class TBTS_Shortcode {
 			$name = trim( $user->display_name );
 		}
 
+		/*
+		 * The live-progress routes belong to TBT Notes, which is an optional
+		 * integration: checked by class, not by plugin file, the same way
+		 * TBTS_Classes checks it. With Notes inactive these keys are absent
+		 * and the player reports nothing, which is the deck's behaviour up to
+		 * and including 1.10.0.
+		 *
+		 * This is the first REST nonce the deck player has ever carried. It is
+		 * scoped to the student's own completion — the routes take the user
+		 * from the session and resolve their class server-side — so the token
+		 * on a learner's page cannot be turned into a write about anyone else.
+		 */
+		$activity = array();
+		if ( is_user_logged_in() && class_exists( 'TBT_Notes_Activity_REST' ) && defined( 'TBT_NOTES_REST_NAMESPACE' ) ) {
+			$activity = array(
+				'activityBase'  => esc_url_raw( rest_url( TBT_NOTES_REST_NAMESPACE . '/activity' ) ),
+				'activityNonce' => wp_create_nonce( 'wp_rest' ),
+			);
+		}
+
 		wp_localize_script(
 			'tbts-deck',
 			'tbtsDeck',
-			array(
+			$activity + array(
 				'restBase' => esc_url_raw( rest_url( TBTS_Rest::NS . '/set/' ) ),
 				'learnerName' => $name,
 				'logo'     => esc_url_raw( TBTS_URL . 'assets/img/tbt-logo.png' ),

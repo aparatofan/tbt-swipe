@@ -44,6 +44,15 @@
 	var heapZ = 0;       // later cards lie on top of earlier ones
 	var frontFace = 'term'; // which face the deck leads with: 'term' or 'translation'
 
+	/* Reporting state. deckTitle and deckStartedAt are captured once, when the
+	   deck loads, because both have to survive every round the learner plays.
+	   completionSent is the once-per-page-load guard. */
+	var deckTitle = '';
+	var deckStartedAt = 0;
+	var completionSent = false;
+	var presenceTimer = null;
+	var PRESENCE_EVERY = 20000;   // ms between heartbeats while a deck is open
+
 	document.addEventListener( 'DOMContentLoaded', init );
 
 	function init() {
@@ -112,6 +121,16 @@
 				// 'term', which is how it has always played.
 				frontFace = 'translation' === data.front_face ? 'translation' : 'term';
 				fullDeck = data.cards.slice();
+
+				// The clock starts when the deck is about to show its first
+				// card, not when the page loaded: a slow fetch is not study
+				// time. It runs across every round, so a learner who goes
+				// again is timed for the whole sitting rather than the last
+				// pass through what they did not know.
+				deckTitle = typeof data.title === 'string' ? data.title : '';
+				deckStartedAt = Date.now();
+				startPresence();
+
 				startRound( fullDeck.slice() );
 			} )
 			.catch( function ( err ) {
@@ -851,6 +870,12 @@
 	   and an account with neither a first nor a display name simply gets the
 	   greeting without one. */
 	function renderAllKnown() {
+		// Reported from here and nowhere else. endRound() runs at the end of
+		// every round, and "Go again" restarts on what was not known, so an
+		// emitter there would fire several times for one sitting. This screen
+		// is the only state that means the deck is finished.
+		reportCompletion();
+
 		var name = typeof cfg.learnerName === 'string' ? cfg.learnerName : '';
 
 		var end = el( 'div', 'tbts-end tbts-celebrate' );
@@ -1509,6 +1534,97 @@
 			// Bottomed out. Clip from the bottom only: losing the tail of
 			// an example is survivable, losing the term is not.
 			face.style.justifyContent = 'flex-start';
+		}
+	}
+
+	/* ---- Reporting to the teacher's live panel ----
+
+	   Optional in every direction. TBT Notes owns the activity routes, and
+	   Swipe must keep working when Notes is not there, so the whole surface is
+	   gated on a base URL the server only supplies when Notes is active. With
+	   no base, nothing here does anything and the deck plays exactly as it did
+	   before.
+
+	   Nothing sent from here identifies anybody. The server takes the learner
+	   from the session and resolves their class and teacher itself, so a
+	   forged payload buys nothing; the slug and the title are all the browser
+	   is trusted with. */
+
+	function postActivity( path, body ) {
+		if ( ! cfg.activityBase || ! cfg.activityNonce ) {
+			return;
+		}
+
+		// Reporting is a side effect of studying, never a gate on it: a failed
+		// request is swallowed rather than shown. A student mid-lesson cannot
+		// act on "could not reach the progress panel", and the teacher can see
+		// the work was done by looking at the screen next to them.
+		fetch( cfg.activityBase + path, {
+			method: 'POST',
+			credentials: 'same-origin',
+			cache: 'no-store',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-WP-Nonce': cfg.activityNonce
+			},
+			body: JSON.stringify( body || {} ),
+			// The completion fires as the celebration starts, and a learner
+			// who closes the tab on the fireworks should still be recorded.
+			keepalive: true
+		} ).catch( function () {} );
+	}
+
+	/* Seconds since the first card, or null when the clock never started.
+	   Null rather than zero: "not timed" and "finished instantly" are
+	   different claims, and the column is nullable so both can be told. */
+	function elapsedSeconds() {
+		if ( ! deckStartedAt ) {
+			return null;
+		}
+		return Math.max( 0, Math.round( ( Date.now() - deckStartedAt ) / 1000 ) );
+	}
+
+	function reportCompletion() {
+		if ( completionSent ) {
+			return;
+		}
+		completionSent = true;
+		stopPresence();
+
+		var slug = getSlug();
+		if ( ! slug ) {
+			return;
+		}
+
+		// No score. Reaching this screen means every card was known, so n of n
+		// carries no information the event itself does not already give.
+		postActivity( '', {
+			tool: 'swipe',
+			object_ref: slug,
+			object_title: deckTitle,
+			post_id: 0,
+			duration_seconds: elapsedSeconds()
+		} );
+	}
+
+	/* The heartbeat says "still working" and writes no history — the server
+	   keeps it in a short-lived transient. It starts with the first card
+	   rather than after the first interval, or a learner would read as not
+	   started for their first twenty seconds. */
+	function startPresence() {
+		if ( presenceTimer || ! cfg.activityBase ) {
+			return;
+		}
+		postActivity( '/presence', {} );
+		presenceTimer = window.setInterval( function () {
+			postActivity( '/presence', {} );
+		}, PRESENCE_EVERY );
+	}
+
+	function stopPresence() {
+		if ( presenceTimer ) {
+			window.clearInterval( presenceTimer );
+			presenceTimer = null;
 		}
 	}
 
