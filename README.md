@@ -135,6 +135,40 @@ this version keep `NULL`, meaning "generated before the picker existed" — they
 deliberately not backfilled to `B1`, which would be inventing history. Nothing reads
 the column back yet.
 
+### Examples shaped by the student's profile
+
+When a deck is attached to a **one-to-one** class, the student's profile note in
+[TBT Students](https://github.com/aparatofan/tbt-students) (0.2.0 or later, via
+`TBT_Students::get_profile()`) chooses the *contexts* the example sentences are
+set in. A sentence about adult life a psychologist with three children actually
+recognises is remembered better than a generic one at the same level.
+
+Four rules govern it:
+
+1. **One-to-one classes only.** A group has one level but several lives, and there
+   is no honest way to merge four profiles into one instruction. Groups generate
+   exactly as they did before.
+2. **The general half only.** With type Mix, the profile shapes the general cards;
+   the business cards stay business. With type Business it is not applied at all.
+3. **Contexts, never description.** The sentence is set in a world the student
+   recognises. It is never about the student, never addresses them, never uses
+   "you" and never invents a name.
+4. **Level wins.** Precedence is level → type of English → profile. The profile
+   narrows the band's existing topic range; it never widens it and never lifts the
+   grammar ceiling. The IPA and the translation are untouched.
+
+The profile is resolved server-side from the class id, only after the teacher's
+ownership of that class is confirmed, and it is never sent to the browser or
+accepted from it — free text reaching a prompt from a request body would have no
+ownership check behind it. It is not stored on the deck either: the level is a
+property of the cards, but the profile is a property of the student and will
+change. When a profile was used, the line under the picker says so —
+`Agata Deptuch · B1 · using their profile`.
+
+Every unknown yields no profile and an ordinary deck: Students inactive, a Students
+too old to have the profile API, Notes inactive, an empty class, a group, or a
+student with nothing written.
+
 ## Choosing the meaning
 
 An item can carry a note in round brackets — `spring (car part)`, `pitch (sound)`.

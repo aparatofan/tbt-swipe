@@ -76,6 +76,14 @@ class TBTS_Manage_Rest {
 						'required' => false,
 						'type'     => 'string',
 					),
+					// Only ever a lookup key for a one-to-one student's
+					// profile, and only for a class this user owns. The
+					// generator does the owning check; nothing here trusts it.
+					'class_id' => array(
+						'required'          => false,
+						'default'           => 0,
+						'sanitize_callback' => 'absint',
+					),
 				),
 			)
 		);
@@ -207,8 +215,9 @@ class TBTS_Manage_Rest {
 		$user_id  = get_current_user_id();
 
 		$none = array(
-			'suggested' => null,
-			'note'      => '',
+			'suggested'   => null,
+			'note'        => '',
+			'has_profile' => false,
 		);
 
 		// Without Notes there are no classes to own, so there is nothing to
@@ -227,7 +236,27 @@ class TBTS_Manage_Rest {
 			);
 		}
 
-		return rest_ensure_response( TBTS_Levels::suggest_for_class( $class_id ) );
+		$suggestion = TBTS_Levels::suggest_for_class( $class_id );
+
+		// Whether a profile was found, never the profile itself. The teacher
+		// reads the text on the students page; the picker only has to say that
+		// it exists, and putting it in the DOM would widen its exposure for
+		// nothing.
+		$suggestion['has_profile'] = '' !== TBTS_Levels::profile_for_class( $class_id );
+
+		// The existing note is extended rather than replaced, so the line still
+		// says where the band came from and now also says the examples will be
+		// shaped. Only when there is a note to extend: a profile alone explains
+		// nothing about a band nobody suggested.
+		if ( $suggestion['has_profile'] && '' !== $suggestion['note'] ) {
+			$suggestion['note'] = sprintf(
+				/* translators: %s: the level note, e.g. "Agata Deptuch · B1" */
+				__( '%s · using their profile', 'tbt-swipe' ),
+				$suggestion['note']
+			);
+		}
+
+		return rest_ensure_response( $suggestion );
 	}
 
 	/**
@@ -241,7 +270,8 @@ class TBTS_Manage_Rest {
 			(string) $request->get_param( 'terms' ),
 			get_current_user_id(),
 			(string) $request->get_param( 'level' ),
-			(string) $request->get_param( 'english_type' )
+			(string) $request->get_param( 'english_type' ),
+			absint( $request->get_param( 'class_id' ) )
 		);
 
 		if ( is_wp_error( $cards ) ) {

@@ -23,9 +23,11 @@ class TBTS_API {
 	 * @param string   $type  Type of English for the example sentences.
 	 *                        Defaults to Mix, what a deck generated before the
 	 *                        picker existed reads as.
+	 * @param string   $profile Profile note for a one-to-one class, resolved by
+	 *                        the generator. Never accepted from a client.
 	 * @return array|WP_Error List of ['term','ipa','translation','example'] in input order.
 	 */
-	public static function generate( array $terms, $level = TBTS_Levels::DEFAULT_BAND, $type = TBTS_Register::DEFAULT_TYPE ) {
+	public static function generate( array $terms, $level = TBTS_Levels::DEFAULT_BAND, $type = TBTS_Register::DEFAULT_TYPE, $profile = '' ) {
 		$api_key = get_option( 'tbts_api_key', '' );
 		if ( '' === $api_key ) {
 			return new WP_Error(
@@ -35,7 +37,7 @@ class TBTS_API {
 		}
 
 		$model  = get_option( 'tbts_model', self::DEFAULT_MODEL );
-		$prompt = self::build_prompt( $terms, $level, $type );
+		$prompt = self::build_prompt( $terms, $level, $type, $profile );
 
 		$response = wp_remote_post(
 			self::ENDPOINT,
@@ -98,16 +100,17 @@ class TBTS_API {
 	 * @param string[] $terms Sanitised English terms.
 	 * @param string   $level Already-sanitised CEFR band.
 	 * @param string   $type  Already-sanitised type of English.
+	 * @param string   $profile Profile note for a one-to-one class, or ''.
 	 * @return string
 	 */
-	private static function build_prompt( array $terms, $level, $type = TBTS_Register::DEFAULT_TYPE ) {
+	private static function build_prompt( array $terms, $level, $type = TBTS_Register::DEFAULT_TYPE, $profile = '' ) {
 		return "You are helping a Polish teacher of English prepare vocabulary flashcards. "
 			. "For each item in the list below, return the IPA phonetic transcription (British English, in slashes), "
 			. "the Polish translation, and one natural example sentence in English that uses the item in context "
 			. "and is written to the level rules below.\n\n"
 			// The item count goes in so Mix can state its split as a number
 			// rather than as "about half", which the model reads loosely.
-			. TBTS_Levels::prompt_block( $level, $type, count( $terms ) )
+			. TBTS_Levels::prompt_block( $level, $type, count( $terms ), $profile )
 			. "\nQuality requirements — follow all of them:\n"
 			. "1. Example sentences must be grammatically correct, natural British English. "
 			. "Pay particular attention to articles (a / an / the / zero article): Polish has no articles, "

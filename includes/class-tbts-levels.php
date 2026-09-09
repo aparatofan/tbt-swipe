@@ -33,6 +33,15 @@ class TBTS_Levels {
 	const LAST_META = 'tbt_swipe_last_level';
 
 	/**
+	 * Longest profile note that reaches the prompt, in characters.
+	 *
+	 * TBT Students caps the note when it is written. The cap is applied again
+	 * on the way out because this text is interpolated into a prompt, and a
+	 * boundary that matters is enforced on both sides of a plugin border.
+	 */
+	const PROFILE_MAX = 300;
+
+	/**
 	 * Band code => plain-English name, as shown under the code in the picker.
 	 *
 	 * The names match TBT Students' own band_names() for the six bands they
@@ -225,9 +234,14 @@ class TBTS_Levels {
 	 * @param int    $count How many items this generation covers. Only Mix reads
 	 *                      it, and only to state the split as a number: left to
 	 *                      itself the model returns 8/2 as readily as 5/5.
+	 * @param string $profile Optional profile note for a one-to-one class, used
+	 *                      to choose the contexts the general-context sentences
+	 *                      are set in. Empty — the only value a group, or a deck
+	 *                      attached to no class, ever produces — returns the
+	 *                      block byte for byte as it was before profiles existed.
 	 * @return string
 	 */
-	public static function prompt_block( $band, $type = TBTS_Register::DEFAULT_TYPE, $count = 1 ) {
+	public static function prompt_block( $band, $type = TBTS_Register::DEFAULT_TYPE, $count = 1, $profile = '' ) {
 		$band  = self::sanitize( $band );
 		$type  = TBTS_Register::sanitize( $type );
 		$count = max( 1, (int) $count );
@@ -276,12 +290,40 @@ class TBTS_Levels {
 				. "Do not mix the two contexts inside a single sentence.\n";
 		}
 
+		// Re-sanitised for the same reason the band and the type are, and
+		// harder: this is free text a teacher typed. Collapsing whitespace
+		// keeps it on the single quoted line it is introduced on, where it
+		// reads as a description and cannot pose as another instruction.
+		$profile = trim( preg_replace( '/\s+/u', ' ', (string) $profile ) );
+
+		// A business deck has no general cards to shape, so the block has
+		// nothing to apply to. Guarded here rather than left to its own last
+		// line: an instruction that cancels itself is one the model may still
+		// act on.
+		$context = '';
+		if ( '' !== $profile && 'business' !== $type ) {
+			$context = "\nContext for the general-context sentences — this is one adult learner, described by their teacher:\n"
+				. "\"{$profile}\"\n"
+				. "- Use this only to choose WHERE the general-context sentences are set: the workplaces, "
+				. "activities, objects and situations the learner already recognises.\n"
+				. "- Do NOT describe the learner, do NOT write about them, and do NOT address them. The "
+				. "sentences are ordinary sentences that happen to be set in a familiar world. Never use "
+				. "\"you\", and never invent a name.\n"
+				. "- Do NOT mention the description itself, and do not try to use every detail. One or two "
+				. "details across the whole set is enough; repeating the same detail on every card makes the "
+				. "set tedious and teaches the word less well.\n"
+				. "- This narrows the topic range above. It never replaces it, never raises the grammar "
+				. "ceiling, and never changes the length or clause rules.\n"
+				. "- The business-context sentences ignore this description entirely.\n";
+		}
+
 		return "Level of the example sentences — CEFR {$band} ({$name}):\n"
 			. "- Grammar ceiling: {$rules['grammar']}. Do not use structures above this ceiling.\n"
 			. "- Sentence shape: {$rules['clauses']}.\n"
 			. "- Length: {$rules['length']}. Word counts are guardrails, not targets — a natural sentence "
 			. "a word or two outside the range beats a stilted one inside it.\n"
 			. $topic
+			. $context
 			// The learners are adults on every band and in every type. The old
 			// A1 and A2 topic lists said "school", and the model duly wrote for
 			// children; the lists no longer do, and this says so outright.
@@ -351,6 +393,45 @@ class TBTS_Levels {
 			'suggested' => $lowest,
 			'note'      => self::note( $bands, $total, $counted, $lowest, $highest ),
 		);
+	}
+
+	/**
+	 * The profile note to shape examples with for a class, or ''.
+	 *
+	 * One-to-one only. A class with two or more students returns '' — several
+	 * students have several lives, and a merged profile describes nobody.
+	 *
+	 * Every unknown returns '': TBT Students inactive, Notes inactive, an empty
+	 * class, a student with no profile written. The deck then generates exactly
+	 * as it did before this feature existed.
+	 *
+	 * @param int $class_id Class ID, already checked for ownership by the caller.
+	 * @return string
+	 */
+	public static function profile_for_class( $class_id ) {
+		// The same guard suggest_for_class() makes over get_level(), for the
+		// same reason and one more: Swipe must run with Students deactivated,
+		// and with a Students too old to have a profile API at all.
+		if ( ! class_exists( 'TBT_Students' ) || ! method_exists( 'TBT_Students', 'get_profile' ) ) {
+			return '';
+		}
+
+		$student_ids = TBTS_Classes::student_ids_for_class( $class_id );
+
+		// Exactly one, not at least one: this excludes a group, not merely an
+		// empty class. Both come back the same way, with no profile.
+		if ( 1 !== count( $student_ids ) ) {
+			return '';
+		}
+
+		$profile = TBT_Students::get_profile( $student_ids[0] );
+		if ( ! is_string( $profile ) ) {
+			return '';
+		}
+
+		$profile = trim( $profile );
+
+		return mb_substr( $profile, 0, self::PROFILE_MAX );
 	}
 
 	/**

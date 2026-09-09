@@ -707,7 +707,15 @@
 			generateBtn.disabled = true;
 			generateStatus.textContent = i18n.generating;
 
-			request( 'generate', { method: 'POST', body: { terms: terms.value, level: currentLevel(), english_type: currentType() } } ).then( function ( data ) {
+			// The class goes with the terms so a one-to-one deck can be shaped by
+			// that student's profile. Only the id travels: the server owns the
+			// class check and the profile lookup, and the text never comes here.
+			request( 'generate', { method: 'POST', body: {
+				terms: terms.value,
+				level: currentLevel(),
+				english_type: currentType(),
+				class_id: classIdField ? classIdField.value : ''
+			} } ).then( function ( data ) {
 				generateBtn.disabled = false;
 				generateStatus.textContent = '';
 				// A fresh deck starts from the generated cards. An edit adds to
