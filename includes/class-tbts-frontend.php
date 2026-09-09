@@ -259,6 +259,27 @@ class TBTS_Frontend {
 
 							<?php
 							/*
+							 * The pre-flight spelling check writes its findings here, so
+							 * they sit directly under the box the teacher would fix them
+							 * in. Empty and hidden until a check flags something: a clean
+							 * list says nothing at all.
+							 */
+							?>
+							<div class="tbt-spellcheck" data-role="spellcheck" hidden>
+								<p class="tbt-help"><strong><?php esc_html_e( 'Check these words before you continue.', 'tbt-swipe' ); ?></strong></p>
+								<ul class="tbt-spellcheck-list" data-role="spellcheck-list"></ul>
+								<div class="tbt-spellcheck-actions">
+									<button type="button" class="tbt-btn tbt-btn--ghost" data-role="spellcheck-fix">
+										<?php esc_html_e( 'Fix the words', 'tbt-swipe' ); ?>
+									</button>
+									<button type="button" class="tbt-btn tbt-btn--primary" data-role="spellcheck-anyway">
+										<?php esc_html_e( 'Generate anyway', 'tbt-swipe' ); ?>
+									</button>
+								</div>
+							</div>
+
+							<?php
+							/*
 							 * Real radios, visually hidden and wrapped in labels: arrow-key
 							 * navigation, the roving tab stop and the reading order come
 							 * from the browser rather than from JS. Divs with click
