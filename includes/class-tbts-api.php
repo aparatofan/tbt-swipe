@@ -195,6 +195,188 @@ class TBTS_API {
 	}
 
 	/**
+	 * Ask the model which of the teacher's items are misspelt, before any card
+	 * is built from them.
+	 *
+	 * A courtesy pass, not a generation: it is deliberately cheap (a short
+	 * prompt, a short answer) and it advises rather than blocks. The caller
+	 * treats every failure as "nothing to say" and generates anyway, so this
+	 * method never has to be right — only useful when it is.
+	 *
+	 * @param string[] $terms Sanitised English terms, as parse_terms() built them.
+	 * @return array|WP_Error List of ['index' => int, 'suggestion' => string].
+	 */
+	public static function check_terms( array $terms ) {
+		$api_key = get_option( 'tbts_api_key', '' );
+		if ( '' === $api_key ) {
+			return new WP_Error(
+				'tbts_no_key',
+				__( 'No API key configured. Add your OpenAI API key under TBT Swipe → Settings.', 'tbt-swipe' )
+			);
+		}
+
+		$model  = get_option( 'tbts_model', self::DEFAULT_MODEL );
+		$prompt = self::build_check_prompt( $terms );
+
+		$response = wp_remote_post(
+			self::ENDPOINT,
+			array(
+				'timeout' => 60,
+				'headers' => array(
+					'Authorization' => 'Bearer ' . $api_key,
+					'Content-Type'  => 'application/json',
+				),
+				'body'    => wp_json_encode(
+					array(
+						'model'                 => $model,
+						// A list of indices and single words. Nothing like the
+						// budget a full generation needs.
+						'max_completion_tokens' => 1024,
+						'messages'              => array(
+							array(
+								'role'    => 'user',
+								'content' => $prompt,
+							),
+						),
+					)
+				),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return new WP_Error(
+				'tbts_http_error',
+				sprintf(
+					/* translators: %s: error message */
+					__( 'Could not reach the AI service: %s', 'tbt-swipe' ),
+					$response->get_error_message()
+				)
+			);
+		}
+
+		$code = wp_remote_retrieve_response_code( $response );
+		$body = json_decode( wp_remote_retrieve_body( $response ), true );
+
+		if ( 200 !== $code ) {
+			$detail = isset( $body['error']['message'] ) ? $body['error']['message'] : __( 'unknown error', 'tbt-swipe' );
+			return new WP_Error(
+				'tbts_api_error',
+				sprintf(
+					/* translators: 1: HTTP status, 2: API error detail */
+					__( 'AI service returned an error (HTTP %1$d): %2$s', 'tbt-swipe' ),
+					$code,
+					sanitize_text_field( $detail )
+				)
+			);
+		}
+
+		return self::parse_check_response( $body, $terms );
+	}
+
+	/**
+	 * The spell-check prompt. Much smaller than build_prompt(): the answer is
+	 * a list of indices, so everything here is about suppressing false
+	 * positives rather than shaping prose.
+	 *
+	 * @param string[] $terms Sanitised English terms.
+	 * @return string
+	 */
+	private static function build_check_prompt( array $terms ) {
+		$numbered = array();
+		foreach ( array_values( $terms ) as $i => $term ) {
+			$numbered[] = $i . '. ' . $term;
+		}
+
+		return "You are checking a list of English vocabulary items a teacher has typed, before "
+			. "flashcards are made from them. Report only clear spelling mistakes.\n\n"
+			. "Rules:\n"
+			. "- An item may end with a note in round brackets, for example \"spring (car part)\". "
+			. "Ignore the note completely. Check only the word or phrase before it.\n"
+			. "- Do NOT report: correct British or American spellings, proper nouns, rare or "
+			. "technical words, informal words, or phrases whose grammar you dislike. Only "
+			. "report an item that is not a word in any standard spelling of English.\n"
+			. "- Do NOT report an item merely because it is unusual. When in doubt, say nothing.\n\n"
+			. "Return ONLY a JSON array, no preamble, no markdown fences. Include one element "
+			. "per SUSPECT item only — return [] if every item is fine. Each element: "
+			. '{"index": 0, "suggestion": "..."} where "index" is the item\'s zero-based position '
+			. "in the list below and \"suggestion\" is the corrected spelling of the word only, "
+			. "without any bracketed note.\n\n"
+			. "Items:\n"
+			. implode( "\n", $numbered );
+	}
+
+	/**
+	 * Parse the check response, on the same terms as parse_response(): fences
+	 * stripped, outermost array taken, an unreadable body a WP_Error.
+	 *
+	 * The error matters. The caller has to be able to tell "nothing is wrong"
+	 * from "the check did not run" — the first stays silent, the second
+	 * generates anyway rather than pretending the list is clean.
+	 *
+	 * @param mixed    $body  Decoded API response.
+	 * @param string[] $terms The terms that were submitted.
+	 * @return array|WP_Error
+	 */
+	private static function parse_check_response( $body, array $terms ) {
+		$text = '';
+		if ( isset( $body['choices'][0]['message']['content'] ) ) {
+			$text = (string) $body['choices'][0]['message']['content'];
+		}
+
+		$text = trim( $text );
+		$text = preg_replace( '/^```(?:json)?\s*/i', '', $text );
+		$text = preg_replace( '/\s*```$/', '', $text );
+
+		// Unlike parse_response(), the array here is required rather than
+		// merely preferred: without it a bare object would decode cleanly and
+		// read as an empty flag list, which is exactly the "nothing wrong"
+		// answer this method must never invent.
+		$start = strpos( $text, '[' );
+		$end   = strrpos( $text, ']' );
+		if ( false === $start || false === $end || $end <= $start ) {
+			return new WP_Error( 'tbts_parse_error', __( 'The AI response could not be parsed. Please try again.', 'tbt-swipe' ) );
+		}
+
+		$data = json_decode( substr( $text, $start, $end - $start + 1 ), true );
+
+		if ( ! is_array( $data ) ) {
+			return new WP_Error( 'tbts_parse_error', __( 'The AI response could not be parsed. Please try again.', 'tbt-swipe' ) );
+		}
+
+		$terms = array_values( $terms );
+		$flags = array();
+
+		foreach ( $data as $item ) {
+			// Never more flags than there were terms, whatever comes back.
+			if ( count( $flags ) >= count( $terms ) ) {
+				break;
+			}
+			if ( ! is_array( $item ) || ! isset( $item['index'] ) ) {
+				continue;
+			}
+
+			$index = (int) $item['index'];
+			if ( ! isset( $terms[ $index ] ) ) {
+				continue;
+			}
+
+			$suggestion = sanitize_text_field( $item['suggestion'] ?? '' );
+			// A suggestion identical to the item is not a correction, and an
+			// empty one is nothing to show the teacher.
+			if ( '' === $suggestion || $suggestion === $terms[ $index ] ) {
+				continue;
+			}
+
+			$flags[] = array(
+				'index'      => $index,
+				'suggestion' => $suggestion,
+			);
+		}
+
+		return $flags;
+	}
+
+	/**
 	 * Remove a trailing sense note in round brackets from a term.
 	 *
 	 * "spring (car part)" becomes "spring". Anchored to the end of the string on

@@ -124,6 +124,79 @@ class TBTS_Generator {
 	}
 
 	/**
+	 * Spell-check a block of pasted terms, before anything is generated from
+	 * them.
+	 *
+	 * Order matters here too: capability, then term count, then the API call.
+	 * What is deliberately absent is the quota — no check against it and no
+	 * increment. The check is a courtesy pass, not a generation: a teacher
+	 * must not lose one of the day's generations to a spell check, and must
+	 * not be refused a check because they are out of them.
+	 *
+	 * parse_terms() is reused unchanged so the indices the model returns line
+	 * up with the array generate() would build from the same textarea.
+	 *
+	 * @param string $raw_terms Raw textarea content.
+	 * @param int    $user_id   User to check the capability of.
+	 * @return array|WP_Error List of ['index','suggestion'], empty if all clear.
+	 */
+	public static function check( $raw_terms, $user_id ) {
+		$user_id = (int) $user_id;
+
+		if ( ! TBTS_Capabilities::user_can_manage( $user_id ) ) {
+			return new WP_Error(
+				'tbts_forbidden',
+				__( 'You don\'t have permission to create decks.', 'tbt-swipe' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		$terms = self::parse_terms( $raw_terms );
+
+		if ( empty( $terms ) ) {
+			return new WP_Error(
+				'tbts_no_terms',
+				__( 'Add at least one word.', 'tbt-swipe' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$max = self::max_cards_per_generation();
+		if ( count( $terms ) > $max ) {
+			return new WP_Error(
+				'tbts_too_many_cards',
+				sprintf(
+					/* translators: %d: maximum number of terms per generation */
+					__( 'Too many words — the maximum is %d.', 'tbt-swipe' ),
+					$max
+				),
+				array(
+					'status' => 400,
+					'max'    => $max,
+				)
+			);
+		}
+
+		$flags = TBTS_API::check_terms( $terms );
+
+		if ( is_wp_error( $flags ) ) {
+			// Collapsed exactly as generate() collapses its own failures, so
+			// the client reads one code either way. Nothing to undo: no quota
+			// was consulted and none was spent.
+			return new WP_Error(
+				'tbts_api_error',
+				$flags->get_error_message(),
+				array(
+					'status' => 502,
+					'source' => $flags->get_error_code(),
+				)
+			);
+		}
+
+		return $flags;
+	}
+
+	/**
 	 * Generate cards for a block of pasted terms.
 	 *
 	 * Order matters: capability, then term count, then quota, and only then the

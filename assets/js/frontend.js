@@ -230,6 +230,10 @@
 		var stackCount = role( root, 'stack-count' );
 		var generateBtn = role( root, 'generate' );
 		var generateStatus = role( root, 'generate-status' );
+		var spellPanel = role( root, 'spellcheck' );
+		var spellList = role( root, 'spellcheck-list' );
+		var spellFixBtn = role( root, 'spellcheck-fix' );
+		var spellAnywayBtn = role( root, 'spellcheck-anyway' );
 		var reviewPanel = role( root, 'review' );
 		var reviewBody = role( root, 'review-body' );
 		var saveBtn = role( root, 'save' );
@@ -254,8 +258,21 @@
 		// The create label, kept so leaving edit mode can put it back rather
 		// than hardcoding a string the template owns.
 		var saveLabel = saveBtn ? saveBtn.textContent : '';
+		// The generate label, kept for the same reason: the spelling check
+		// borrows the button while it runs and has to give it back.
+		var generateLabel = generateBtn ? generateBtn.textContent : '';
+		// Whether what is in the textarea right now has already been through
+		// the spelling check — either it came back clean, or the teacher saw
+		// the flags and chose to generate anyway.
+		var spellingChecked = false;
 
 		terms.addEventListener( 'input', updateCount );
+		// Edited text is unchecked text. Any keystroke retires both the last
+		// verdict and the panel showing it.
+		terms.addEventListener( 'input', function () {
+			spellingChecked = false;
+			hideSpellcheck();
+		} );
 		updateCount();
 
 		/* ------------------------------------------------------------ *
@@ -691,6 +708,15 @@
 			lessonSelect.appendChild( blank );
 		}
 
+		/**
+		 * Generate is a two-step press while the text is unchecked: the
+		 * spelling check runs first, and only a clean list — or a teacher who
+		 * has seen the flags and pressed on — reaches the generator.
+		 *
+		 * The check advises. Every way it can fail, including not answering at
+		 * all, falls through to generating: a courtesy pass must never be the
+		 * reason a teacher does not get their cards.
+		 */
 		generateBtn.addEventListener( 'click', function () {
 			clearError( root );
 
@@ -704,6 +730,117 @@
 				return;
 			}
 
+			if ( spellingChecked ) {
+				runGenerate();
+				return;
+			}
+
+			hideSpellcheck();
+			generateBtn.disabled = true;
+			generateBtn.textContent = i18n.checking;
+
+			request( 'check-terms', { method: 'POST', body: { terms: terms.value } } ).then( function ( data ) {
+				var flags = ( data && data.flags ) || [];
+
+				generateBtn.disabled = false;
+				generateBtn.textContent = generateLabel;
+
+				// Nothing to say about a correctly typed list. Silence is the
+				// reward: no message, no extra click.
+				if ( ! flags.length ) {
+					spellingChecked = true;
+					runGenerate();
+					return;
+				}
+
+				showSpellcheck( flags );
+			}, function () {
+				generateBtn.disabled = false;
+				generateBtn.textContent = generateLabel;
+				// The check failed, not the generation. Say nothing about it
+				// and go on to the part the teacher actually asked for, which
+				// reports its own errors. Rejection handler rather than a
+				// trailing .catch(), so a fault in the branch above cannot
+				// come back through here and generate a second time.
+				runGenerate();
+			} );
+		} );
+
+		/**
+		 * List the flagged words beside their suggestions and stop.
+		 *
+		 * Nothing is written into the textarea: replacing a word for the
+		 * teacher means finding a substring in free text they may have changed
+		 * since, and getting that wrong destroys what they typed.
+		 *
+		 * @param {Array} flags Zero-based index and suggestion per suspect item.
+		 */
+		function showSpellcheck( flags ) {
+			var typed = lines();
+
+			spellList.innerHTML = '';
+
+			flags.forEach( function ( flag ) {
+				var word = typed[ flag.index ];
+				if ( undefined === word ) {
+					return;
+				}
+
+				var row = document.createElement( 'li' );
+				var was = document.createElement( 'span' );
+				var now = document.createElement( 'span' );
+
+				was.className = 'tbt-spellcheck-was';
+				was.textContent = word;
+				now.className = 'tbt-spellcheck-now';
+				now.textContent = flag.suggestion;
+
+				row.appendChild( was );
+				row.appendChild( document.createTextNode( ' → ' ) );
+				row.appendChild( now );
+				spellList.appendChild( row );
+			} );
+
+			// Every flag pointed at a line that is no longer there. An empty
+			// panel would stop the teacher for nothing.
+			if ( ! spellList.children.length ) {
+				spellingChecked = true;
+				runGenerate();
+				return;
+			}
+
+			spellPanel.hidden = false;
+			spellPanel.scrollIntoView( { behavior: 'smooth', block: 'center' } );
+		}
+
+		function hideSpellcheck() {
+			if ( ! spellPanel ) {
+				return;
+			}
+			spellPanel.hidden = true;
+			spellList.innerHTML = '';
+		}
+
+		if ( spellFixBtn ) {
+			// Closes the panel and gets out of the way. The teacher does the
+			// editing.
+			spellFixBtn.addEventListener( 'click', function () {
+				hideSpellcheck();
+				terms.focus();
+			} );
+		}
+
+		if ( spellAnywayBtn ) {
+			spellAnywayBtn.addEventListener( 'click', function () {
+				// They have seen the flags and stand by what they typed. Until
+				// the text changes, Generate goes straight through.
+				spellingChecked = true;
+				hideSpellcheck();
+				runGenerate();
+			} );
+		}
+
+		function runGenerate() {
 			generateBtn.disabled = true;
 			generateStatus.textContent = i18n.generating;
 
@@ -737,7 +874,7 @@
 				generateStatus.textContent = '';
 				showError( root, error.message );
 			} );
-		} );
+		}
 
 		/**
 		 * An example sentence is never truncated: the field grows to fit it.
@@ -988,6 +1125,10 @@
 			leaveEditMode();
 			titleInput.value = '';
 			terms.value = '';
+			// The textarea is empty again, so the last verdict no longer
+			// describes anything.
+			spellingChecked = false;
+			hideSpellcheck();
 			reviewBody.innerHTML = '';
 			reviewPanel.hidden = true;
 			showResult( false );
