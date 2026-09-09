@@ -214,9 +214,14 @@ class TBTS_Generator {
 	 *                          Falls back to Mix on the same reasoning, and for
 	 *                          the extra one that Mix is the only value that is
 	 *                          never simply wrong for a deck nobody chose for.
+	 * @param int    $class_id  Class the deck is being attached to, or 0. Used
+	 *                          only to look up a one-to-one student's profile,
+	 *                          and only after this user's ownership of the class
+	 *                          is confirmed. The profile itself is never a
+	 *                          parameter: see where it is resolved below.
 	 * @return array|WP_Error List of ['term','ipa','translation','example'].
 	 */
-	public static function generate( $raw_terms, $user_id, $level = TBTS_Levels::DEFAULT_BAND, $type = TBTS_Register::DEFAULT_TYPE ) {
+	public static function generate( $raw_terms, $user_id, $level = TBTS_Levels::DEFAULT_BAND, $type = TBTS_Register::DEFAULT_TYPE, $class_id = 0 ) {
 		$user_id = (int) $user_id;
 		$level   = TBTS_Levels::sanitize( $level );
 		$type    = TBTS_Register::sanitize( $type );
@@ -264,7 +269,18 @@ class TBTS_Generator {
 			);
 		}
 
-		$cards = TBTS_API::generate( $terms, $level, $type );
+		// Resolved here, never taken from the request: a profile arriving in a
+		// request body would be unvalidated free text going straight into a
+		// prompt with no ownership check behind it. A class this teacher does
+		// not own resolves to '' silently rather than erroring — refusing it
+		// out loud would confirm a guessed class id to whoever guessed it.
+		$profile  = '';
+		$class_id = (int) $class_id;
+		if ( $class_id > 0 && TBTS_Classes::user_owns_class( $user_id, $class_id ) ) {
+			$profile = TBTS_Levels::profile_for_class( $class_id );
+		}
+
+		$cards = TBTS_API::generate( $terms, $level, $type, $profile );
 
 		if ( is_wp_error( $cards ) ) {
 			// Quota is untouched: nothing usable came back. The many ways the
