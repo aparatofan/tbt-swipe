@@ -80,6 +80,25 @@ class TBTS_Manage_Rest {
 			)
 		);
 
+		// The pre-flight spelling check. Its own route rather than a flag on
+		// generate: that path spends quota and returns cards, and this one
+		// must do neither.
+		register_rest_route(
+			self::NS,
+			'/manage/check-terms',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'permission_callback' => array( $this, 'can_manage' ),
+				'callback'            => array( $this, 'check_terms' ),
+				'args'                => array(
+					'terms' => array(
+						'required' => true,
+						'type'     => 'string',
+					),
+				),
+			)
+		);
+
 		register_rest_route(
 			self::NS,
 			'/manage/sets',
@@ -254,6 +273,23 @@ class TBTS_Manage_Rest {
 				'remaining' => TBTS_Generator::generations_remaining( get_current_user_id() ),
 			)
 		);
+	}
+
+	/**
+	 * Flag suspect spellings in a block of pasted terms. Advisory: the client
+	 * generates anyway on any failure, so the shape stays simple.
+	 */
+	public function check_terms( WP_REST_Request $request ) {
+		$flags = TBTS_Generator::check(
+			(string) $request->get_param( 'terms' ),
+			get_current_user_id()
+		);
+
+		if ( is_wp_error( $flags ) ) {
+			return $flags;
+		}
+
+		return rest_ensure_response( array( 'flags' => $flags ) );
 	}
 
 	/**

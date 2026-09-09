@@ -142,6 +142,24 @@ The note tells the model which sense to build the card around, and is stripped
 from the saved term: the card reads `spring`. Only a note at the end of the line
 is treated this way, so `(to) pitch` is left alone.
 
+## The spelling check
+
+Pressing Generate first sends the list for a quick spelling check. A clean list
+goes straight on to generation with no extra click and nothing to read — silence
+is what a correctly typed list earns. Anything suspect is listed under the Words
+box as `accomodation → accommodation`, with **Fix the words** and **Generate
+anyway** beside it.
+
+The check advises; it never blocks. It writes nothing into the textarea — the
+teacher makes the correction themselves — and it never refuses a generation:
+**Generate anyway** always works, and a check that errors or cannot run falls
+straight through to generating. A note in brackets is ignored, so
+`spring (car part)` is not flagged, and a correct British spelling such as
+`organise` is left alone.
+
+It costs no quota. Only a real generation moves the daily counter, so checking
+is free however often it happens.
+
 ## AI usage limits
 
 Configured under **TBT → TBT Swipe Settings → AI usage limits**:

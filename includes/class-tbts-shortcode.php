@@ -155,6 +155,11 @@ class TBTS_Shortcode {
 					'unattached'    => __( 'Unattached', 'tbt-swipe' ),
 					'removeRow'     => __( 'Remove row', 'tbt-swipe' ),
 					'stackEmpty'    => __( 'Your first card lands here', 'tbt-swipe' ),
+					// The button's own label while the pre-flight spelling
+					// check runs. The panel's wording is rendered with the rest
+					// of the markup, so it needs nothing here; and a clean list
+					// is announced nowhere at all, by design.
+					'checking'      => __( 'Checking…', 'tbt-swipe' ),
 				),
 			)
 		);

@@ -139,6 +139,24 @@
 }
 .tbt-meter strong { color: var(--tbt-blue-deep); font-weight: 700; font-family: var(--tbt-display); }
 
+/* ---------- Pre-flight spelling check ----------
+   A short-lived advisory panel under the Words box, hidden until a check
+   flags something. Deliberately plain: it exists for a few seconds and is
+   gone, so it borrows .tbt-help for its line and adds no component of its
+   own. Maroon on the accent edge is the same "read this" signal .tbt-help
+   strong already carries, and that edge stays square. */
+.tbt-spellcheck {
+  background: var(--tbt-blue-tint); border-left: 4px solid var(--tbt-maroon);
+  border-radius: 0 var(--tbt-r-lg) var(--tbt-r-lg) 0;
+  padding: var(--tbt-s4); margin-bottom: var(--tbt-s5);
+}
+.tbt-spellcheck .tbt-help { margin-top: 0 !important; }
+.tbt-spellcheck-list { list-style: none; margin: var(--tbt-s3) 0 0; padding: 0; }
+.tbt-spellcheck-list li { margin-bottom: var(--tbt-s2); }
+.tbt-spellcheck-was { font-family: var(--tbt-body); color: var(--tbt-ink-soft); }
+.tbt-spellcheck-now { font-family: var(--tbt-display); font-weight: 500; }
+.tbt-spellcheck-actions { display: flex; gap: var(--tbt-s3); flex-wrap: wrap; margin-top: var(--tbt-s4); }
+
 /* ---------- Level picker ----------
    Six tiles in the left compose column, between the meter and the Generate
    button. The radios themselves are real and merely hidden from sight, so the
