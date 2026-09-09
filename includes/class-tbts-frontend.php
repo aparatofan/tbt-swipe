@@ -238,7 +238,7 @@ class TBTS_Frontend {
 							<div class="tbt-field">
 								<label class="tbt-label" for="tbts-fe-terms"><?php esc_html_e( 'Words', 'tbt-swipe' ); ?></label>
 								<textarea id="tbts-fe-terms" class="tbt-textarea" rows="10" spellcheck="false"
-									placeholder="<?php esc_attr_e( 'One word or phrase per line', 'tbt-swipe' ); ?>"></textarea>
+									placeholder="<?php esc_attr_e( 'One word or phrase per line. Add a note in brackets to fix the meaning: spring (car part)', 'tbt-swipe' ); ?>"></textarea>
 								<div class="tbt-meter">
 									<?php
 									// No live word count here: the preview stack already

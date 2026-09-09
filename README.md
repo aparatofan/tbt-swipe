@@ -135,6 +135,13 @@ this version keep `NULL`, meaning "generated before the picker existed" — they
 deliberately not backfilled to `B1`, which would be inventing history. Nothing reads
 the column back yet.
 
+## Choosing the meaning
+
+An item can carry a note in round brackets — `spring (car part)`, `pitch (sound)`.
+The note tells the model which sense to build the card around, and is stripped
+from the saved term: the card reads `spring`. Only a note at the end of the line
+is treated this way, so `(to) pitch` is left alone.
+
 ## AI usage limits
 
 Configured under **TBT → TBT Swipe Settings → AI usage limits**:

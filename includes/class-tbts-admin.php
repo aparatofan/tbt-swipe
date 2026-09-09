@@ -286,7 +286,8 @@ class TBTS_Admin {
 					);
 					?>
 				</p>
-				<textarea id="tbts-terms" rows="10" class="large-text code" spellcheck="false"></textarea>
+				<textarea id="tbts-terms" rows="10" class="large-text code" spellcheck="false"
+					placeholder="<?php esc_attr_e( 'One word or phrase per line. Add a note in brackets to fix the meaning: spring (car part)', 'tbt-swipe' ); ?>"></textarea>
 				<p><span id="tbts-term-count" class="tbts-count">0</span> — <span id="tbts-term-hint"></span></p>
 				<p>
 					<button type="button" class="button button-primary" id="tbts-generate" disabled>
