@@ -116,7 +116,13 @@ class TBTS_API {
 			. "Wrap it in slashes. For multi-word items, transcribe the whole phrase as connected speech, "
 			. "with a single space between words (e.g. \"to strike a balance\" -> \"/tə straɪk ə ˈbæləns/\").\n"
 			. "3. Before returning, re-read each transcription character by character and correct any doubled "
-			. "or misplaced symbols.\n\n"
+			. "or misplaced symbols.\n"
+			. "4. An item may end with a note in round brackets, for example \"spring (car part)\" or "
+			. "\"pitch (sound)\". The note is guidance for you, not part of the word. Use it to choose the "
+			. "correct sense of the item, then return the \"term\" field WITHOUT the brackets and without "
+			. "the note: \"spring (car part)\" is returned as \"spring\". The IPA, the translation and the "
+			. "example sentence must all match the sense the note indicates. If an item has no note, "
+			. "treat it exactly as before.\n\n"
 			// The level governs the example sentence only. The transcription
 			// and the translation belong to the item itself and do not move.
 			. "The level rules apply to the example sentence only. The IPA and the Polish translation are "
@@ -175,7 +181,7 @@ class TBTS_API {
 				return new WP_Error( 'tbts_parse_error', __( 'The AI response could not be parsed. Please try again.', 'tbt-swipe' ) );
 			}
 			$cards[] = array(
-				'term'        => sanitize_text_field( $item['term'] ?? $terms[ $i ] ),
+				'term'        => self::strip_sense_note( sanitize_text_field( $item['term'] ?? $terms[ $i ] ) ),
 				'ipa'         => sanitize_text_field( $item['ipa'] ?? '' ),
 				'translation' => sanitize_text_field( $item['translation'] ?? '' ),
 				'example'     => sanitize_textarea_field( $item['example'] ?? '' ),
@@ -183,5 +189,28 @@ class TBTS_API {
 		}
 
 		return $cards;
+	}
+
+	/**
+	 * Remove a trailing sense note in round brackets from a term.
+	 *
+	 * "spring (car part)" becomes "spring". Anchored to the end of the string on
+	 * purpose: a leading "(to) pitch" is a legitimate way to write an infinitive
+	 * and must survive untouched, and so must a term that genuinely contains
+	 * brackets in the middle.
+	 *
+	 * Applied to whatever the model returns, not only to what the teacher typed:
+	 * the prompt asks for a stripped term, and this is what makes it true.
+	 *
+	 * @param string $term Term as typed or as returned.
+	 * @return string Term with any trailing bracketed note removed. Never empty:
+	 *                a term that is nothing but a note is returned unchanged
+	 *                rather than reduced to ''.
+	 */
+	private static function strip_sense_note( $term ) {
+		$stripped = preg_replace( '/\s*\([^()]*\)\s*$/u', '', (string) $term );
+		$stripped = trim( (string) $stripped );
+
+		return '' !== $stripped ? $stripped : trim( (string) $term );
 	}
 }
