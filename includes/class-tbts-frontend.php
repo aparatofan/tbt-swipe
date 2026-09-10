@@ -505,6 +505,11 @@ class TBTS_Frontend {
 		$sets   = TBTS_DB::get_sets( get_current_user_id() );
 		$groups = $this->group_by_class( $sets );
 
+		// The filter is only rendered over a library that has something in it.
+		// An empty one keeps the markup it has always had, rule line included.
+		$has_sets       = ! empty( $sets );
+		$filter_options = $has_sets ? $this->filter_options( $groups ) : array();
+
 		ob_start();
 		?>
 		<?php
@@ -524,11 +529,48 @@ class TBTS_Frontend {
 
 			<div class="tbt-notice tbt-notice--error" data-role="error" hidden></div>
 
-			<div class="tbt-library-head">
+			<div class="tbt-library-head<?php echo $has_sets ? ' tbt-library-head--filter' : ''; ?>">
 				<div class="tbt-section-head">
 					<span class="tbt-section-title"><?php esc_html_e( 'Your decks', 'tbt-swipe' ); ?></span>
-					<span class="tbt-group-rule"></span>
+					<?php
+					// The filter bar takes the rest of the row, so the rule
+					// line has nowhere to run and is dropped in that state.
+					?>
+					<?php if ( ! $has_sets ) : ?>
+						<span class="tbt-group-rule"></span>
+					<?php endif; ?>
 				</div>
+				<?php if ( $has_sets ) : ?>
+					<?php
+					/*
+					 * Filtering is done in the browser over the rows below:
+					 * the library has no pagination, so every deck the
+					 * teacher owns is already on the page.
+					 */
+					?>
+					<div class="tbt-filter" role="search" data-role="filter">
+						<div class="tbt-filter-search">
+							<label class="tbt-sr" for="tbts-filter-q"><?php esc_html_e( 'Search decks', 'tbt-swipe' ); ?></label>
+							<svg class="tbt-filter-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+								<circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2.2"/>
+								<path d="m20 20-3.6-3.6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+							</svg>
+							<input type="search" id="tbts-filter-q" class="tbt-input" data-role="filter-q"
+								placeholder="<?php esc_attr_e( 'Search by deck, lesson or class', 'tbt-swipe' ); ?>"
+								autocomplete="off" spellcheck="false">
+							<button type="button" class="tbt-filter-clear" data-role="filter-clear"
+								aria-label="<?php esc_attr_e( 'Clear search', 'tbt-swipe' ); ?>" hidden>&times;</button>
+						</div>
+						<label class="tbt-sr" for="tbts-filter-class"><?php esc_html_e( 'Class', 'tbt-swipe' ); ?></label>
+						<select id="tbts-filter-class" class="tbt-select tbt-filter-class" data-role="filter-class">
+							<option value=""><?php esc_html_e( 'All classes', 'tbt-swipe' ); ?></option>
+							<?php foreach ( $filter_options as $option ) : ?>
+								<option value="<?php echo esc_attr( $option['value'] ); ?>"
+									data-name="<?php echo esc_attr( $option['name'] ); ?>"><?php echo esc_html( $option['label'] ); ?></option>
+							<?php endforeach; ?>
+						</select>
+					</div>
+				<?php endif; ?>
 				<?php if ( '' !== $generator_url ) : ?>
 					<?php
 					/*
@@ -541,6 +583,17 @@ class TBTS_Frontend {
 					</button>
 				<?php endif; ?>
 			</div>
+
+			<?php if ( $has_sets ) : ?>
+				<?php
+				// Empty until a filter is on, so an unfiltered library reads
+				// exactly as it did before.
+				?>
+				<p class="tbt-filter-summary" data-role="filter-summary" aria-live="polite" hidden>
+					<span data-role="filter-summary-text"></span>
+					<button type="button" class="tbt-filter-link" data-role="filter-reset"><?php esc_html_e( 'Clear filters', 'tbt-swipe' ); ?></button>
+				</p>
+			<?php endif; ?>
 
 			<?php if ( empty( $sets ) ) : ?>
 				<div class="tbt-empty">
@@ -556,10 +609,10 @@ class TBTS_Frontend {
 				</div>
 			<?php else : ?>
 				<?php foreach ( $groups as $group ) : ?>
-					<section class="tbt-group" data-role="group">
+					<section class="tbt-group" data-role="group" data-filter-group="<?php echo esc_attr( $group['key'] ); ?>"<?php echo '' !== $group['search_name'] ? ' data-filter-name="' . esc_attr( $group['search_name'] ) . '"' : ''; ?>>
 						<div class="tbt-group-head">
-							<span class="tbt-group-name"><?php echo esc_html( $group['title'] ); ?></span>
-							<span class="tbt-group-count"><?php echo esc_html( self::deck_count_label( count( $group['sets'] ) ) ); ?></span>
+							<span class="tbt-group-name" data-role="group-name"><?php echo esc_html( $group['title'] ); ?></span>
+							<span class="tbt-group-count" data-role="group-count"><?php echo esc_html( self::deck_count_label( count( $group['sets'] ) ) ); ?></span>
 							<span class="tbt-group-rule"></span>
 						</div>
 						<?php foreach ( $group['sets'] as $set ) : ?>
@@ -567,6 +620,14 @@ class TBTS_Frontend {
 						<?php endforeach; ?>
 					</section>
 				<?php endforeach; ?>
+				<?php
+				// Every group is hidden rather than removed when nothing
+				// matches, so this stands in for the whole list.
+				?>
+				<div class="tbt-empty" data-role="filter-empty" hidden>
+					<?php esc_html_e( 'No decks match your search.', 'tbt-swipe' ); ?>
+					<button type="button" class="tbt-filter-link" data-role="filter-reset"><?php esc_html_e( 'Clear filters', 'tbt-swipe' ); ?></button>
+				</div>
 			<?php endif; ?>
 
 			<div class="tbt-modal" data-role="qr-modal" hidden>
@@ -657,10 +718,16 @@ class TBTS_Frontend {
 		 * data-draft is what tells the delete handler which confirmation to
 		 * put up: a draft usually holds no cards, so the published wording
 		 * overstates what is about to be lost.
+		 *
+		 * The data-search-* pair is what the library filter matches on. It
+		 * carries the plain text because the rendered title and chip may hold
+		 * a <mark> from an earlier keystroke.
 		 */
 		?>
 		<div class="tbt-deck<?php echo $unattached ? ' tbt-deck--none' : ''; ?><?php echo $draft ? ' tbt-deck--draft' : ''; ?>"
-			data-set-id="<?php echo esc_attr( (int) $set->id ); ?>"<?php echo $draft ? ' data-draft="1"' : ''; ?>>
+			data-set-id="<?php echo esc_attr( (int) $set->id ); ?>"<?php echo $draft ? ' data-draft="1"' : ''; ?>
+			data-search-title="<?php echo esc_attr( $set->title ); ?>"
+			data-search-lesson="<?php echo esc_attr( $lesson_name ); ?>">
 			<div class="tbt-deck-body">
 				<?php
 				/*
@@ -957,6 +1024,65 @@ class TBTS_Frontend {
 	}
 
 	/**
+	 * The class dropdown's options, in the order the library filter lists them.
+	 *
+	 * Classes come first, A-Z, so a teacher scans an alphabet rather than the
+	 * deck order the page happens to be in. Sorted on the accent-stripped
+	 * title so "Lukasz" and "Łukasz" sit together under L rather than the
+	 * latter landing after Z. Drafts and No class follow, in that order, as
+	 * the two groups the plugin names itself.
+	 *
+	 * @param array[] $groups Groups from group_by_class().
+	 * @return array[] Each array( 'value' => string, 'label' => string,
+	 *                 'name' => string, 'count' => int ).
+	 */
+	private function filter_options( $groups ) {
+		$classes = array();
+		$drafts  = null;
+		$none    = null;
+
+		foreach ( $groups as $group ) {
+			$option = array(
+				'value' => $group['key'],
+				'label' => sprintf(
+					/* translators: 1: class or group name, 2: number of decks */
+					__( '%1$s (%2$d)', 'tbt-swipe' ),
+					$group['title'],
+					count( $group['sets'] )
+				),
+				// The bare name, so JS can rebuild the label when a delete
+				// changes the count.
+				'name'  => $group['title'],
+				'count' => count( $group['sets'] ),
+			);
+
+			if ( 'drafts' === $group['key'] ) {
+				$drafts = $option;
+			} elseif ( 'none' === $group['key'] ) {
+				$none = $option;
+			} else {
+				$classes[] = $option;
+			}
+		}
+
+		usort(
+			$classes,
+			function ( $a, $b ) {
+				return strnatcasecmp( remove_accents( $a['name'] ), remove_accents( $b['name'] ) );
+			}
+		);
+
+		if ( $drafts ) {
+			$classes[] = $drafts;
+		}
+		if ( $none ) {
+			$classes[] = $none;
+		}
+
+		return $classes;
+	}
+
+	/**
 	 * Group sets by class, with the unattached group last.
 	 *
 	 * "No class" is rendered as an ordinary group — same styling as the rest.
@@ -967,8 +1093,17 @@ class TBTS_Frontend {
 	 * newest thing on the page furthest from where they are looking. The
 	 * heading names them, so the rows carry no separate draft chip.
 	 *
+	 * Each group also carries the two values the library filter addresses it
+	 * by: 'key', which is the dropdown value, the URL value and the group's
+	 * data-filter-group; and 'search_name', the class name search matches on.
+	 * Only a real class with a resolved title has a searchable name — "Drafts",
+	 * "No class" and the 'Class' fallback are labels the plugin wrote, not
+	 * something the teacher named, so typing "class" must not match every
+	 * unattached deck.
+	 *
 	 * @param object[] $sets Sets with card_count.
-	 * @return array[] Each array( 'title' => string, 'sets' => object[] ).
+	 * @return array[] Each array( 'key' => string, 'title' => string,
+	 *                 'search_name' => string, 'sets' => object[] ).
 	 */
 	private function group_by_class( $sets ) {
 		$drafts     = array();
@@ -989,10 +1124,13 @@ class TBTS_Frontend {
 			if ( ! isset( $attached[ $class_id ] ) ) {
 				$title = TBTS_Classes::class_title( $class_id );
 				$attached[ $class_id ] = array(
+					'key'         => (string) $class_id,
 					// Notes may be inactive, or the class since deleted. The
 					// set still works; it just loses its group name.
-					'title' => '' !== $title ? $title : __( 'Class', 'tbt-swipe' ),
-					'sets'  => array(),
+					'title'       => '' !== $title ? $title : __( 'Class', 'tbt-swipe' ),
+					// A fallback title names nothing, so it is not searchable.
+					'search_name' => $title,
+					'sets'        => array(),
 				);
 			}
 			$attached[ $class_id ]['sets'][] = $set;
@@ -1002,8 +1140,10 @@ class TBTS_Frontend {
 
 		if ( ! empty( $unattached ) ) {
 			$groups[] = array(
-				'title' => __( 'No class', 'tbt-swipe' ),
-				'sets'  => $unattached,
+				'key'         => 'none',
+				'title'       => __( 'No class', 'tbt-swipe' ),
+				'search_name' => '',
+				'sets'        => $unattached,
 			);
 		}
 
@@ -1011,8 +1151,10 @@ class TBTS_Frontend {
 			array_unshift(
 				$groups,
 				array(
-					'title' => __( 'Drafts', 'tbt-swipe' ),
-					'sets'  => $drafts,
+					'key'         => 'drafts',
+					'title'       => __( 'Drafts', 'tbt-swipe' ),
+					'search_name' => '',
+					'sets'        => $drafts,
 				)
 			);
 		}

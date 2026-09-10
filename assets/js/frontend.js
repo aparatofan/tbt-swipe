@@ -4,6 +4,11 @@
 
 	var cfg = window.tbtsFe || {};
 	var i18n = cfg.i18n || {};
+	/* Set by initSets() when the library rendered a filter bar. Deleting or
+	   editing a deck changes what the filter is counting, and both of those
+	   happen outside initSets — refreshDeckRow() is module-level, and the
+	   generator can edit a deck on a page the library also lives on. */
+	var libraryRefresh = null;
 
 	document.addEventListener( 'DOMContentLoaded', function () {
 		var generator = document.getElementById( 'tbts-fe-generator' );
@@ -130,6 +135,24 @@
 	}
 
 	/**
+	 * Fill a translated string's positional placeholders.
+	 *
+	 * The library filter's counts are built in JS, so they need the %1$d
+	 * ordering a translator may reorder — sprintf's job, which the browser
+	 * does not do.
+	 *
+	 * @param {string} template Translated string with %N$d / %N$s markers.
+	 * @param {Array}  args     Values, first placeholder first.
+	 * @return {string}
+	 */
+	function format( template, args ) {
+		return String( template || '' ).replace( /%(\d+)\$[ds]/g, function ( match, n ) {
+			var value = args[ Number( n ) - 1 ];
+			return 'undefined' === typeof value ? match : String( value );
+		} );
+	}
+
+	/**
 	 * Rewrite one row of the deck list after its deck has been edited.
 	 *
 	 * The list is server-rendered, so without this a saved edit leaves the row
@@ -154,6 +177,10 @@
 			title.textContent = info.title;
 		}
 
+		// The filter matches on the attributes, not on the rendered text,
+		// which may still hold a <mark> from the search that is running.
+		row.setAttribute( 'data-search-title', info.title );
+
 		var count = role( row, 'deck-cards' );
 		if ( count ) {
 			count.textContent = info.cards + ' ' + pluralCard( info.cards );
@@ -167,8 +194,15 @@
 		}
 
 		if ( info.keepChip ) {
+			// The chip is left alone, so what it says is still true and the
+			// lesson the filter matches on has not changed either.
+			if ( libraryRefresh ) {
+				libraryRefresh();
+			}
 			return;
 		}
+
+		row.setAttribute( 'data-search-lesson', info.open ? '' : ( info.lesson || '' ) );
 
 		var chip = role( row, 'deck-chip' );
 		if ( chip ) {
@@ -185,6 +219,12 @@
 		}
 
 		row.classList.toggle( 'tbt-deck--none', ! info.open && ! info.lesson );
+
+		// A renamed or re-attached deck may now match a filter it did not,
+		// or stop matching one it did.
+		if ( libraryRefresh ) {
+			libraryRefresh();
+		}
 	}
 
 	function renderQr( target, url ) {
@@ -1320,6 +1360,11 @@
 	/** Query parameter the Edit button uses. Mirrors TBTS_Frontend::EDIT_PARAM. */
 	var EDIT_PARAM = 'tbts_edit';
 
+	/* The library filter lives in the URL, so Edit → browser Back returns to
+	   the same filtered view, and a reload keeps it. */
+	var FILTER_Q_PARAM = 'tbts_q';
+	var FILTER_CLASS_PARAM = 'tbts_class';
+
 	/**
 	 * The generator page with a deck marked for editing.
 	 *
@@ -1358,6 +1403,15 @@
 	 * ---------------------------------------------------------------- */
 
 	function initSets( root ) {
+		// Only rendered over a library that has decks in it, so every one of
+		// these is null on an empty library and the filter is skipped.
+		var filterInput = role( root, 'filter-q' );
+		var filterClear = role( root, 'filter-clear' );
+		var filterClass = role( root, 'filter-class' );
+		var filterSummary = role( root, 'filter-summary' );
+		var filterSummaryText = role( root, 'filter-summary-text' );
+		var filterEmpty = role( root, 'filter-empty' );
+
 		var modal = role( root, 'qr-modal' );
 		var qrTarget = role( root, 'qr-target' );
 		var qrTitle = role( root, 'qr-title' );
@@ -1406,6 +1460,14 @@
 					break;
 				case 'delete':
 					deleteSet( button );
+					break;
+				case 'filter-clear':
+					clearFilterSearch();
+					break;
+				case 'filter-reset':
+					// The role is on both the summary link and the no-match
+					// one; they do the same thing from either end.
+					resetFilter();
 					break;
 			}
 		} );
@@ -1589,6 +1651,325 @@
 				} );
 		}
 
+
+		/* ---------------------------------------------------------------- *
+		 * Library filter
+		 * ---------------------------------------------------------------- */
+
+		/* The library has no pagination, so every deck the teacher owns is
+		   already in the page. Filtering is a matter of hiding rows rather
+		   than asking the server for a narrower list. */
+		if ( filterInput ) {
+			initFilter();
+		}
+
+		function initFilter() {
+			var typing = null;
+
+			filterInput.addEventListener( 'input', function () {
+				// Long enough that a fast typist filters once rather than per
+				// keystroke, short enough to feel like it is keeping up.
+				window.clearTimeout( typing );
+				typing = window.setTimeout( applyFilter, 80 );
+			} );
+
+			filterInput.addEventListener( 'keydown', function ( event ) {
+				// An empty field has nothing to clear, so Escape passes
+				// through to whatever else on the page wants it.
+				if ( 'Escape' === event.key && filterInput.value ) {
+					event.preventDefault();
+					filterInput.value = '';
+					applyFilter();
+				}
+			} );
+
+			if ( filterClass ) {
+				filterClass.addEventListener( 'change', applyFilter );
+			}
+
+			/* Its own handler rather than a branch in the modal one: that one
+			   returns early when no modal is open, which is exactly when this
+			   shortcut is meant to work. */
+			document.addEventListener( 'keydown', function ( event ) {
+				if ( '/' !== event.key || event.ctrlKey || event.metaKey || event.altKey ) {
+					return;
+				}
+				// Not over a dialog, and not while the teacher is typing a
+				// deck title — there "/" is a character, not a shortcut.
+				if ( openModal() ) {
+					return;
+				}
+				var active = document.activeElement;
+				var tag = active ? active.tagName : '';
+				if ( 'INPUT' === tag || 'TEXTAREA' === tag || 'SELECT' === tag || ( active && active.isContentEditable ) ) {
+					return;
+				}
+				event.preventDefault();
+				filterInput.focus();
+			} );
+
+			// Deletes and saved edits both change what the filter is counting.
+			libraryRefresh = function () {
+				refreshFilterOptions();
+				applyFilter();
+			};
+
+			// After the markup, so a class the URL names can be checked
+			// against the options that exist. A brief unfiltered flash is the
+			// cost of the list being server-rendered.
+			readFilterUrl();
+			applyFilter();
+		}
+
+		/**
+		 * Case- and diacritic-insensitive: "malas" finds "Małas", "sroda"
+		 * finds "środa". ł does not decompose under NFD, so it is mapped by
+		 * hand.
+		 *
+		 * @param {string} value Text to fold.
+		 * @return {string}
+		 */
+		function fold( value ) {
+			return String( value || '' ).replace( /[łŁ]/g, 'l' ).normalize( 'NFD' ).replace( /[\u0300-\u036f]/g, '' ).toLowerCase();
+		}
+
+		function pluralDeck( n ) {
+			return 1 === n ? i18n.deckOne : i18n.deckMany;
+		}
+
+		/**
+		 * Show the match inside a piece of text, and nothing else.
+		 *
+		 * Built out of nodes rather than innerHTML: the text is a deck title
+		 * the teacher typed, and it must never be able to bring markup with it.
+		 *
+		 * @param {Element} el   Element to rewrite.
+		 * @param {string}  text Source text, always from a data attribute —
+		 *                       the element's own text may already hold a mark.
+		 * @param {string}  q    Folded query, or '' to strip the marks.
+		 */
+		function highlight( el, text, q ) {
+			if ( ! el ) {
+				return;
+			}
+
+			var folded = fold( text );
+			var at = q ? folded.indexOf( q ) : -1;
+			var mark;
+
+			/* fold() keeps length for the Polish letters. If some other
+			   character changed it, the indices no longer line up, so skip the
+			   mark rather than highlight the wrong letters. */
+			if ( -1 === at || folded.length !== text.length ) {
+				/* An element that still holds a <mark> has exactly the source
+				   text in it, so comparing the text alone would call it clean
+				   and leave the mark from the previous keystroke behind. */
+				if ( el.firstElementChild || el.textContent !== text ) {
+					el.textContent = text;
+				}
+				return;
+			}
+
+			el.textContent = '';
+			el.appendChild( document.createTextNode( text.slice( 0, at ) ) );
+			mark = document.createElement( 'mark' );
+			mark.className = 'tbt-hit';
+			mark.textContent = text.slice( at, at + q.length );
+			el.appendChild( mark );
+			el.appendChild( document.createTextNode( text.slice( at + q.length ) ) );
+		}
+
+		/**
+		 * Hide every row the query and the chosen class do not describe, and
+		 * restate the counts around them.
+		 */
+		function applyFilter() {
+			var q = fold( filterInput.value.trim() );
+			var cls = filterClass ? filterClass.value : '';
+			var active = !! ( q || cls );
+			var sections = root.querySelectorAll( '[data-filter-group]' );
+			var total = 0;
+			var shown = 0;
+			var s, section, groupName, inClass, rows, visible, count;
+			var r, row, title, lesson, match;
+
+			for ( s = 0; s < sections.length; s++ ) {
+				section = sections[ s ];
+				inClass = ! cls || cls === section.getAttribute( 'data-filter-group' );
+				/* Only a real class has a searchable name. "Drafts" and "No
+				   class" are the plugin's own words, so typing "class" must
+				   not match every unattached deck. */
+				groupName = section.getAttribute( 'data-filter-name' ) || '';
+				rows = section.querySelectorAll( '[data-set-id]' );
+				visible = 0;
+
+				for ( r = 0; r < rows.length; r++ ) {
+					row = rows[ r ];
+					title = row.getAttribute( 'data-search-title' ) || '';
+					lesson = row.getAttribute( 'data-search-lesson' ) || '';
+					match = inClass && ( ! q || -1 !== ( fold( title ) + '\n' + fold( lesson ) + '\n' + fold( groupName ) ).indexOf( q ) );
+					row.hidden = ! match;
+					if ( match ) {
+						visible++;
+					}
+
+					highlight( role( row, 'deck-title' ), title, match ? q : '' );
+					// Only a lesson chip. "Unattached" and "OPEN DECK" are not
+					// searched, so they are never marked either.
+					if ( '' !== lesson ) {
+						highlight( role( row, 'deck-chip' ), lesson, match ? q : '' );
+					}
+				}
+
+				if ( '' !== groupName ) {
+					highlight( role( section, 'group-name' ), groupName, visible ? q : '' );
+				}
+
+				section.hidden = 0 === visible;
+				shown += visible;
+				total += rows.length;
+
+				count = role( section, 'group-count' );
+				if ( count ) {
+					// Counted from the rows every time rather than cached: a
+					// delete changes the total under it.
+					count.textContent = active && visible !== rows.length
+						? format( i18n.filterOf, [ visible, rows.length, pluralDeck( rows.length ) ] )
+						: format( i18n.filterAll, [ rows.length, pluralDeck( rows.length ) ] );
+				}
+			}
+
+			if ( filterClear ) {
+				filterClear.hidden = ! filterInput.value;
+			}
+			if ( filterClass ) {
+				filterClass.classList.toggle( 'is-set', !! cls );
+			}
+
+			if ( filterSummary ) {
+				filterSummary.hidden = ! ( active && shown > 0 );
+				if ( ! filterSummary.hidden && filterSummaryText ) {
+					filterSummaryText.textContent = format( i18n.filterShowing, [ shown, total, pluralDeck( total ) ] );
+				}
+			}
+			if ( filterEmpty ) {
+				filterEmpty.hidden = ! ( active && 0 === shown );
+			}
+
+			writeFilterUrl();
+		}
+
+		/**
+		 * Bring the class dropdown back in line with the groups that are left.
+		 *
+		 * A class whose last deck was deleted keeps an option that can only
+		 * ever show nothing, so the option goes with the group.
+		 */
+		function refreshFilterOptions() {
+			if ( ! filterClass ) {
+				return;
+			}
+
+			var options = filterClass.options;
+			var i, option, value, n;
+
+			// Backwards: removing an option shortens the collection in place.
+			for ( i = options.length - 1; i >= 0; i-- ) {
+				option = options[ i ];
+				value = option.value;
+				if ( '' === value ) {
+					continue;
+				}
+
+				n = root.querySelectorAll( '[data-filter-group="' + value + '"] [data-set-id]' ).length;
+				if ( 0 === n ) {
+					if ( filterClass.value === value ) {
+						filterClass.value = '';
+					}
+					option.parentNode.removeChild( option );
+					continue;
+				}
+
+				option.textContent = format( i18n.optionLabel, [ option.getAttribute( 'data-name' ), n ] );
+			}
+		}
+
+		function clearFilterSearch() {
+			filterInput.value = '';
+			applyFilter();
+			filterInput.focus();
+		}
+
+		function resetFilter() {
+			filterInput.value = '';
+			if ( filterClass ) {
+				filterClass.value = '';
+			}
+			applyFilter();
+			filterInput.focus();
+		}
+
+		function hasFilterOption( value ) {
+			var options = filterClass.options;
+			var i;
+
+			for ( i = 0; i < options.length; i++ ) {
+				if ( options[ i ].value === value ) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		function readFilterUrl() {
+			try {
+				var params = new URLSearchParams( window.location.search );
+				var q = params.get( FILTER_Q_PARAM );
+				var cls = params.get( FILTER_CLASS_PARAM );
+
+				if ( q ) {
+					filterInput.value = q;
+				}
+				// Only a class still on the page. A deleted one would leave
+				// the dropdown naming a group that is not there — and setting
+				// a value no option carries silently selects the first.
+				if ( cls && filterClass && hasFilterOption( cls ) ) {
+					filterClass.value = cls;
+				}
+			} catch ( e ) {}
+		}
+
+		/* replaceState, never pushState: typing would otherwise leave one
+		   history entry per keystroke between the library and wherever the
+		   teacher came from. */
+		function writeFilterUrl() {
+			if ( ! window.history || ! window.history.replaceState ) {
+				return;
+			}
+			try {
+				var url = new URL( window.location.href );
+				var q = filterInput.value.trim();
+				var cls = filterClass ? filterClass.value : '';
+
+				if ( q ) {
+					url.searchParams.set( FILTER_Q_PARAM, q );
+				} else {
+					url.searchParams.delete( FILTER_Q_PARAM );
+				}
+				if ( cls ) {
+					url.searchParams.set( FILTER_CLASS_PARAM, cls );
+				} else {
+					url.searchParams.delete( FILTER_CLASS_PARAM );
+				}
+
+				// applyFilter() runs on init and on every clear, and most of
+				// those leave the URL exactly as it was.
+				if ( url.toString() !== window.location.href ) {
+					window.history.replaceState( null, '', url.toString() );
+				}
+			} catch ( e ) {}
+		}
+
 		/* Rows and groups are found by their behavioural attributes, never by
 		   the class names the design owns. */
 		function deleteSet( button ) {
@@ -1614,6 +1995,11 @@
 					// Drop a group that just lost its last deck.
 					if ( group && ! group.querySelector( '[data-set-id]' ) ) {
 						group.parentNode.removeChild( group );
+					}
+					// Group counts, the summary and the class dropdown are
+					// all counting rows that no longer exist.
+					if ( libraryRefresh ) {
+						libraryRefresh();
 					}
 				} )
 				.catch( function ( error ) {

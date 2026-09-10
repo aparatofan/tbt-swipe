@@ -124,6 +124,21 @@ class TBTS_Shortcode {
 				'i18n'     => array(
 					'cardOne'       => __( 'card', 'tbt-swipe' ),
 					'cardMany'      => __( 'cards', 'tbt-swipe' ),
+					// The library filter's dynamic strings — the counts and
+					// labels it rewrites as the teacher types. Its static
+					// strings are rendered in PHP with the rest of the markup.
+					'deckOne'       => __( 'deck', 'tbt-swipe' ),
+					'deckMany'      => __( 'decks', 'tbt-swipe' ),
+					/* translators: 1: decks shown, 2: decks in the group, 3: "deck" or "decks" */
+					'filterOf'      => __( '%1$d of %2$d %3$s', 'tbt-swipe' ),
+					/* translators: 1: decks shown, 2: total decks, 3: "deck" or "decks" */
+					'filterShowing' => __( 'Showing %1$d of %2$d %3$s', 'tbt-swipe' ),
+					// The unfiltered group count. It has to read the same as
+					// deck_count_label(), which renders the count in PHP.
+					/* translators: 1: number of decks, 2: "deck" or "decks" */
+					'filterAll'     => __( '%1$d %2$s', 'tbt-swipe' ),
+					/* translators: 1: class or group name, 2: number of decks */
+					'optionLabel'   => __( '%1$s (%2$d)', 'tbt-swipe' ),
 					'tooMany'       => sprintf(
 						/* translators: %d: maximum number of terms per generation */
 						__( 'Too many words — the maximum is %d.', 'tbt-swipe' ),
