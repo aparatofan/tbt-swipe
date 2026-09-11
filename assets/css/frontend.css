@@ -329,6 +329,16 @@
 }
 .tbt .tbt-btn--danger { color: var(--tbt-maroon) !important; }
 .tbt .tbt-btn--danger:hover:not([disabled]) { border-color: var(--tbt-maroon) !important; background-color: #FAF0F0 !important; color: var(--tbt-maroon) !important; }
+/* The Admin Bar button: fixed 250 × 53 so the bar is identical on every tool,
+   and no shadow (the board's rule). Label, case and colour stay the primary
+   pill's. One class more than .tbt .tbt-btn, and pinned where it pins. */
+.tbt .tbt-btn.tbt-library-cta {
+  flex: 0 0 250px;
+  width: 250px !important; max-width: 250px !important;
+  min-height: 53px !important;
+  padding: 0 16px !important;
+  box-shadow: none !important;
+}
 
 /* ---------- Content stage + preview stack ---------- */
 .tbt-compose { display: grid; grid-template-columns: minmax(0,1fr) 310px; gap: var(--tbt-s7); align-items: start; }
@@ -460,10 +470,6 @@
 .tbt-reset-row { display: flex; justify-content: center; margin-bottom: var(--tbt-s7); }
 
 /* ---------- Library ---------- */
-/* The head row owns the spacing so the title block, which keeps working on
-   its own elsewhere, does not add a second margin inside the flex row. */
-.tbt-library-head { display: flex; justify-content: space-between; align-items: center; gap: var(--tbt-s4); flex-wrap: wrap; margin-bottom: var(--tbt-s5); }
-.tbt-library-head .tbt-section-head { flex: 1 1 260px; margin-bottom: 0; }
 .tbt-section-head { display: flex; align-items: baseline; gap: var(--tbt-s4); margin-bottom: var(--tbt-s5); }
 .tbt-section-title { font-family: var(--tbt-display); font-size: 28px; font-weight: 700; color: var(--tbt-blue); letter-spacing: -.01em; }
 .tbt-group { margin-bottom: var(--tbt-s6); }
@@ -506,12 +512,21 @@
   border-radius: var(--tbt-r-xl); color: var(--tbt-ink-soft); font-size: 16px;
 }
 
-/* ---------- Library filter (1.15.0) ---------- */
-/* Layout B: with a filter bar the title takes its natural width and the bar
-   takes the rest of the row. The rule line is not rendered in this state. */
-.tbt-library-head--filter .tbt-section-head { flex: 0 0 auto; }
-.tbt-filter { display: flex; align-items: center; gap: var(--tbt-s3); flex: 1 1 480px; min-width: 0; }
-.tbt-filter-search { position: relative; flex: 1 1 320px; min-width: 0; }
+/* ---------- Library filter (1.15.0) — Admin Bar v2 (1.15.1) ---------- */
+/* Admin Bar v2 — the TBT pattern, as in Students / Matching Game / Drag & Drop.
+   One row joined by a thin line: title ─ search ─ class ─ button, 10px either
+   side of each item. Fixed widths (300 / 300 / 250) so the bar reads the same
+   on every tool; the lines take what is left. */
+.tbt-library-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: var(--tbt-s5); }
+/* The title zone is at least 234px, so the search always starts 244px in.
+   Centred, not baselined, so the line sits at the middle of the row. */
+.tbt-library-head .tbt-section-head { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; min-width: 234px; margin-bottom: 0; }
+.tbt-library-line { flex: 1 1 0; min-width: 0; height: 1px; background-color: var(--tbt-line); }
+/* No decks: the title's line runs to the button on its own. */
+.tbt-library-head:not(.tbt-library-head--filter) .tbt-section-head { flex: 1 1 auto; }
+/* The filter group grows by the same share as the end line, so both gaps stay equal. */
+.tbt-filter { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0; }
+.tbt-filter-search { position: relative; flex: 0 0 300px; min-width: 0; }
 .tbt-filter-icon { position: absolute; left: var(--tbt-s4); top: 50%; transform: translateY(-50%); color: var(--tbt-blue); pointer-events: none; }
 /* .tbt .tbt-input pins its padding, so this has to pin as well, with a more
    specific selector, to make room for the icon and the clear button. */
@@ -525,7 +540,7 @@
 }
 .tbt-filter-clear:hover { background: var(--tbt-blue-wash); color: var(--tbt-blue); }
 .tbt-filter-clear:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--tbt-surface), 0 0 0 4px var(--tbt-blue); }
-.tbt .tbt-filter-class { flex: 0 1 300px; min-width: 200px; width: auto !important; }
+.tbt .tbt-filter-class { flex: 0 0 300px; min-width: 0; width: 300px !important; }
 /* A chosen class reads as a selection: blue border, pale blue surface. */
 .tbt .tbt-filter-class.is-set { border-color: var(--tbt-blue) !important; background-color: var(--tbt-blue-wash) !important; }
 .tbt-filter-summary { font-size: 15px; color: var(--tbt-ink-soft); margin: calc(-1 * var(--tbt-s2)) 0 var(--tbt-s5); }
@@ -593,13 +608,17 @@
      width and can afford to breathe. */
   .tbt-levels-grid { gap: var(--tbt-s3); }
 }
-@media (max-width: 900px) {
-  /* Title and Create share the first line; the filter bar takes a full second line. */
+@media (max-width: 1100px) {
+  /* Too narrow for the joined row: title and button share line one, search
+     and class take line two, and the lines step aside. */
+  .tbt-library-line { display: none; }
+  .tbt-library-head .tbt-section-head { flex: 1 1 auto; min-width: 0; }
   .tbt-library-head--filter .tbt-filter { order: 3; flex-basis: 100%; }
+  .tbt-filter-search { flex: 1 1 auto; }
 }
 @media (max-width: 580px) {
   .tbt-filter { flex-wrap: wrap; }
-  .tbt .tbt-filter-class { flex-basis: 100%; }
+  .tbt .tbt-filter-class { flex-basis: 100%; width: 100% !important; }
   .tbt-hero { grid-template-columns: 1fr; gap: 16px; padding: 21px 19px; border-radius: 17px; }
   .tbt-stage-card { padding: var(--tbt-s5); }
   .tbt-pair { grid-template-columns: 1fr; }
@@ -610,6 +629,9 @@
   /* The rule above stacks the page's own actions full width. A dialog's two
      buttons are a pair on one line, so they keep their natural width. */
   .tbt .tbt-modal-actions .tbt-btn--primary { width: auto !important; }
+  /* The fixed 250px is a desktop rule; on phones the Create button stays
+     full width like the page's other actions. */
+  .tbt .tbt-btn.tbt-library-cta { width: 100% !important; max-width: 100% !important; flex-basis: auto; }
   .tbt-row-top, .tbt-row-ex { grid-template-columns: minmax(0,1fr) 34px; }
   .tbt-row-top .tbt-row-n { display: none; }
   /* With the row number gone the fields stack in the wide column and the

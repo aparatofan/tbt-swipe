@@ -68,6 +68,7 @@ If a change affects WordPress/Divi behavior that the standalone tests cannot cov
 
 ## Git and deployment
 
+- Never merge a PR and never push to `main`. A merge to `main` deploys to the live site; that is Mariusz's decision. Stop at an open PR and report.
 - Do not commit directly to `main`; use a focused feature branch unless the user explicitly requests otherwise.
 - Keep commits task-focused and descriptive.
 - Before finishing, inspect the final diff for accidental unrelated changes.
