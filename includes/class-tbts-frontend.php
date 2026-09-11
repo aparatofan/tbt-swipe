@@ -533,12 +533,10 @@ class TBTS_Frontend {
 				<div class="tbt-section-head">
 					<span class="tbt-section-title"><?php esc_html_e( 'Your decks', 'tbt-swipe' ); ?></span>
 					<?php
-					// The filter bar takes the rest of the row, so the rule
-					// line has nowhere to run and is dropped in that state.
+					// The line joins the title to the next item; with no decks
+					// it runs to the button.
 					?>
-					<?php if ( ! $has_sets ) : ?>
-						<span class="tbt-group-rule"></span>
-					<?php endif; ?>
+					<span class="tbt-library-line" aria-hidden="true"></span>
 				</div>
 				<?php if ( $has_sets ) : ?>
 					<?php
@@ -561,6 +559,7 @@ class TBTS_Frontend {
 							<button type="button" class="tbt-filter-clear" data-role="filter-clear"
 								aria-label="<?php esc_attr_e( 'Clear search', 'tbt-swipe' ); ?>" hidden>&times;</button>
 						</div>
+						<span class="tbt-library-line" aria-hidden="true"></span>
 						<label class="tbt-sr" for="tbts-filter-class"><?php esc_html_e( 'Class', 'tbt-swipe' ); ?></label>
 						<select id="tbts-filter-class" class="tbt-select tbt-filter-class" data-role="filter-class">
 							<option value=""><?php esc_html_e( 'All classes', 'tbt-swipe' ); ?></option>
@@ -570,6 +569,7 @@ class TBTS_Frontend {
 							<?php endforeach; ?>
 						</select>
 					</div>
+					<span class="tbt-library-line tbt-library-line--end" aria-hidden="true"></span>
 				<?php endif; ?>
 				<?php if ( '' !== $generator_url ) : ?>
 					<?php
@@ -578,7 +578,7 @@ class TBTS_Frontend {
 					 * to go the button would name a step it cannot take.
 					 */
 					?>
-					<button type="button" class="tbt-btn tbt-btn--primary" data-role="create">
+					<button type="button" class="tbt-btn tbt-btn--primary tbt-library-cta" data-role="create">
 						<?php esc_html_e( 'Create new deck', 'tbt-swipe' ); ?>
 					</button>
 				<?php endif; ?>
