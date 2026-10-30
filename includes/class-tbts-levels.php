@@ -235,10 +235,10 @@ class TBTS_Levels {
 	 *                      it, and only to state the split as a number: left to
 	 *                      itself the model returns 8/2 as readily as 5/5.
 	 * @param string $profile Optional profile note for a one-to-one class, used
-	 *                      to choose the contexts the general-context sentences
-	 *                      are set in. Empty — the only value a group, or a deck
-	 *                      attached to no class, ever produces — returns the
-	 *                      block byte for byte as it was before profiles existed.
+	 *                      to choose the contexts the PROFILE sentences are set
+	 *                      in. Empty — the only value a group, or a deck
+	 *                      attached to no class, ever produces — leaves out the
+	 *                      PROFILE group and the learner context.
 	 * @return string
 	 */
 	public static function prompt_block( $band, $type = TBTS_Register::DEFAULT_TYPE, $count = 1, $profile = '' ) {
@@ -262,8 +262,13 @@ class TBTS_Levels {
 		$moves = 'The topic moves with the level as much as the grammar does: '
 			. 'if only the grammar changes and the topic stays generic, the levels become indistinguishable.';
 
+		// The band topic list now describes one strand of the general
+		// sentences; WORLD and PROFILE take theirs from the example rules.
+		$everyday = "- The general topic range describes the EVERYDAY sentences and sets how abstract all the general sentences are.\n";
+
 		if ( 'general' === $type ) {
-			$topic = "- Topic range: {$rules['topics_general']}. {$moves}\n";
+			$topic = "- Topic range: {$rules['topics_general']}. {$moves}\n"
+				. $everyday;
 		} elseif ( 'business' === $type ) {
 			$topic = "- Topic range: {$rules['topics_business']}. {$moves}\n"
 				// Without this, the model manufactures a boardroom for every
@@ -282,6 +287,7 @@ class TBTS_Levels {
 			$topic = "- Topic range, general contexts: {$rules['topics_general']}.\n"
 				. "- Topic range, business contexts: {$rules['topics_business']}.\n"
 				. "- {$moves}\n"
+				. $everyday
 				// Stated as a count, not as "about half": asked for a balance
 				// the model returns 8/2 as readily as 5/5.
 				. "- Exactly {$business} of the {$count} items must use a business context and the remaining "
@@ -302,19 +308,17 @@ class TBTS_Levels {
 		// act on.
 		$context = '';
 		if ( '' !== $profile && 'business' !== $type ) {
-			$context = "\nContext for the general-context sentences — this is one adult learner, described by their teacher:\n"
+			$context = "\nLearner context for the PROFILE sentences — this is one adult learner, described by their teacher:\n"
 				. "\"{$profile}\"\n"
-				. "- Use this only to choose WHERE the general-context sentences are set: the workplaces, "
-				. "activities, objects and situations the learner already recognises.\n"
-				. "- Do NOT describe the learner, do NOT write about them, and do NOT address them. The "
-				. "sentences are ordinary sentences that happen to be set in a familiar world. Never use "
-				. "\"you\", and never invent a name.\n"
-				. "- Do NOT mention the description itself, and do not try to use every detail. One or two "
-				. "details across the whole set is enough; repeating the same detail on every card makes the "
-				. "set tedious and teaches the word less well.\n"
-				. "- This narrows the topic range above. It never replaces it, never raises the grammar "
-				. "ceiling, and never changes the length or clause rules.\n"
-				. "- The business-context sentences ignore this description entirely.\n";
+				. "- Use this to choose WHERE the PROFILE sentences are set: the interests, places, works, "
+				. "people and situations this learner cares about. If they like films, a PROFILE sentence can "
+				. "be about a film, a director, an actor, a scene or a film location.\n"
+				. "- Do NOT describe the learner, do NOT write about them, and do NOT address them. Never use \"you\".\n"
+				. "- Spread the PROFILE sentences across different details of the description; do not use the "
+				. "same detail more than twice.\n"
+				. "- Do NOT mention the description itself.\n"
+				. "- This never raises the grammar ceiling and never changes the length or clause rules.\n"
+				. "- The WORLD, EVERYDAY and business-context sentences ignore this description.\n";
 		}
 
 		return "Level of the example sentences — CEFR {$band} ({$name}):\n"
@@ -323,7 +327,6 @@ class TBTS_Levels {
 			. "- Length: {$rules['length']}. Word counts are guardrails, not targets — a natural sentence "
 			. "a word or two outside the range beats a stilted one inside it.\n"
 			. $topic
-			. $context
 			// The learners are adults on every band and in every type. The old
 			// A1 and A2 topic lists said "school", and the model duly wrote for
 			// children; the lists no longer do, and this says so outright.
@@ -334,7 +337,11 @@ class TBTS_Levels {
 			. "- The level constrains the language around the target item, never the target item itself. "
 			. "If the item is above the requested level, keep it exactly as given and build a sentence at "
 			. "the requested level around it. Do not substitute an easier word for the item, and do not "
-			. "simplify the item.\n";
+			. "simplify the item.\n"
+			// Level first, then what the sentences are for, then the learner
+			// the PROFILE group draws on: the rules are read as a hierarchy.
+			. "\n" . TBTS_Examples::block( $band, $type, $count, '' !== $profile && 'business' !== $type )
+			. $context;
 	}
 
 	/**

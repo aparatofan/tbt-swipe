@@ -64,6 +64,7 @@ class TBT_Students {
 
 require_once dirname( __DIR__ ) . '/includes/class-tbts-register.php';
 require_once dirname( __DIR__ ) . '/includes/class-tbts-levels.php';
+require_once dirname( __DIR__ ) . '/includes/class-tbts-examples.php';
 
 echo "Normalising — Swipe has six bands and no decimals:\n";
 ok( 'B1' === TBTS_Levels::normalise( 'B1.3' ), 'B1.3 reduces to B1' );
@@ -145,11 +146,15 @@ foreach ( TBTS_Levels::BANDS as $band ) {
 ok( $every_band, 'the adults line appears in every band and every type' );
 ok( $item_rule, 'and the target-item rule survives all eighteen combinations' );
 
-// The adults line sits immediately before the target-item rule, which stays
-// last: the order is what the prompt reads as a hierarchy.
+// The adults line sits immediately before the target-item rule, which closes
+// the level block; the example rules follow it. The order is what the prompt
+// reads as a hierarchy.
 $b1_general = TBTS_Levels::prompt_block( 'B1', 'general', 6 );
+$examples   = 'What the example sentences are for';
 ok( strpos( $b1_general, $adults ) < strpos( $b1_general, $verbatim ), 'the adults line comes before the target-item rule' );
-ok( $verbatim . "\n" === substr( $b1_general, - ( strlen( $verbatim ) + 1 ) ), 'and the target-item rule is still last' );
+ok( false !== strpos( $b1_general, $verbatim . "\n\n" . $examples ), 'and the target-item rule closes the level block, right before the example rules' );
+$b1_profiled = TBTS_Levels::prompt_block( 'B1', 'general', 6, 'Likes films.' );
+ok( strpos( $b1_profiled, $examples ) < strpos( $b1_profiled, 'Learner context for the PROFILE sentences' ), 'the learner context comes after the example rules' );
 
 $b2_general  = TBTS_Levels::prompt_block( 'B2', 'general', 6 );
 $b2_business = TBTS_Levels::prompt_block( 'B2', 'business', 6 );
@@ -287,7 +292,7 @@ ok( false !== strpos( $shaped_gen, 'clinical psychologist' ), 'so does General' 
 ok( $plain_bus === $shaped_bus, 'Business ignores the profile entirely — there are no general cards to shape' );
 
 ok( false !== strpos( $shaped_mix, 'Never use "you"' ), 'the block forbids addressing the learner' );
-ok( false !== strpos( $shaped_mix, 'never invent a name' ), 'and forbids inventing a name' );
+ok( false !== strpos( $shaped_mix, 'never invent any other name' ), 'and forbids inventing a name beyond the recurring characters' );
 ok( false !== strpos( $shaped_mix, 'never raises the grammar ceiling' ), 'and states that the level still wins' );
 
 // The topic range and the target-item rule are what the profile narrows and

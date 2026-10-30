@@ -131,7 +131,10 @@ class TBTS_API {
 			. "The level rules apply to the example sentence only. The IPA and the Polish translation are "
 			. "properties of the item and never change with the level.\n\n"
 			. "Return ONLY a JSON array, no preamble, no markdown fences. Each element: "
-			. '{"term": "...", "ipa": "...", "translation": "...", "example": "..."}. '
+			// group and connector come before example so the model commits to
+			// them first. parse_response() discards both; they are never stored.
+			. '{"term": "...", "ipa": "...", "translation": "...", "group": "WORLD | EVERYDAY | PROFILE | BUSINESS", "connector": "the connector used, or none", "example": "..."}. '
+			. 'The "group" and "connector" fields are for planning; fill them in before writing the example, and make the example match them. '
 			. "Preserve the input order exactly and return exactly one element per input item.\n\n"
 			. "Items:\n"
 			. implode( "\n", $terms );
