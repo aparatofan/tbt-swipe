@@ -54,7 +54,7 @@ class TBTS_Examples {
 		$lists = array(
 			'A1' => 'and, but, or, also, too',
 			'A2' => 'because, so, when, then, before, after',
-			'B1' => 'although, while, unless, until, as soon as, so that, however',
+			'B1' => 'although, unless, until, as soon as, so that, however',
 			'B2' => 'whereas, despite, even though, therefore, as long as, otherwise, which is why',
 			'C1' => $c1,
 			'C2' => $c1 . ', plus any connector a skilled writer would choose; prefer the less obvious',
@@ -143,15 +143,16 @@ class TBTS_Examples {
 			'A1' => ' Join words or phrases inside the one clause; no subordinate clauses.',
 			'A2' => ' Lower-band connectors also allowed.',
 		);
-		$connectors = "6. Connectors. Link ideas with connectors and vary them. Connectors for CEFR {$band}: "
+		$connectors = "6. Keep it simple. One clear idea is enough: a short, plain sentence that shows the "
+			. "meaning is better than a long one. Add a second part only when it helps show the meaning, and join "
+			. "it with the connector that is logically right — the second part must really follow from, explain or "
+			. "contrast with the first. Never add a clause or a connector just for variety or to sound advanced; "
+			. "many good sentences need no connector at all. Where a connector fits, these suit CEFR {$band}: "
 			. self::connectors( $band ) . '.' . ( $notes[ $band ] ?? '' )
-			. " At least half of the connectors you use must come from this list; the rest may come from lower "
-			. "levels. No single connector may appear more than twice in this whole set — \"and\", \"but\" and "
-			. "\"because\" included. A connector never takes a sentence above the grammar ceiling or outside the "
-			. "clause rule.";
-		if ( ! in_array( $band, array( 'A1', 'A2' ), true ) ) {
-			$connectors .= ' Most sentences should contain a connector.';
-		}
+			. " Simpler ones from lower levels are always fine. No single connector may appear more than twice in "
+			. "this whole set. A connector never takes a sentence above the grammar ceiling or outside the clause "
+			. "rule. Before returning, read each sentence on its own: an ordinary reader must find it natural, "
+			. "logical and true.";
 		$rules[] = $connectors;
 
 		$rules[] = "7. Variety. Do not begin more than two sentences with the same word, and do not begin most "

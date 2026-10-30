@@ -66,18 +66,23 @@ $capped   = true;
 foreach ( TBTS_Levels::BANDS as $band ) {
 	foreach ( TBTS_Register::TYPES as $type ) {
 		$block = TBTS_Examples::block( $band, $type, 6, false );
-		if ( false === strpos( $block, "Connectors for CEFR {$band}: " . TBTS_Examples::connectors( $band ) . '.' ) ) { $own_list = false; }
+		if ( false === strpos( $block, "these suit CEFR {$band}: " . TBTS_Examples::connectors( $band ) . '.' ) ) { $own_list = false; }
 		if ( false === strpos( $block, 'more than twice' ) ) { $capped = false; }
 	}
 }
 ok( $own_list, 'each band carries its own connector list' );
 ok( $capped, 'and every block caps a connector at twice' );
-ok( 'although, while, unless, until, as soon as, so that, however' === TBTS_Examples::connectors( 'junk' ), 'an unknown band yields the B1 connectors' );
+ok( 'although, unless, until, as soon as, so that, however' === TBTS_Examples::connectors( 'junk' ), 'an unknown band yields the B1 connectors' );
 ok( 0 === strpos( TBTS_Examples::connectors( 'C2' ), TBTS_Examples::connectors( 'C1' ) ), 'C2 extends the C1 list' );
-ok( false !== strpos( TBTS_Examples::block( 'A1', 'general', 6, false ), 'and, but, or, also, too. Join words or phrases inside the one clause; no subordinate clauses. At least half' ), 'A1 carries its single-clause note' );
-ok( false !== strpos( TBTS_Examples::block( 'A2', 'general', 6, false ), 'before, after. Lower-band connectors also allowed. At least half' ), 'A2 carries its lower-band note' );
-ok( false === strpos( TBTS_Examples::block( 'A2', 'general', 6, false ), 'Most sentences should contain a connector.' ), 'A2 does not demand a connector in most sentences' );
-ok( false !== strpos( TBTS_Examples::block( 'B1', 'general', 6, false ), 'clause rule. Most sentences should contain a connector.' ), 'B1 does' );
+ok( false !== strpos( TBTS_Examples::block( 'A1', 'general', 6, false ), 'and, but, or, also, too. Join words or phrases inside the one clause; no subordinate clauses. Simpler ones' ), 'A1 carries its single-clause note' );
+ok( false !== strpos( TBTS_Examples::block( 'A2', 'general', 6, false ), 'before, after. Lower-band connectors also allowed. Simpler ones' ), 'A2 carries its lower-band note' );
+$never_demands = true;
+foreach ( TBTS_Levels::BANDS as $band ) {
+	if ( false !== strpos( TBTS_Examples::block( $band, 'general', 6, false ), 'Most sentences should contain a connector' ) ) { $never_demands = false; }
+}
+ok( $never_demands, 'no band demands a connector in most sentences' );
+ok( false !== strpos( TBTS_Examples::block( 'B1', 'general', 6, false ), '6. Keep it simple.' ), 'rule 6 asks for simple sentences' );
+ok( false !== strpos( TBTS_Examples::block( 'B2', 'general', 6, false ), 'natural, logical and true' ), 'and ends with the read-back check' );
 
 echo "Block — no profile, no PROFILE group:\n";
 $never = true;
