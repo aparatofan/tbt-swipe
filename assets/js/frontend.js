@@ -1097,12 +1097,18 @@
 					} );
 				}
 
-				// The edit is finished: the banner would otherwise keep
-				// offering to cancel a change that has already been saved.
-				leaveEditMode();
-				// The review panel closes on save, as it always has — stage 3
-				// is the answer to "I pressed save", not another edit surface.
-				reviewPanel.hidden = true;
+				// The saved deck stays open, so a wrong class, a typo or a
+				// missing card can be fixed and saved again over the same deck
+				// — same id, same link, same QR code — instead of leaving the
+				// teacher with a builder that can only make a second deck.
+				// "Create another deck" is what leaves.
+				enterEditMode( data.id, title );
+				// Saved decks are published; Discard is for drafts alone.
+				if ( discardBtn ) {
+					discardBtn.hidden = true;
+				}
+				// The cards and the Save changes button stay in view.
+				reviewPanel.hidden = false;
 
 				if ( resultTitle ) {
 					resultTitle.textContent = title;
