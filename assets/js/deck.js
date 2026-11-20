@@ -16,13 +16,14 @@
 	var FLICK_VELOCITY = 0.5;     // px/ms — a fast flick commits below threshold
 	var SCALE_MIN = 0.94;         // card scale at threshold (recedes)
 
-	/* Desktop: the card becomes a fixed 380x500 portrait card on a table, with
-	   a stack of backs beneath it. Deliberately width-only — a Surface or an
+	/* Desktop: the card becomes a fixed 720x405 (16:9) landscape card on a
+	   table, with a stack of backs beneath it — the same card as TBT
+	   Flashcards 2.3.0 (Card style contract v1). Deliberately width-only — a Surface or an
 	   iPad in landscape should get the table, so no `pointer: fine`. These two
 	   constants must match the width/height in the min-width:900px block. */
 	var DESKTOP_MQ = window.matchMedia ? window.matchMedia( '( min-width: 900px )' ) : null;
-	var CARD_W = 380;
-	var CARD_H = 500;
+	var CARD_W = 720;
+	var CARD_H = 405;
 	/* The tile type unit, in table pixels: what one em on a tile face is
 	   worth once the scale() has been cancelled out. */
 	var TILE_UNIT_BIG   = 16;
@@ -329,12 +330,37 @@
 		face.appendChild( line );
 	}
 
+	/* The WORD / MEANING tag, top-left. Always the first child of a face. */
+	function addTag( face, text ) {
+		if ( ! text ) {
+			return;
+		}
+		var tag = el( 'span', 'tbts-face-tag' );
+		tag.textContent = text;
+		face.appendChild( tag );
+	}
+
+	/* The thin rule between the answer and the example: only when there is
+	   an example to separate. */
+	function addRule( face, example ) {
+		if ( example ) {
+			face.appendChild( el( 'div', 'tbts-rule' ) );
+		}
+	}
+
 	function renderCard( card ) {
 		var cardEl = el( 'div', 'tbts-card' );
 		var inner = el( 'div', 'tbts-card-inner' );
 
 		var front = el( 'div', 'tbts-face tbts-face-front' );
 		var back = el( 'div', 'tbts-face tbts-face-back' );
+
+		/* The tag names what a face holds, so it swaps with frontFace: the
+		   face with the term says WORD, the face with the translation says
+		   MEANING. */
+		var termFirst = 'translation' !== frontFace;
+		addTag( front, termFirst ? i18n.faceWord : i18n.faceMeaning );
+		addTag( back, termFirst ? i18n.faceMeaning : i18n.faceWord );
 
 		/* Pronunciation and the example sentence both travel with the term:
 		   each of them names the term outright, so on the opposite face they
@@ -344,20 +370,25 @@
 			addLine( front, 'tbts-translation', card.translation );
 			addLine( back, 'tbts-term', card.term );
 			addLine( back, 'tbts-ipa', card.ipa );
+			addRule( back, card.example );
 			addLine( back, 'tbts-example', card.example );
 		} else {
 			addLine( front, 'tbts-term', card.term );
 			addLine( front, 'tbts-ipa', card.ipa );
 			addLine( back, 'tbts-translation', card.translation );
+			addRule( back, card.example );
 			addLine( back, 'tbts-example', card.example );
 		}
 
-		var hint = el( 'div', 'tbts-flip-hint' );
 		// Written once per card render. A resize across the breakpoint
 		// mid-card leaves this hint stale until the next card, which is
 		// cheaper than keeping a resize hook alive for the whole deck.
-		hint.textContent = isDesktop() ? i18n.clickToFlip : i18n.tapToFlip;
-		front.appendChild( hint );
+		var hintText = isDesktop() ? i18n.clickToFlip : i18n.tapToFlip;
+		[ front, back ].forEach( function ( face ) {
+			var hint = el( 'div', 'tbts-flip-hint' );
+			hint.textContent = hintText;
+			face.appendChild( hint );
+		} );
 
 		inner.appendChild( front );
 		inner.appendChild( back );
@@ -651,12 +682,12 @@
 	   and fall back to the seeded scatter. */
 	function heapSlot( idx, releaseX, releaseRot ) {
 		var stageW = ( stage && stage.offsetWidth ) || window.innerWidth;
-		// A card dropped near an edge still has to stay on the table.
-		var limit = Math.max( 0, stageW / 2 - 120 );
+		// A card dropped near an edge still has to stay on the table: it
+		// never hangs more than ~70px off the side, whatever its width.
+		var limit = Math.max( 0, stageW / 2 - CARD_W / 2 + 70 );
+		var x = typeof releaseX === 'number' ? releaseX : ( seeded( idx, 1 ) - 0.5 ) * 520;
 		return {
-			x: typeof releaseX === 'number'
-				? Math.max( -limit, Math.min( limit, releaseX ) )
-				: ( seeded( idx, 1 ) - 0.5 ) * 520,
+			x: Math.max( -limit, Math.min( limit, x ) ),
 			rot: typeof releaseRot === 'number'
 				? releaseRot + ( seeded( idx, 2 ) - 0.5 ) * 16   // ±8deg
 				: ( seeded( idx, 2 ) - 0.5 ) * 38
@@ -1372,10 +1403,10 @@
 	   animates from where it landed to its slot, FLIP-style. */
 	function dealHeap( end ) {
 		var n = heap.length;
-		// Five is still the widest row, but the remainder spreads across
-		// the rows instead of stranding one or two tiles on a line of
-		// their own: eight cards deal 4 + 4, not 5 + 3.
-		var rows = Math.ceil( n / 5 );
+		// Four landscape tiles is the widest row, and the remainder spreads
+		// across the rows instead of stranding one tile on a line of its
+		// own: eight cards deal 4 + 4, seven deal 4 + 3.
+		var rows = Math.ceil( n / 4 );
 		var perRow = Math.ceil( n / rows );
 		var gapX = 26, gapY = 22;
 		// The header tightens when the grid is deep, to buy back the room.
@@ -1389,9 +1420,9 @@
 
 		var scaleW = ( availW - ( perRow - 1 ) * gapX ) / ( perRow * CARD_W );
 		var scaleH = ( availH - ( rows - 1 ) * gapY ) / ( rows * CARD_H );
-		// The 0.44 floor is deliberate: a large heap runs slightly long
+		// The 0.40 floor is deliberate: a large heap runs slightly long
 		// rather than shrinking the type into illegibility.
-		var scale = Math.max( 0.44, Math.min( 0.80, Math.min( scaleW, scaleH ) ) );
+		var scale = Math.max( 0.40, Math.min( 0.65, Math.min( scaleW, scaleH ) ) );
 		var blockH = rows * CARD_H * scale + ( rows - 1 ) * gapY;
 
 		// What the deal actually needs at that scale: header, grid, and the
