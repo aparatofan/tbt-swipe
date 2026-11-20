@@ -222,6 +222,10 @@ class TBTS_Shortcode {
 				// The desktop wording of the same hint: there Space flips too,
 				// and the key is invisible unless the card names it.
 				'clickToFlip' => __( 'Click or press Space to flip', 'tbt-swipe' ),
+				// The tags on the card faces: the face with the term, and the
+				// face with the translation.
+				'faceWord'    => __( 'Word', 'tbt-swipe' ),
+				'faceMeaning' => __( 'Meaning', 'tbt-swipe' ),
 				'stillLearn' => __( 'Words to work on', 'tbt-swipe' ),
 				'goAgain'    => __( 'Go again', 'tbt-swipe' ),
 				'allKnown'   => __( 'All done — you knew every card!', 'tbt-swipe' ),
