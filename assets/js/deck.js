@@ -32,6 +32,9 @@
 	var STACK_MAX = 4;            // card backs drawn under the live card
 	var ZONE_ARM = 40;            // px of drag before a desktop zone lights up
 	var HEAP_SHOW = 130;          // px of a heaped card left showing above the edge
+	var FIT_STEP = 0.05;          // long-text fit: --fit steps down by this...
+	var FIT_MIN = 0.7;            // ...and never below this share
+	var FIT_DEBOUNCE = 100;       // ms of quiet after a resize before refitting
 
 	var root, stage, progressEl, stackEl;
 	var zones = null;    // { up: {el,label,arrow}, down: {el,label,arrow} }
@@ -52,6 +55,7 @@
 	var deckStartedAt = 0;
 	var completionSent = false;
 	var presenceTimer = null;
+	var fitTimer = null;
 	var PRESENCE_EVERY = 20000;   // ms between heartbeats while a deck is open
 
 	document.addEventListener( 'DOMContentLoaded', init );
@@ -70,6 +74,12 @@
 		// `current`, so it is inert on the loading and summary screens.
 		document.addEventListener( 'keydown', onKeydown );
 		window.addEventListener( 'resize', onResize );
+		window.addEventListener( 'resize', scheduleFit );
+		// Roboto Slab arrives with font-display: swap, so a card measured on
+		// the fallback face is refitted once the real one is in.
+		if ( document.fonts && document.fonts.ready ) {
+			document.fonts.ready.then( fitFaces );
+		}
 
 		var slug = getSlug();
 		if ( ! slug ) {
@@ -212,8 +222,8 @@
 		stage = el( 'div', 'tbts-stage' );
 		var down = buildZone( 'down' );
 
-		// The undealt remainder, drawn beneath the live card. Presentational
-		// only; CSS hides it below the desktop breakpoint.
+		// The undealt remainder, drawn beneath the live card at every width.
+		// Presentational only.
 		stackEl = el( 'div', 'tbts-stack' );
 		stackEl.setAttribute( 'aria-hidden', 'true' );
 		stage.appendChild( stackEl );
@@ -398,6 +408,81 @@
 
 		stage.appendChild( cardEl );
 		attachPointer( cardEl );
+		fitFaces();
+		// Fonts this card is the first to use start loading on that measure;
+		// refit once they are in, or the fallback's metrics would stand.
+		if ( document.fonts && document.fonts.ready && 'loaded' !== document.fonts.status ) {
+			document.fonts.ready.then( fitFaces );
+		}
+	}
+
+	/* ---- Long-text fit (card style contract v2) ----
+	   Every font size on a live face is calc( size * var(--fit, 1) ), so one
+	   number shrinks the whole face together. JS only ever sets --fit: from 1
+	   down in FIT_STEP steps to FIT_MIN, never above 1, so a short card is
+	   never enlarged. Kept apart from fitTileFace(), which works on the
+	   tile's em unit instead. */
+	function fitFaces() {
+		if ( ! current || ! current.el ) {
+			return;
+		}
+		var faces = current.el.querySelectorAll( '.tbts-face-front, .tbts-face-back' );
+		for ( var i = 0; i < faces.length; i++ ) {
+			fitFace( faces[ i ] );
+		}
+	}
+
+	function fitFace( face ) {
+		var fit = 1;
+		face.style.setProperty( '--fit', '1' );
+		while ( faceOverflows( face ) && fit > FIT_MIN ) {
+			fit = Math.max( FIT_MIN, Math.round( ( fit - FIT_STEP ) * 100 ) / 100 );
+			face.style.setProperty( '--fit', String( fit ) );
+		}
+	}
+
+	/* The face centres its content and clips it, so scrollHeight would miss
+	   whatever spills over the top. Measure the content itself instead: the
+	   in-flow lines and the gaps between them, against the face's height
+	   less the bands the tag (top) and the hint (bottom) occupy. Centred
+	   content grows both ways, so the larger band is reserved on both sides. */
+	function faceOverflows( face ) {
+		var cs = window.getComputedStyle( face );
+		var faceH = face.clientHeight;
+		if ( ! faceH ) {
+			return false;
+		}
+		var top = parseFloat( cs.paddingTop ) || 0;
+		var bottom = parseFloat( cs.paddingBottom ) || 0;
+		var gap = parseFloat( cs.rowGap ) || 0;
+		var used = 0;
+		var lines = 0;
+
+		for ( var i = 0; i < face.children.length; i++ ) {
+			var child = face.children[ i ];
+			if ( child.classList.contains( 'tbts-face-tag' ) ) {
+				top = Math.max( top, child.offsetTop + child.offsetHeight );
+			} else if ( child.classList.contains( 'tbts-flip-hint' ) ) {
+				bottom = Math.max( bottom, faceH - child.offsetTop );
+			} else {
+				used += child.offsetHeight;
+				lines++;
+			}
+		}
+		if ( lines > 1 ) {
+			used += gap * ( lines - 1 );
+		}
+		return used > faceH - 2 * Math.max( top, bottom );
+	}
+
+	function scheduleFit() {
+		if ( fitTimer ) {
+			window.clearTimeout( fitTimer );
+		}
+		fitTimer = window.setTimeout( function () {
+			fitTimer = null;
+			fitFaces();
+		}, FIT_DEBOUNCE );
 	}
 
 	/* ---- Pointer / drag handling ---- */
@@ -505,21 +590,21 @@
 		}
 	}
 
-	// Brighten the zone the card is heading toward, dim the opposite one.
-	// Mobile ramps the opacity with the drag; on the desktop table the label
-	// is a typographic mark that simply arms once the drag passes 40px, so
-	// the state lives in a class and the inline opacity stays out of it.
+	// Light the zone the card is heading toward, dim the opposite one. The
+	// zone arms once the drag passes 40px, and the armed zone turns blue (a
+	// class). On the table the dim is a class too; on a phone it ramps the
+	// opacity with the drag instead.
 	function zoneFeedback( active, dim, progress, dy ) {
+		var armed = Math.abs( dy ) > ZONE_ARM;
+		active.el.classList.toggle( 'is-active', armed );
 		if ( isDesktop() ) {
-			var armed = Math.abs( dy ) > ZONE_ARM;
-			active.el.classList.toggle( 'is-active', armed );
 			dim.el.classList.toggle( 'is-dim', armed );
 			return;
 		}
-		var a = ( 0.6 + 0.4 * progress ).toFixed( 3 );
-		var d = ( 0.6 - 0.3 * progress ).toFixed( 3 );
-		active.label.style.opacity = a;
-		active.arrow.style.opacity = a;
+		var d = ( 1 - 0.6 * progress ).toFixed( 3 );
+		active.label.style.opacity = '';
+		active.arrow.style.opacity = '';
+		dim.el.classList.remove( 'is-active' );
 		dim.label.style.opacity = d;
 		dim.arrow.style.opacity = d;
 	}
@@ -1044,8 +1129,7 @@
 
 	/* A medal: a disc on a ribbon, with the tick the learner just earned.
 	   Drawn inline rather than fetched — the player self-hosts everything —
-	   and stroked in currentColor so the disc can recolour it for the light
-	   desktop table. */
+	   and stroked in currentColor so the disc sets its colour. */
 	function buildMedal() {
 		var SVG_NS = 'http://www.w3.org/2000/svg';
 		var wrap = el( 'div', 'tbts-medal' );
@@ -1095,12 +1179,9 @@
 	// the drag and the speed range set the burst diameter together: these two
 	// give ~55–190px. Gravity is low enough that the sphere opens before it
 	// droops rather than drooping as it opens.
-	var FX_PALETTE_PHONE = [
-		'#FFFFFF', '#FFD466', '#7FE0A6', '#BFD4FF', '#FFAECF', '#CC9933'
-	];
-	// The same hues carried to a weight that reads on the light desktop
-	// table: at this burst size the pale set is close to invisible on #EEF1F6.
-	var FX_PALETTE_DESKTOP = [
+	// Hues at a weight that reads on the white table, which is every width
+	// since 1.18.0: a pale set is close to invisible on white at this size.
+	var FX_PALETTE = [
 		'#0856C9', '#E8A317', '#2FAE6A', '#5B8DEF', '#D9469B', '#C87A12'
 	];
 
@@ -1128,12 +1209,10 @@
 		ctx.lineCap = 'round';
 		root.appendChild( canvas );
 
-		var desktop = isDesktop();
-		var colors = desktop ? FX_PALETTE_DESKTOP : FX_PALETTE_PHONE;
-		// Additive blending is what gives the glow on the phone's blue field.
-		// On the light desktop table it bleaches every spark to white, so it
-		// stays off there — this is a per-device flag, not a constant.
-		var glow = ! desktop;
+		var colors = FX_PALETTE;
+		// Additive blending would bleach every spark to white on the white
+		// table, so it is off. Kept as a flag so the draw loop reads as before.
+		var glow = false;
 
 		// 'rgba(r,g,b,' prefixes for the flash gradient stops: parsing hex
 		// inside the draw loop would be string work at frame rate.
@@ -1223,10 +1302,9 @@
 					y: shell.y,
 					vx: Math.cos( ang ) * speed,
 					vy: Math.sin( ang ) * speed,
-					// On the phone a white minority is what makes the burst
-					// sparkle; on the light table every spark keeps the
-					// shell's colour, which it needs to stay legible.
-					ci: ( ! desktop && Math.random() < 0.10 ) ? 0 : shell.ci,
+					// Every spark keeps the shell's colour, which it needs to
+					// stay legible on white.
+					ci: shell.ci,
 					// Width never changes, so its bucket is settled here.
 					wb: Math.min( WIDTH_STEPS - 1, ( ( width - 1.5 ) / wSpan * WIDTH_STEPS ) | 0 ),
 					ttl: ( 1000 + Math.random() * 700 ) * FX_LIFE,
@@ -1266,9 +1344,7 @@
 
 			// A full clear every frame, and the trails come from each spark
 			// drawing a streak back along its own velocity. A translucent
-			// full-canvas fill would smear them instead, and the one colour
-			// it would have to smear in is wrong on one of the two backdrops:
-			// blue on the phone, near-white on the desktop table.
+			// full-canvas fill would smear them instead.
 			ctx.clearRect( 0, 0, w, h );
 			ctx.globalCompositeOperation = glow ? 'lighter' : 'source-over';
 
@@ -1509,7 +1585,10 @@
 
 		var face = el( 'div', 'tbts-face tbts-face-tile' );
 		face.style.borderRadius = px( 14 );
-		face.style.boxShadow = '0 ' + px( 10 ) + ' ' + px( 26 ) + ' rgba(4,30,74,.16)';
+		// The front's v2 surface (see .tbts-face-tile), scale-compensated
+		// like the radius so it survives the scale() the tile sits in.
+		face.style.borderWidth = px( 1 );
+		face.style.boxShadow = '0 ' + px( 12 ) + ' ' + px( 32 ) + ' rgba(8,86,201,.14)';
 		face.style.fontSize = ( ( big ? TILE_UNIT_BIG : TILE_UNIT_SMALL ) / scale ).toFixed( 2 ) + 'px';
 
 		var body = el( 'div', 'tbts-tile-body' );
