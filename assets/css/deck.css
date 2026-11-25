@@ -1,4 +1,4 @@
-/* TBT Swipe — frontend deck (design v1.1; card style contract v1 since 1.17.0).
+/* TBT Swipe — frontend deck (design v1.1; card style contract v2 since 1.18.0).
    All rules scoped under .tbts-deck and reset defensively so Divi's
    typography doesn't leak in. */
 
@@ -74,7 +74,10 @@
 	--tbts-grey: #5F5E5A;        /* IPA */
 	--tbts-soft: #888780;        /* example, hint */
 	--tbts-dark: #2C2C2A;        /* summary translation */
-	--tbts-table: #EEF1F6;       /* desktop table surface */
+	--tbts-table: #FFFFFF;       /* the table, at every width (contract v2) */
+	--tbts-front: #EEF4FE;       /* card front, summary tiles, word list */
+	--tbts-front-rule: #D7E4F8;  /* hairline around the light blue front */
+	--tbts-chrome: #5C7DB5;      /* phone zone labels, arrows, progress */
 	--tbts-rule: #DDE4EE;        /* summary tile hairline */
 	--tbts-slab: 'Roboto Slab', Georgia, serif;
 	--tbts-mono: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -98,8 +101,8 @@
 	display: flex;
 	flex-direction: column;
 	align-items: stretch;
-	background: var(--tbts-blue);
-	color: var(--tbts-white);
+	background: var(--tbts-table);
+	color: var(--tbts-dark);
 	overflow: hidden;
 	/* Stop a vertical drag from triggering pull-to-refresh in Chrome on
 	   Android — without this an upward flick near the top can reload the
@@ -123,7 +126,7 @@ body.tbts-deck-open {
 	font-size: 1.1rem;
 	line-height: 1.5;
 	padding: 24px;
-	color: var(--tbts-white);
+	color: var(--tbts-soft);
 }
 
 /* ---- Zones (tap targets + instructions) ---- */
@@ -141,7 +144,7 @@ body.tbts-deck-open {
 	border: 0;
 	margin: 0;
 	background: transparent;
-	color: var(--tbts-white);
+	color: var(--tbts-chrome);
 	font-family: inherit;
 	cursor: pointer;
 	-webkit-tap-highlight-color: transparent;
@@ -150,7 +153,7 @@ body.tbts-deck-open {
 .tbts-zone-up { justify-content: flex-start; }
 .tbts-zone-down { justify-content: flex-end; }
 .tbts-zone:focus-visible {
-	outline: 2px solid rgba( 255, 255, 255, 0.85 );
+	outline: 2px solid var(--tbts-blue);
 	outline-offset: -4px;
 	border-radius: 8px;
 }
@@ -159,7 +162,7 @@ body.tbts-deck-open {
 	font-size: 0.9rem;
 	font-weight: 600;
 	letter-spacing: 0.04em;
-	color: rgba( 255, 255, 255, 0.6 );
+	color: var(--tbts-chrome);
 	margin-bottom: 2px;
 }
 
@@ -168,21 +171,19 @@ body.tbts-deck-open {
 	font-weight: 700;
 	letter-spacing: 0.16em;
 	text-transform: uppercase;
-	color: var(--tbts-white);
-	opacity: 0.6;
-	transition: opacity 150ms ease;
+	color: var(--tbts-chrome);
+	transition: opacity 150ms ease, color 150ms ease;
 }
 .tbts-zone-arrow {
 	font-size: 1.25rem;
 	line-height: 1;
-	color: var(--tbts-white);
-	opacity: 0.6;
-	transition: opacity 150ms ease;
+	color: var(--tbts-chrome);
+	transition: opacity 150ms ease, color 150ms ease;
 }
-/* Brighten the zone the card is heading toward; JS also sets inline
-   opacity for the gradual approach, these are the resting/committed states. */
+/* The zone the card is heading toward turns TBT blue; the opposite one
+   dims. JS also ramps the dim zone's inline opacity with the drag. */
 .tbts-zone.is-active .tbts-zone-label,
-.tbts-zone.is-active .tbts-zone-arrow { opacity: 1; }
+.tbts-zone.is-active .tbts-zone-arrow { opacity: 1; color: var(--tbts-blue); }
 .tbts-zone.is-dim .tbts-zone-label,
 .tbts-zone.is-dim .tbts-zone-arrow { opacity: 0.3; }
 
@@ -197,12 +198,18 @@ body.tbts-deck-open {
 	padding: 0 16px;
 }
 
-.tbts-card {
+/* Phone box, shared by the card and the stack under it: about 92% of the
+   stage (contract v2), with the extra room at the bottom and right for the
+   stack to peek out. The desktop block replaces it with a fixed 16:9 box. */
+.tbts-card,
+.tbts-stack {
 	position: absolute;
-	top: 0;
-	left: 16px;
-	right: 16px;
-	bottom: 0;
+	top: 3%;
+	bottom: 5%;
+	left: calc( 16px + 4% );
+	right: calc( 16px + 4% );
+}
+.tbts-card {
 	perspective: 1200px;
 	/* Vertical gesture owns the card; the deck no longer scrolls. */
 	touch-action: none;
@@ -227,9 +234,7 @@ body.tbts-deck-open {
 	inset: 0;
 	-webkit-backface-visibility: hidden;
 	backface-visibility: hidden;
-	background: var(--tbts-white);
 	border-radius: 18px;
-	box-shadow: 0 12px 34px rgba( 4, 30, 74, 0.35 );
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -237,6 +242,17 @@ body.tbts-deck-open {
 	text-align: center;
 	padding: 28px 24px;
 	overflow: hidden;
+}
+
+/* Card style contract v2: a light blue front on the white table. The
+   summary tile is a front, so it gets the same surface. Every font size on
+   a live face is multiplied by --fit, which only JS sets (fitFaces) and only
+   ever below 1, so a long expression or example never overflows. */
+.tbts-face-front,
+.tbts-face-tile {
+	background: var(--tbts-front);
+	border: 1px solid var(--tbts-front-rule);
+	box-shadow: 0 12px 32px rgba( 8, 86, 201, 0.14 );
 }
 
 /* Logo: a quiet printed-flashcard mark, top-right, both faces. Drawn from
@@ -265,12 +281,12 @@ body.tbts-deck-open {
 	top: 14px;
 	left: 16px;
 	font-family: var(--tbts-mono);
-	font-size: 10px;
+	font-size: calc( 10px * var(--fit, 1) );
 	font-weight: 700;
 	line-height: 1;
 	letter-spacing: 0.18em;
 	text-transform: uppercase;
-	color: #8299B8;
+	color: #4F6FA6;
 	pointer-events: none;
 }
 .tbts-face-back .tbts-face-tag { color: rgba( 255, 255, 255, 0.6 ); }
@@ -280,7 +296,7 @@ body.tbts-deck-open {
 .tbts-face-front .tbts-term,
 .tbts-face-front .tbts-translation {
 	font-family: var(--tbts-slab);
-	font-size: 2.3rem;
+	font-size: calc( 2.3rem * var(--fit, 1) );
 	font-weight: 700;
 	line-height: 1.2;
 	color: var(--tbts-blue);
@@ -292,31 +308,32 @@ body.tbts-deck-open {
 .tbts-face-front { gap: 8px; }
 .tbts-face-front .tbts-ipa {
 	font-family: var(--tbts-mono);
-	font-size: 1.05rem;
-	color: #4E6689;
+	font-size: calc( 1.05rem * var(--fit, 1) );
+	color: #3E5A85;
 	font-weight: 500;
 }
 
-/* The back is blue with white type, never striped (the stripes belong to
-   the stack). Below the breakpoint it is a deeper navy, so it still stands
-   apart from the blue field; the table overrides it with the brand blue. */
+/* The back is TBT blue with white type at every width, never striped (the
+   stripes belong to the stack). */
 .tbts-face-back {
 	transform: rotateY(180deg);
 	gap: 10px;
-	background: linear-gradient( 160deg, #0B2F6E, #061E4A );
+	background: linear-gradient( 150deg, #0856C9, #063F94 );
+	box-shadow: 0 12px 32px rgba( 8, 86, 201, 0.22 );
 	color: var(--tbts-white);
 }
 /* Card-back hierarchy, largest to smallest: translation > example > IPA.
    clamp() lets the back scale from a small phone up to a tablet. */
 .tbts-face-back .tbts-ipa {
 	font-family: var(--tbts-mono);
-	font-size: 1.05rem;   /* smallest */
+	font-size: calc( 1.05rem * var(--fit, 1) );   /* smallest */
 	color: rgba( 255, 255, 255, 0.8 );
 	font-weight: 500;
 }
 .tbts-face-back .tbts-translation,
 .tbts-face-back .tbts-term {
-	font-size: clamp( 1.7rem, 6vw, 2rem );   /* largest */
+	/* Largest; ~18% under v1 so a long answer leaves room on a phone. */
+	font-size: calc( clamp( 1.4rem, 4.9vw, 1.65rem ) * var(--fit, 1) );
 	font-weight: 700;
 	color: var(--tbts-white);
 	overflow-wrap: break-word;
@@ -326,9 +343,8 @@ body.tbts-deck-open {
    face it has on the front of a term-first deck. */
 .tbts-face-back .tbts-term { font-family: var(--tbts-slab); }
 .tbts-face-back .tbts-example {
-	/* ~0.8x the translation and comfortably larger than the IPA (and than
-	   the previous 1.05rem). */
-	font-size: clamp( 1.35rem, 4.8vw, 1.6rem );
+	/* ~0.8x the translation and larger than the IPA; ~20% under v1. */
+	font-size: calc( clamp( 1.08rem, 3.85vw, 1.28rem ) * var(--fit, 1) );
 	line-height: 1.45;
 	color: rgba( 255, 255, 255, 0.95 );
 	font-style: italic;
@@ -349,8 +365,8 @@ body.tbts-deck-open {
 	left: 0;
 	right: 0;
 	text-align: center;
-	font-size: 0.8rem;
-	color: var(--tbts-soft);
+	font-size: calc( 0.8rem * var(--fit, 1) );
+	color: #557099;
 	letter-spacing: 0.02em;
 }
 .tbts-face-back .tbts-flip-hint { color: rgba( 255, 255, 255, 0.6 ); }
@@ -384,12 +400,12 @@ body.tbts-deck-open {
 	letter-spacing: 0;
 	text-transform: none;
 	margin: 0 0 10px;
-	color: var(--tbts-white);
+	color: var(--tbts-blue);
 }
 .tbts-beat-line {
 	font-size: 1.15rem;
 	line-height: 1.4;
-	color: var(--tbts-white);
+	color: var(--tbts-dark);
 }
 .tbts-beat-sub {
 	margin-top: 10px;
@@ -398,7 +414,7 @@ body.tbts-deck-open {
 	font-weight: 700;
 	text-transform: uppercase;
 	letter-spacing: 0.18em;
-	color: rgba( 255, 255, 255, 0.65 );
+	color: var(--tbts-soft);
 }
 
 /* The word list drops in here once the beat has held. */
@@ -435,7 +451,8 @@ body.tbts-deck-open {
 	display: none;
 }
 .tbts-end-item {
-	background: var(--tbts-white);
+	background: var(--tbts-front);
+	border: 1px solid var(--tbts-front-rule);
 	border-radius: 12px;
 	padding: 14px 16px;
 }
@@ -476,8 +493,9 @@ body.tbts-deck-open {
 	font-size: 1.05rem;
 	font-weight: 700;
 	font-family: inherit;
-	background: var(--tbts-white);
-	color: var(--tbts-blue);
+	background: var(--tbts-blue);
+	color: var(--tbts-white);
+	box-shadow: 0 8px 20px rgba( 8, 86, 201, 0.28 );
 	cursor: pointer;
 	-webkit-tap-highlight-color: transparent;
 }
@@ -503,7 +521,7 @@ body.tbts-deck-open {
 	height: 76px;
 	margin: 0 auto 18px;
 	border-radius: 50%;
-	background: rgba( 255, 255, 255, 0.16 );
+	background: var(--tbts-blue);
 	color: var(--tbts-white);
 	display: flex;
 	align-items: center;
@@ -638,11 +656,29 @@ body.tbts-deck-open {
 	color: var(--tbts-soft);
 }
 
-/* ---- Deck stack (desktop only) ----
-   The undealt remainder, drawn as card backs beneath the live card. Hidden
-   below the breakpoint: on a phone the card fills the stage, so there is
-   nothing for a stack to peek out from behind. */
-.tbts-stack { display: none; }
+/* ---- Deck stack ----
+   The undealt remainder, drawn as card backs beneath the live card, at
+   every width since 1.18.0. Its box is the card's (see .tbts-card above).
+   z-index 0 makes it a stacking context, so the backs' own z-indexes never
+   lift them over the live card that follows it in the stage. */
+.tbts-stack {
+	pointer-events: none;
+	z-index: 0;
+}
+.tbts-stack-card {
+	position: absolute;
+	inset: 0;
+	border-radius: 18px;   /* the phone face's radius; 20px on the table */
+	box-shadow: 0 10px 26px rgba( 4, 30, 74, 0.18 );
+	background:
+		repeating-linear-gradient(
+			45deg,
+			rgba( 255, 255, 255, 0.1 ) 0 8px,
+			rgba( 255, 255, 255, 0 ) 8px 16px
+		),
+		url( ../img/tbt-logo-white.png ) no-repeat center calc( 50% - 4px ) / 22% auto,
+		linear-gradient( 150deg, #0856C9, #063F94 );
+}
 
 /* ---- The not-yet heap (desktop only) ----
    Below the breakpoint a "not yet" card slides off and is discarded, so a
@@ -658,18 +694,6 @@ body.tbts-deck-open {
    phone layout is the baseline, not a special case.
    ===================================================================== */
 @media ( min-width: 900px ) {
-	.tbts-deck {
-		/* The deck background stops being the brand field and becomes the
-		   table the cards lie on. */
-		background: var(--tbts-table);
-		color: var(--tbts-dark);
-	}
-	/* White-on-blue copy has to come back down to the table. */
-	.tbts-deck-loading,
-	.tbts-message {
-		color: var(--tbts-soft);
-	}
-
 	/* The stage fills the overlay; the zones lift out of the flex flow and
 	   become typographic marks pinned to the top and bottom edges. */
 	.tbts-stage {
@@ -692,7 +716,6 @@ body.tbts-deck-open {
 	}
 	.tbts-zone-up { top: 26px; }
 	.tbts-zone-down { bottom: 26px; }
-	.tbts-zone:focus-visible { outline-color: var(--tbts-blue); }
 	/* The arrows were wayfinding for a thumb; on a table the label is enough. */
 	.tbts-zone-arrow { display: none; }
 
@@ -725,8 +748,8 @@ body.tbts-deck-open {
 		width: max-content;
 		padding: 5px 14px;
 		border-radius: 999px;
-		background: rgba( 255, 255, 255, 0.8 );
-		color: var(--tbts-soft);
+		background: var(--tbts-front);
+		color: #3E5A85;
 		font-family: var(--tbts-mono);
 		font-size: 12px;
 		letter-spacing: 0.08em;
@@ -748,21 +771,17 @@ body.tbts-deck-open {
 		container-type: inline-size;
 	}
 
-	/* ---- Card faces on the table: Card style contract v1, shared with
-	   TBT Flashcards 2.3.0. Every size is in cqw of the card. The rem /
-	   clamp() rules above are the phone faces only. Scoped to front and
-	   back so the summary tile face keeps its own frame. ---- */
+	/* ---- Card faces on the table: Card style contract v2, shared with
+	   TBT Flashcards 2.5.0. Every size is in cqw of the card, times --fit.
+	   The rem / clamp() rules above are the phone faces only. Scoped to
+	   front and back so the summary tile face keeps its own frame. ---- */
 	.tbts-face-front,
 	.tbts-face-back {
 		border-radius: 20px;
-		box-shadow: 0 14px 34px rgba( 4, 30, 74, 0.22 );
 		padding: 6cqw 7cqw;
 	}
 	.tbts-face-front { gap: 1.6cqw; }
-	.tbts-face-back {
-		gap: 2.2cqw;
-		background: linear-gradient( 150deg, #0856C9, #063F94 );
-	}
+	.tbts-face-back { gap: 2.2cqw; }
 
 	.tbts-face-front::after,
 	.tbts-face-back::after {
@@ -778,31 +797,31 @@ body.tbts-deck-open {
 	.tbts-face-tag {
 		top: 3.4cqw;
 		left: 3.6cqw;
-		font-size: max( 10px, 1.5cqw );
+		font-size: calc( max( 10px, 1.5cqw ) * var(--fit, 1) );
 	}
 
 	.tbts-face-front .tbts-term,
 	.tbts-face-front .tbts-translation {
-		font-size: 6.6cqw;
+		font-size: calc( 6.6cqw * var(--fit, 1) );
 		line-height: 1.15;
 		text-wrap: balance;
 	}
 	.tbts-face-front .tbts-ipa,
 	.tbts-face-back .tbts-ipa {
-		font-size: max( 12px, 2.3cqw );
+		font-size: calc( max( 12px, 2.3cqw ) * var(--fit, 1) );
 	}
 
 	.tbts-face-back .tbts-translation,
 	.tbts-face-back .tbts-term {
 		font-family: var(--tbts-slab);
-		font-size: 5.6cqw;
+		font-size: calc( 5.6cqw * var(--fit, 1) );
 		line-height: 1.2;
 		text-wrap: balance;
 	}
 	.tbts-face-back .tbts-example {
 		font-family: var(--tbts-slab);
 		font-weight: 400;
-		font-size: 3.2cqw;
+		font-size: calc( 3.2cqw * var(--fit, 1) );
 		line-height: 1.5;
 		max-width: 86%;
 	}
@@ -810,11 +829,9 @@ body.tbts-deck-open {
 	.tbts-flip-hint {
 		bottom: 3cqw;
 		font-family: Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-		font-size: max( 11px, 1.6cqw );
+		font-size: calc( max( 11px, 1.6cqw ) * var(--fit, 1) );
 		letter-spacing: normal;
-		color: #8299B8;
 	}
-	.tbts-face-back .tbts-flip-hint { color: rgba( 255, 255, 255, 0.6 ); }
 
 	/* Cards left on the table. Pointer events off: the element keeps the
 	   drag listeners it was dealt with, and it must never answer them. */
@@ -826,14 +843,13 @@ body.tbts-deck-open {
 	}
 
 	.tbts-stack {
-		display: block;
-		position: absolute;
 		top: 50%;
 		left: 50%;
+		right: auto;
+		bottom: auto;
 		width: 720px;
 		height: 405px;
 		margin: -202.5px 0 0 -360px;
-		pointer-events: none;
 		z-index: 1;
 	}
 	/* ---- Summary on the table ----
@@ -905,18 +921,6 @@ body.tbts-deck-open {
 		bottom: 34px;
 	}
 
-	/* The celebration lands on the table too, where a translucent white
-	   disc would simply not be there. */
-	.tbts-medal {
-		background: var(--tbts-blue);
-		color: var(--tbts-white);
-	}
-
-	/* The beat's own palette, now that it sits on a light table. */
-	.tbts-end .tbts-beat-head { color: var(--tbts-blue); }
-	.tbts-beat-line { color: var(--tbts-dark); }
-	.tbts-beat-sub { color: var(--tbts-soft); }
-
 	.tbts-end-actions {
 		display: flex;
 		justify-content: center;
@@ -924,25 +928,9 @@ body.tbts-deck-open {
 	.tbts-again {
 		width: auto;
 		min-width: 240px;
-		background: var(--tbts-blue);
-		color: var(--tbts-white);
-		box-shadow: 0 8px 20px rgba( 8, 86, 201, 0.28 );
 	}
 
-	.tbts-stack-card {
-		position: absolute;
-		inset: 0;
-		border-radius: 20px;
-		box-shadow: 0 10px 26px rgba( 4, 30, 74, 0.18 );
-		background:
-			repeating-linear-gradient(
-				45deg,
-				rgba( 255, 255, 255, 0.1 ) 0 8px,
-				rgba( 255, 255, 255, 0 ) 8px 16px
-			),
-			url( ../img/tbt-logo-white.png ) no-repeat center calc( 50% - 4px ) / 22% auto,
-			linear-gradient( 150deg, #0856C9, #063F94 );
-	}
+	.tbts-stack-card { border-radius: 20px; }
 }
 
 /* Reduced motion: no 3D flip transition (JS falls back to a plain fade for
@@ -964,6 +952,6 @@ body.tbts-deck-open {
 /* Guard against horizontal scroll on very small screens. */
 @media ( max-width: 360px ) {
 	.tbts-face-front .tbts-term,
-	.tbts-face-front .tbts-translation { font-size: 2rem; }
+	.tbts-face-front .tbts-translation { font-size: calc( 2rem * var(--fit, 1) ); }
 	.tbts-zone-label { letter-spacing: 0.12em; }
 }

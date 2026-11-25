@@ -1,5 +1,17 @@
 # Changelog — TBT Swipe
 
+## 1.18.0 — 25 Nov 2026
+
+Card style v2, shared with TBT Flashcards 2.5.0: white at every width, light blue front, TBT blue back, phone card 8% smaller with the stack, smaller phone back text, long-text fit.
+
+- **White table at every width.** The phone's blue field and the desktop's grey table are gone; phone zone labels, arrows and "1 / N" are mid-blue `#5C7DB5`, and the armed zone turns TBT blue.
+- **Front `#EEF4FE`** with a `#D7E4F8` hairline; tag, IPA and hint re-tuned for contrast on it. **Back** is the TBT blue gradient at every width; the phone navy is gone.
+- **Phone card ~8% smaller**, with the striped stack under it (same transforms as the table).
+- **Phone back text smaller:** answer `clamp(1.4rem, 4.9vw, 1.65rem)`, example `clamp(1.08rem, 3.85vw, 1.28rem)`.
+- **Long-text fit:** every live face font size is multiplied by `--fit`; JS steps it down 5% at a time to 70% until the content fits, after each card, on resize and once web fonts have loaded. Short cards are never enlarged.
+- Summary on white at every width: blue heading, word list and summary tiles on the light blue front surface, blue **Go again**, blue medal. The desktop progress pill is light blue.
+- Confetti uses the saturated palette without additive glow at every width, so it shows on white.
+
 ## 1.17.0 — 20 Nov 2026
 
 Unified card style, shared with TBT Flashcards 2.3.0 (Card style contract v1).
